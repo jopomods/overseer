@@ -30,6 +30,15 @@ server admin without running a database server.
   (including unlimited), size warning threshold, purge series, purge older than,
   VACUUM, backup/export.
 
+Implementation notes (M1b):
+
+- Retention and the size warning are edited on the admin page and stored in `meta`; they
+  override the defaults at startup and apply from the next rollup run.
+- Purge, VACUUM and backup run as maintenance tasks on the writer thread
+  (`StorageWriter.submit`), so they never race the data writer. VACUUM and `VACUUM INTO`
+  (backup) use a fresh connection: the writer's cached statements would block them.
+- Backups are streamed as a download; the temporary file is deleted right after.
+
 ## Consequences
 
 - No `SQLITE_BUSY` storms: one writer, WAL readers.
