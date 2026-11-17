@@ -80,6 +80,16 @@ public final class Dtos {
 
     public record SessionsDto(long uptimeMillis, List<SessionDto> sessions) {}
 
+    public record StorageSettingsDto(long rawMillis, long minuteMillis, long hourMillis, long warnBytes) {}
+
+    public record ProviderUsageDto(String provider, long series, long raw, long minute, long hour) {}
+
+    public record StorageDto(long fileBytes, long walBytes, StorageSettingsDto settings, List<ProviderUsageDto> providers) {}
+
+    public record PurgeRequest(String provider, Long olderThanMillis) {}
+
+    public record PurgeResult(long deletedRows) {}
+
     public static History history(ResourceRef ref, HistoryQuery.History h) {
         return new History(ref.key(), h.resolution().name().toLowerCase(Locale.ROOT), h.from(), h.to(), h.bucketMillis(),
                 h.series().stream().map(s -> new HistorySeries(s.metric(), s.points().stream()

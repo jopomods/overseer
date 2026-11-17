@@ -324,6 +324,45 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void storageAdministration() throws Exception {
+        var alex = new Browser().loginAs(ALEX);
+        assertEquals(403, alex.get("/api/v1/admin/storage").statusCode(), "players may not");
+        operators.add(ALEX.uuid());
+
+        // Wait until some samples are stored.
+        JsonObject storage = null;
+        for (int i = 0; i < 50; i++) {
+            collect();
+            storage = json(alex.get("/api/v1/admin/storage"));
+            var providers = storage.getAsJsonArray("providers");
+            if (providers.size() > 0 && providers.get(0).getAsJsonObject().get("raw").getAsLong() > 0) break;
+            Thread.sleep(100);
+        }
+        assertTrue(storage.get("fileBytes").getAsLong() > 0);
+        assertEquals("flux", storage.getAsJsonArray("providers").get(0).getAsJsonObject().get("provider").getAsString());
+
+        var json = Map.of("Content-Type", "application/json");
+        assertEquals(400, alex.send("PUT", "/api/v1/admin/storage/settings",
+                "{\"rawMillis\":60000,\"minuteMillis\":0,\"hourMillis\":0,\"warnBytes\":0}", json).statusCode(), "raw < 1 h");
+        assertEquals(204, alex.send("PUT", "/api/v1/admin/storage/settings",
+                "{\"rawMillis\":7200000,\"minuteMillis\":0,\"hourMillis\":0,\"warnBytes\":1000}", json).statusCode());
+        var settings = json(alex.get("/api/v1/admin/storage")).getAsJsonObject("settings");
+        assertEquals(7_200_000, settings.get("rawMillis").getAsLong());
+        assertEquals(0, settings.get("minuteMillis").getAsLong(), "0 = forever");
+
+        var purged = json(alex.send("POST", "/api/v1/admin/storage/purge", "{\"provider\":\"flux\"}", json));
+        assertTrue(purged.get("deletedRows").getAsLong() > 0);
+        assertEquals(204, alex.post("/api/v1/admin/storage/vacuum", null).statusCode());
+
+        var backup = client.send(HttpRequest.newBuilder(URI.create(base + "/api/v1/admin/storage/backup"))
+                .header("Cookie", "ov_session=" + alex.cookies.get("ov_session")).GET().build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, backup.statusCode());
+        assertTrue(new String(backup.body(), 0, 15, StandardCharsets.US_ASCII).startsWith("SQLite format 3"));
+        assertTrue(backup.headers().firstValue("content-disposition").orElseThrow().contains("attachment"));
+    }
+
+    @Test
     void streamPushesFilteredSnapshots() throws Exception {
         var alex = new Browser().loginAs(ALEX);
         var request = HttpRequest.newBuilder(URI.create(base + "/api/v1/stream"))
