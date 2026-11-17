@@ -71,3 +71,4 @@ scope are in the [ADRs](adr/README.md).
 - More loaders and versions (NeoForge, Fabric) via Stonecutter, only when needed
 - Public release (GitHub, Modrinth/CurseForge, MIT license)
 - Final logo
+- Upgrade web to TypeScript 7 once `openapi-typescript` supports it (pinned to 5.9, see ADR-0009)
