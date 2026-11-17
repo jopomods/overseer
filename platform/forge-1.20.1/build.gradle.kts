@@ -14,6 +14,13 @@ base {
 }
 version = "${project.version}+forge-$mcVersion"
 
+repositories {
+    // Mods without their own Maven (Flux Networks) come from CurseForge via CurseMaven.
+    maven("https://cursemaven.com") {
+        content { includeGroup("curse.maven") }
+    }
+}
+
 legacyForge {
     version = libs.versions.forge.get()
     validateAccessTransformers = true
@@ -43,6 +50,11 @@ legacyForge {
 
 dependencies {
     implementation(project(":core"))
+
+    // Optional integrations: compile against them, never require them (AGENTS.md rule 3).
+    // They are present in dev runs so integrations can be exercised.
+    "modCompileOnly"(libs.flux.networks)
+    "modRuntimeOnly"(libs.flux.networks)
 
     // Libraries Minecraft does not ship, embedded with Forge Jar-in-Jar (ADR-0003, ADR-0006).
     // FML picks one copy if several mods embed the same library; ranges say what we accept.
@@ -87,4 +99,16 @@ tasks.processResources {
             into("overseer-web")
         }
     }
+}
+
+// Unit tests for pure platform code (mapping, access rules). Game-dependent behavior is
+// covered by GameTests on a real server.
+dependencies {
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.launcher)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
