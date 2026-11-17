@@ -1,0 +1,49 @@
+openapi: 3.1.0
+info:
+  title: Overseer API
+  version: 1.0.0
+  description: |
+    HTTP API of the Overseer dashboard (ADR-0010).
+
+    This file is the contract. The TypeScript client in `web/src/api/schema.gen.ts`
+    is generated from it (`npm run gen:api` in `web/`), and the Java side is
+    tested against it. Change this file first, then the code.
+
+    All routes live under `/api/v1`. Authentication: session cookie for browsers,
+    `Authorization: Bearer <device-token>` for device tokens (ADR-0007).
+servers:
+  - url: /
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      summary: Liveness and data freshness
+      description: |
+        Unauthenticated. Suitable for external monitoring. Exposes no world data.
+      security: []
+      responses:
+        "200":
+          description: Overseer is running.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+components:
+  schemas:
+    Health:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+          description: "`degraded` when collection or storage is falling behind."
+        version:
+          type: string
+          description: Overseer version, e.g. `0.1.0`.
+          example: 0.1.0
+        dataAgeMillis:
+          type: integer
+          format: int64
+          description: Age of the newest snapshot in milliseconds. Absent before the first collection.
+          example: 840
