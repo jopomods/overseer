@@ -16,7 +16,8 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
+import java.util.Comparator;
+import java.util.TreeSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -51,6 +52,8 @@ public final class StorageWriter implements AutoCloseable {
     }
 
     private record SeriesKey(long resourceId, String metric) {}
+
+    private static final Comparator<ResourceRef> BY_KEY = Comparator.comparing(ResourceRef::key);
 
     private final Database db;
     private final Connection connection;
@@ -169,34 +172,38 @@ public final class StorageWriter implements AutoCloseable {
         Timestamp at = snapshot.at();
         Set<ResourceRef> present = presentByProvider.computeIfAbsent(snapshot.provider(), k -> new HashSet<>());
 
-        for (var entry : snapshot.resources().entrySet()) {
-            ResourceRef ref = entry.getKey();
-            Map<String, String> current = entry.getValue();
+        // Snapshot maps have no defined iteration order; sort so events are deterministic.
+        var refs = new ArrayList<>(snapshot.resources().keySet());
+        refs.sort(BY_KEY);
+        for (ResourceRef ref : refs) {
+            Map<String, String> current = snapshot.resources().get(ref);
             long id = resourceId(ref, at);
             Map<String, String> known = attributes.get(ref);
             if (known == null) {
                 event(id, EventKind.ADDED, null, null, at);
                 known = Map.of();
             }
-            for (var attr : current.entrySet()) {
-                if (!Objects.equals(known.get(attr.getKey()), attr.getValue())) {
-                    event(id, EventKind.ATTRIBUTE, attr.getKey(), attr.getValue(), at);
+            for (String name : new TreeSet<>(current.keySet())) {
+                if (!Objects.equals(known.get(name), current.get(name))) {
+                    event(id, EventKind.ATTRIBUTE, name, current.get(name), at);
                 }
             }
-            for (String name : known.keySet()) {
+            for (String name : new TreeSet<>(known.keySet())) {
                 if (!current.containsKey(name)) event(id, EventKind.ATTRIBUTE, name, null, at);
             }
             attributes.put(ref, Map.copyOf(current));
             present.add(ref);
         }
 
-        for (Iterator<ResourceRef> it = present.iterator(); it.hasNext(); ) {
-            ResourceRef ref = it.next();
-            if (!snapshot.resources().containsKey(ref)) {
-                event(resourceId(ref, at), EventKind.REMOVED, null, null, at);
-                attributes.remove(ref);
-                it.remove();
-            }
+        var gone = new ArrayList<ResourceRef>();
+        for (ResourceRef ref : present) {
+            if (!snapshot.resources().containsKey(ref)) gone.add(ref);
+        }
+        gone.sort(BY_KEY);
+        for (ResourceRef ref : gone) {
+            event(resourceId(ref, at), EventKind.REMOVED, null, null, at);
+            attributes.remove(ref);
+            present.remove(ref);
         }
 
         Map<String, MetricDescriptor> known = metrics.getOrDefault(snapshot.provider(), Map.of());
