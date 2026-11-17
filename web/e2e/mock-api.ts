@@ -107,6 +107,49 @@ function fluxSnapshot() {
   }
 }
 
+
+// Two uptime sessions: 10 h, then 14 h offline, then 16 h up to now.
+const HOUR = 3_600_000
+const UPTIME_NOW = 26 * HOUR
+function sessionsBody() {
+  const end = Date.now()
+  const s2Start = end - 16 * HOUR
+  const s1End = s2Start - 14 * HOUR
+  return {
+    uptimeMillis: UPTIME_NOW,
+    sessions: [
+      { session: 1, startedAt: new Date(s1End - 10 * HOUR).toISOString(), startedUptime: 0, lastAt: new Date(s1End).toISOString(), lastUptime: 10 * HOUR },
+      { session: 2, startedAt: new Date(s2Start).toISOString(), startedUptime: 10 * HOUR, lastAt: new Date(end).toISOString(), lastUptime: UPTIME_NOW },
+    ],
+  }
+}
+
+function historyBody(url: URL) {
+  const sessions = sessionsBody().sessions
+  const metrics = url.searchParams.getAll('metric')
+  const to = Number(url.searchParams.get('to') ?? UPTIME_NOW)
+  const from = Math.max(0, Number(url.searchParams.get('from') ?? to - 24 * HOUR))
+  const points = Number(url.searchParams.get('points') ?? 240)
+  const bucket = Math.max(1000, Math.ceil((to - from) / points))
+  const wallAt = (u: number) => {
+    const s = u >= sessions[1].startedUptime ? sessions[1] : sessions[0]
+    return Date.parse(s.startedAt) + (u - s.startedUptime)
+  }
+  return {
+    resource: url.searchParams.get('resource'),
+    resolution: bucket < 60_000 ? 'raw' : bucket < HOUR ? 'minute' : 'hour',
+    from, to, bucketMillis: bucket,
+    series: metrics.map((metric, m) => ({
+      metric,
+      points: Array.from({ length: Math.floor((to - from) / bucket) }, (_, i) => {
+        const t = from + i * bucket
+        const v = 9.2e18 * (0.6 + 0.4 * Math.sin(i / 12 + m))
+        return { t, wall: new Date(wallAt(t)).toISOString(), session: t >= 10 * HOUR ? 2 : 1, min: v * 0.9, max: v * 1.1, avg: v, last: v }
+      }),
+    })),
+  }
+}
+
 export async function mockApi(page: Page, options: MockOptions = {}) {
   const role = options.role ?? 'admin'
   const loggedIn = options.loggedIn ?? true
@@ -154,6 +197,10 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
           droppedSnapshots: 0,
           queuedSnapshots: 0,
         })
+      case '/api/v1/sessions':
+        return json(route, sessionsBody())
+      case '/api/v1/history':
+        return json(route, historyBody(url))
       case '/api/v1/me/credentials':
         return json(route, [
           { id: 1, kind: 'session', name: `Mozilla/5.0 ${LONG}`, createdAt: now(), lastUsedAt: now(), current: true },

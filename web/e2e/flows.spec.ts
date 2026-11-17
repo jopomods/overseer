@@ -79,4 +79,17 @@ test.describe('flows', () => {
     expect(cached).toContain('/')
     expect(cached.filter((u) => u.startsWith('/api/'))).toEqual([])
   })
+
+  test('history chart: ranges, axis switch and offline marker', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/energy/0')
+    const chart = page.getByTestId('chart-flow')
+    await expect(chart.locator('.recharts-area').first()).toBeVisible()
+    // Uptime axis: the restart inside the last 24 h shows the real offline time.
+    await expect(chart.getByText(/14 h/)).toBeVisible()
+    await chart.getByRole('radio', { name: 'Calendar' }).click()
+    await expect(chart.locator('.recharts-reference-area')).toHaveCount(1)
+    await chart.getByRole('radio', { name: '7 d' }).click()
+    await expect(chart.getByRole('radio', { name: '7 d' })).toHaveAttribute('aria-checked', 'true')
+  })
 })
