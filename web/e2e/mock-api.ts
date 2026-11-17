@@ -139,15 +139,22 @@ function historyBody(url: URL) {
     resource: url.searchParams.get('resource'),
     resolution: bucket < 60_000 ? 'raw' : bucket < HOUR ? 'minute' : 'hour',
     from, to, bucketMillis: bucket,
-    series: metrics.map((metric, m) => ({
-      metric,
-      points: Array.from({ length: Math.floor((to - from) / bucket) }, (_, i) => {
-        const t = from + i * bucket
-        // Stored energy drains steadily (forecast "empty in"); flows oscillate.
-        const v = metric === 'energy' ? 1e15 * (1 - (t - from) / (2 * (to - from))) : 9.2e18 * (0.6 + 0.4 * Math.sin(i / 12 + m))
-        return { t, wall: new Date(wallAt(t)).toISOString(), session: t >= 10 * HOUR ? 2 : 1, min: v * 0.9, max: v * 1.1, avg: v, last: v }
-      }),
-    })),
+    // One series per requested resource and metric.
+    series: url.searchParams.getAll('resource').flatMap((resource, r) =>
+      metrics.map((metric, m) => ({
+        resource,
+        metric,
+        points: Array.from({ length: Math.floor((to - from) / bucket) }, (_, i) => {
+          const t = from + i * bucket
+          // Stored energy drains steadily (forecast "empty in"); flows oscillate.
+          const v =
+            metric === 'energy'
+              ? 1e15 * (1 - (t - from) / (2 * (to - from)))
+              : (9.2e18 / (r + 1)) * (0.6 + 0.4 * Math.sin(i / 12 + m + r))
+          return { t, wall: new Date(wallAt(t)).toISOString(), session: t >= 10 * HOUR ? 2 : 1, min: v * 0.9, max: v * 1.1, avg: v, last: v }
+        }),
+      })),
+    ),
   }
 }
 

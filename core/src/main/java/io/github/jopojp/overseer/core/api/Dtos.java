@@ -71,7 +71,7 @@ public final class Dtos {
 
     public record HistoryPoint(long t, Instant wall, int session, double min, double max, double avg, double last) {}
 
-    public record HistorySeries(String metric, List<HistoryPoint> points) {}
+    public record HistorySeries(String resource, String metric, List<HistoryPoint> points) {}
 
     public record History(String resource, String resolution, long from, long to, long bucketMillis,
             List<HistorySeries> series) {}
@@ -90,12 +90,20 @@ public final class Dtos {
 
     public record PurgeResult(long deletedRows) {}
 
-    public static History history(ResourceRef ref, HistoryQuery.History h) {
-        return new History(ref.key(), h.resolution().name().toLowerCase(Locale.ROOT), h.from(), h.to(), h.bucketMillis(),
-                h.series().stream().map(s -> new HistorySeries(s.metric(), s.points().stream()
+    /** Combines the histories of several resources; all share one bucket grid (same range and points). */
+    public static History history(List<Map.Entry<ResourceRef, HistoryQuery.History>> results) {
+        var first = results.get(0).getValue();
+        var series = new ArrayList<HistorySeries>();
+        for (var result : results) {
+            for (var s : result.getValue().series()) {
+                series.add(new HistorySeries(result.getKey().key(), s.metric(), s.points().stream()
                         .map(p -> new HistoryPoint(p.uptime(), Instant.ofEpochMilli(p.wall()), p.session(), p.min(), p.max(),
                                 p.avg(), p.last()))
-                        .toList())).toList());
+                        .toList()));
+            }
+        }
+        return new History(results.get(0).getKey().key(), first.resolution().name().toLowerCase(Locale.ROOT), first.from(),
+                first.to(), first.bucketMillis(), series);
     }
 
     public static SessionsDto sessions(long uptime, List<Sessions.Session> sessions) {

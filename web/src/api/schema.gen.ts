@@ -591,6 +591,7 @@ export interface components {
             last: number;
         };
         HistorySeries: {
+            resource: string;
             metric: string;
             points: components["schemas"]["HistoryPoint"][];
         };
@@ -1019,8 +1020,11 @@ export interface operations {
     getHistory: {
         parameters: {
             query: {
-                /** @description Resource key `provider/type/id`, e.g. `flux/network/1`. */
-                resource: string;
+                /**
+                 * @description Resource key `provider/type/id`, e.g. `flux/network/1`. Repeat for several resources
+                 *     (at most 250); invisible ones are skipped, and if none is visible the answer is 404.
+                 */
+                resource: string[];
                 /** @description One or more metrics (repeat the parameter), at most 10. */
                 metric: string[];
                 /** @description Start, server uptime in ms. Default `to` minus 24 h. */

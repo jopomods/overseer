@@ -286,6 +286,10 @@ class ApiIntegrationTest {
 
         assertEquals(404, alex.get("/api/v1/history?resource=flux/network/2&metric=power").statusCode(),
                 "the other player's network");
+        // Several resources in one request: invisible ones are skipped, each series names its resource.
+        var both = json(alex.get("/api/v1/history?resource=flux/network/1&resource=flux/network/2&metric=power&from=0&to=600000&points=60"));
+        assertEquals(1, both.getAsJsonArray("series").size());
+        assertEquals("flux/network/1", both.getAsJsonArray("series").get(0).getAsJsonObject().get("resource").getAsString());
         assertEquals(400, alex.get("/api/v1/history?resource=nonsense&metric=power").statusCode());
         assertEquals(400, alex.get("/api/v1/history?resource=flux/network/1").statusCode(), "metric missing");
         assertEquals(400, alex.get("/api/v1/history?resource=flux/network/1&metric=power&points=5").statusCode());

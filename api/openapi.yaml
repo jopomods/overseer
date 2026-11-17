@@ -285,9 +285,15 @@ paths:
         - name: resource
           in: query
           required: true
-          description: Resource key `provider/type/id`, e.g. `flux/network/1`.
+          description: |
+            Resource key `provider/type/id`, e.g. `flux/network/1`. Repeat for several resources
+            (at most 250); invisible ones are skipped, and if none is visible the answer is 404.
           schema:
-            type: string
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
         - name: metric
           in: query
           required: true
@@ -805,8 +811,10 @@ components:
 
     HistorySeries:
       type: object
-      required: [metric, points]
+      required: [resource, metric, points]
       properties:
+        resource:
+          type: string
         metric:
           type: string
         points:

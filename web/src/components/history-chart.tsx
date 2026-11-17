@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, ReferenceArea, ReferenceLine, XAxis, YAxis } from 'recharts'
-import { useHistory, useSessions, type History, type Sessions } from '@/api/hooks'
+import { useHistory, useSessions, type History } from '@/api/hooks'
 import { Card, CardContent } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
 import { Skeleton } from '@/components/ui/skeleton'
+import { offlineMarkers, RANGES, relativeLabel, wallLabel } from '@/lib/chart'
 import { formatDuration, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
-import { setPreferences, usePreferences, type Locale, type TimeAxis } from '@/lib/preferences'
+import { setPreferences, usePreferences, type TimeAxis } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
 
 /**
@@ -22,14 +23,6 @@ export interface ChartSeries {
   label: string
   color: string
 }
-
-const RANGES = [
-  { ms: 3_600_000, label: '1 h' },
-  { ms: 6 * 3_600_000, label: '6 h' },
-  { ms: 24 * 3_600_000, label: '24 h' },
-  { ms: 7 * 24 * 3_600_000, label: '7 d' },
-  { ms: 30 * 24 * 3_600_000, label: '30 d' },
-]
 
 interface Row {
   x: number
@@ -185,7 +178,7 @@ export function HistoryChart({
   )
 }
 
-function Segmented<T extends string>({
+export function Segmented<T extends string>({
   value,
   options,
   onChange,
@@ -243,38 +236,3 @@ function toRows(history: History | undefined, axis: TimeAxis): Row[] {
   return result
 }
 
-interface Marker {
-  session: number
-  uptime: number
-  offlineMs: number
-  wallFrom: number
-  wallTo: number
-}
-
-/** One marker per restart inside the charted range. */
-function offlineMarkers(sessions: Sessions | undefined, history: History | undefined): Marker[] {
-  if (!sessions || !history) return []
-  const markers: Marker[] = []
-  for (let i = 1; i < sessions.sessions.length; i++) {
-    const previous = sessions.sessions[i - 1]
-    const current = sessions.sessions[i]
-    if (current.startedUptime < history.from || current.startedUptime > history.to) continue
-    const wallFrom = Date.parse(previous.lastAt)
-    const wallTo = Date.parse(current.startedAt)
-    markers.push({ session: current.session, uptime: current.startedUptime, offlineMs: Math.max(0, wallTo - wallFrom), wallFrom, wallTo })
-  }
-  return markers
-}
-
-/** Uptime axis labels relative to now: "-6 h", "-30 min", "now". */
-function relativeLabel(deltaMs: number, locale: Locale): string {
-  if (Math.abs(deltaMs) < 30_000) return locale === 'de' ? 'jetzt' : 'now'
-  return `-${formatDuration(-deltaMs, locale)}`
-}
-
-function wallLabel(wall: number, rangeMs: number, locale: Locale): string {
-  const date = new Date(wall)
-  return rangeMs <= 24 * 3_600_000
-    ? date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
-    : date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })
-}
