@@ -45,7 +45,8 @@ complete M1a ships as 0.2.0. Delivered as several small PRs: pipeline + storage,
 - [x] Recordings: format, anonymized export from real databases, replay provider, simulator,
   committed real-world fixture; `/ov status` for everyone
 
-- History with rollups; charts on server uptime / calendar time with offline markers
+- [x] History backend: time-weighted minute/hour rollups, retention, `/api/v1/history`, `/api/v1/sessions`
+- Charts on server uptime / calendar time with offline markers
 - Zones from `Zone: Name` with UI overrides
 - Sankey (prototype with recorded data first; compact list on phones) and mirrored
   stacked area chart

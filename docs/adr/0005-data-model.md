@@ -29,6 +29,18 @@ Raw samples are aggregated into minute and hour buckets storing **min, max, aver
 last**. Default retention: raw 48 h, minute 14 days, hour 1 year. All configurable per
 resolution, including "unlimited".
 
+Implementation notes (M1b):
+
+- Because stored samples are deadband-thinned, raw data is a **step function** (a value holds
+  until the next sample). Rollups and chart buckets are **time-weighted** over it; a plain
+  average of stored points would over-weight periods of change.
+- Rollups run on the storage writer every minute. Watermarks in `meta` track progress: minutes
+  are rolled up once complete (one minute of slack), hours once their minutes are.
+- Retention deletes by server uptime and never deletes raw samples or minute rows that were
+  not rolled up yet. `0` means keep forever.
+- `GET /api/v1/history` chooses raw, minute or hour data from the requested number of points
+  and fills the newest, not yet rolled-up part from finer data.
+
 ### Stable identity
 
 Resources are keyed by `ResourceRef(provider, type, id)` where `id` is stable and never
