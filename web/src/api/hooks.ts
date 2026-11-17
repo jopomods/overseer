@@ -8,6 +8,8 @@ export type Resource = components['schemas']['Resource']
 export type Provider = components['schemas']['Provider']
 export type Collectors = components['schemas']['Collectors']
 export type Credential = components['schemas']['Credential']
+export type History = components['schemas']['History']
+export type Sessions = components['schemas']['Sessions']
 
 /** An API failure with its HTTP status; 401 means "not logged in". */
 export class ApiError extends Error {
@@ -49,6 +51,8 @@ export const keys = {
   snapshot: (provider: string) => ['snapshot', provider] as const,
   collectors: ['collectors'] as const,
   credentials: ['credentials'] as const,
+  sessions: ['sessions'] as const,
+  history: (resource: string, metrics: string[], rangeMs: number) => ['history', resource, metrics.join(','), rangeMs] as const,
 }
 
 export function useMe() {
@@ -87,6 +91,35 @@ export function useCollectors(enabled: boolean) {
     retry,
     enabled,
     refetchInterval: 5_000,
+  })
+}
+
+/** Uptime sessions and the current uptime; the base for history ranges and offline markers. */
+export function useSessions() {
+  return useQuery({
+    queryKey: keys.sessions,
+    queryFn: () => unwrap(api.GET('/api/v1/sessions')),
+    retry,
+    refetchInterval: 30_000,
+  })
+}
+
+/** History of one resource over the last `rangeMs` of server uptime. */
+export function useHistory(resource: string, metrics: string[], rangeMs: number, uptimeNow: number | undefined) {
+  return useQuery({
+    queryKey: keys.history(resource, metrics, rangeMs),
+    queryFn: () =>
+      unwrap(
+        api.GET('/api/v1/history', {
+          params: {
+            query: { resource, metric: metrics, from: Math.max(0, (uptimeNow ?? 0) - rangeMs), points: 240 },
+          },
+        }),
+      ),
+    retry,
+    enabled: uptimeNow !== undefined,
+    refetchInterval: 30_000,
+    placeholderData: (previous) => previous,
   })
 }
 

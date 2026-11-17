@@ -121,6 +121,15 @@ const en = {
   'energy.notFound': 'This network does not exist or is not visible to you.',
   'energy.back': 'All networks',
   'energy.noDevices': 'No devices match.',
+
+  'chart.history': 'History',
+  'chart.uptime': 'Uptime',
+  'chart.calendar': 'Calendar',
+  'chart.noData': 'No data for this period yet.',
+  'chart.uptimeAgo': '{age} of uptime ago',
+  'chart.flow': 'Energy flow',
+  'chart.storedEnergy': 'Stored energy',
+  'chart.performance': 'Performance',
 } as const
 
 export type MessageKey = keyof typeof en
@@ -242,6 +251,15 @@ const de: Record<MessageKey, string> = {
   'energy.notFound': 'Dieses Netzwerk gibt es nicht oder du darfst es nicht sehen.',
   'energy.back': 'Alle Netzwerke',
   'energy.noDevices': 'Keine passenden Geräte.',
+
+  'chart.history': 'Verlauf',
+  'chart.uptime': 'Laufzeit',
+  'chart.calendar': 'Kalender',
+  'chart.noData': 'Für diesen Zeitraum gibt es noch keine Daten.',
+  'chart.uptimeAgo': 'vor {age} Laufzeit',
+  'chart.flow': 'Energiefluss',
+  'chart.storedEnergy': 'Gespeicherte Energie',
+  'chart.performance': 'Leistung',
 }
 
 const messages: Record<Locale, Record<MessageKey, string>> = { en, de }
