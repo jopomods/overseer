@@ -70,6 +70,10 @@ Toolchain: JDK 17 (Minecraft 1.20.1 requirement), Node 24, Gradle via wrapper.
   `feat(core): ...`, `fix(web): ...`, `docs: ...`, `build: ...`, `ci: ...`,
   `test: ...`, `refactor: ...`, `chore: ...`. Scopes: `core`, `forge`, `web`, `api`,
   `flux`, `ae2`, `ci`, `docs`.
+- **Small PRs by default.** Split a milestone into PRs per coherent slice (e.g. pipeline +
+  storage, then HTTP + auth, then UI + integration), each green and reviewable on its own.
+  A follow-up slice may branch off the previous one while it is in review; rebase it onto
+  `main` after the squash merge (`git rebase --onto main <old-base>`).
 - Open a PR into `main`. CI must be green. Merge with **squash**; the PR title becomes
   the commit on `main`, so it must itself be a Conventional Commit (CI checks it).
 - Never push directly to `main`.
@@ -84,6 +88,8 @@ Toolchain: JDK 17 (Minecraft 1.20.1 requirement), Node 24, Gradle via wrapper.
 - release-please keeps a release PR open on `main`. Merging it tags the version, runs
   the full build and attaches the jar to a GitHub release
   ([ADR-0013](docs/adr/0013-versioning-and-releases.md)).
+- Merge the release PR only when a milestone (or a deliberate patch) is complete, not
+  after every slice.
 
 ## Language
 
