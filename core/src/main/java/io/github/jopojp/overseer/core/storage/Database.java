@@ -24,7 +24,7 @@ import org.sqlite.SQLiteConfig;
  */
 public final class Database implements AutoCloseable {
     /** Applied in order; index + 1 is the schema version stored in {@code PRAGMA user_version}. */
-    static final List<String> MIGRATIONS = List.of("V001__init.sql");
+    static final List<String> MIGRATIONS = List.of("V001__init.sql", "V002__auth.sql");
 
     private static final String MIGRATION_DIR = "/io/github/jopojp/overseer/core/storage/migration/";
     private static final int BUSY_TIMEOUT_MILLIS = 5_000;
@@ -66,6 +66,18 @@ public final class Database implements AutoCloseable {
         var config = new SQLiteConfig();
         config.setReadOnly(true);
         config.setBusyTimeout(BUSY_TIMEOUT_MILLIS);
+        return config.createConnection(url(file));
+    }
+
+    /**
+     * Opens a connection for low-volume control writes (logins, credentials, admin grants)
+     * with auto-commit on. Callers serialize their own use. WAL serializes it against the
+     * metrics writer; the busy timeout absorbs short waits (ADR-0006).
+     */
+    public Connection openControlWriter() throws SQLException {
+        var config = new SQLiteConfig();
+        config.setBusyTimeout(BUSY_TIMEOUT_MILLIS);
+        config.enforceForeignKeys(true);
         return config.createConnection(url(file));
     }
 
