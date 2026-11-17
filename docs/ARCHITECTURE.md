@@ -27,6 +27,11 @@ overseer/
 │   ├── integration/         Integrations (provider list) + one package per mod: server, flux, (M2) ae2
 │   └── src/gametest/        Forge GameTests (own source set, not shipped)
 ├── web/                     Vite + React + shadcn/ui, built into the jar at /overseer-web
+│   ├── src/api/             generated schema, typed client, query hooks, SSE live updates
+│   ├── src/lib/             i18n (de/en), preferences, formatting (SI, FE/EU), snapshot helpers
+│   ├── src/components/      app shell (sidebar / bottom nav), stats, live badge, shadcn ui/
+│   ├── src/pages/           login, overview, server, account (routes in src/router.tsx)
+│   └── e2e/                 Playwright: mocked API with extreme data, layout + flow tests
 └── api/openapi.yaml         HTTP contract; the TS client is generated from it
 ```
 

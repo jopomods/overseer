@@ -29,12 +29,13 @@ complete M1a ships as 0.2.0. Delivered as several small PRs: pipeline + storage,
 - [ ] Simulator providers with edge cases; record/replay with versioned files
 - [x] Server provider: TPS/MSPT, players, dimensions (chunks, entities, MSPT), JVM memory
 - [ ] spark as optional TPS/MSPT source
-- [ ] Server page UI: players, admin details, collector cost, data freshness
+- [x] Server page UI: players, admin details, collector cost, data freshness
 - [x] Flux provider: networks, statistics, members, devices (incl. unloaded), membership-based access
 - [ ] Flux live UI: network cards, network detail with current values, device table, members
-- [ ] Units: FE/RF or EU per player (server-wide factor, default 4 FE = 1 EU), SI prefixes
-- [ ] i18n (de, en), app shell (sidebar on desktop, bottom bar on phone), PWA without
-  caching private API responses
+- [x] Units: FE/RF or EU per viewer with SI prefixes (fixed 4 FE = 1 EU; server-wide factor later)
+- [x] i18n (de, en), app shell (sidebar on desktop, bottom bar on phone), login page, account page
+  (preferences, sessions, device tokens), live SSE updates with polling fallback
+- [ ] PWA (manifest, service worker caching only the app shell)
 - [x] Reverse proxy guide (Caddy, nginx) and server admin guide
 - [x] Forge wiring: lifecycle, tick, `overseer-server.toml`, operator check
 - [x] Forge GameTest run in CI with Flux Networks
