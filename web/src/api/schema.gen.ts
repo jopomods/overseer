@@ -340,6 +340,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Database size, usage per provider and storage settings */
+        get: operations["getStorage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/storage/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Retention and size warning
+         * @description Retention in server-uptime milliseconds, 0 = forever. Raw data is kept at least 1 hour.
+         */
+        put: operations["setStorageSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/storage/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete history of a provider
+         * @description Deletes raw samples and rollups (all, or older than the given uptime span). Resources and events stay.
+         */
+        post: operations["purgeStorage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/storage/vacuum": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Compact the database file (SQLite VACUUM) */
+        post: operations["vacuumStorage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/storage/backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a consistent copy of the database */
+        get: operations["downloadBackup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -540,6 +631,50 @@ export interface components {
             /** @enum {string} */
             key: "zone";
             value?: string | null;
+        };
+        StorageSettings: {
+            /** Format: int64 */
+            rawMillis: number;
+            /** Format: int64 */
+            minuteMillis: number;
+            /** Format: int64 */
+            hourMillis: number;
+            /**
+             * Format: int64
+             * @description Show a warning above this database size; 0 = never.
+             */
+            warnBytes: number;
+        };
+        ProviderUsage: {
+            provider: string;
+            /** Format: int64 */
+            series: number;
+            /** Format: int64 */
+            raw: number;
+            /** Format: int64 */
+            minute: number;
+            /** Format: int64 */
+            hour: number;
+        };
+        Storage: {
+            /** Format: int64 */
+            fileBytes: number;
+            /** Format: int64 */
+            walBytes: number;
+            settings: components["schemas"]["StorageSettings"];
+            providers: components["schemas"]["ProviderUsage"][];
+        };
+        PurgeRequest: {
+            provider: string;
+            /**
+             * Format: int64
+             * @description Only delete data older than this much server uptime; omit to delete all.
+             */
+            olderThanMillis?: number;
+        };
+        PurgeResult: {
+            /** Format: int64 */
+            deletedRows: number;
         };
         Collectors: {
             collectors: components["schemas"]["CollectorStatus"][];
@@ -1001,6 +1136,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Collectors"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Storage overview. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Storage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setStorageSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved; applies from the next rollup run. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    purgeStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Deleted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurgeResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    vacuumStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    downloadBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SQLite database file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.sqlite3": string;
                 };
             };
             401: components["responses"]["Unauthorized"];
