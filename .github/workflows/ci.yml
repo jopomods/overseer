@@ -1,4 +1,5 @@
 # Runs on every push to main and every PR. Must be green before merging (ADR-0013).
+# Three jobs run in parallel; the slowest (GameTests) sets the wall time.
 name: CI
 
 on:
@@ -15,54 +16,97 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build and test
+  java:
+    name: Java build and tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
-
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: gradle/actions/setup-gradle@v4
 
+      # core + platform unit tests, web build, mod jar with embedded UI
+      - name: Gradle build
+        run: ./gradlew build --console=plain
+
+      - name: Upload mod jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: overseer-jar
+          path: platform/*/build/libs/*.jar
+          retention-days: 14
+
+  gametest:
+    name: GameTests (Forge + Flux Networks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Real Forge server (flat world) with real Flux Networks blocks; exits non-zero on failure.
+      - name: Run GameTests
+        run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PskipWeb=true --console=plain
+
+  web:
+    name: Web lint, types and layout tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci --no-audit --no-fund
 
-      # core tests, npm ci + web build, mod jar with embedded UI
-      - name: Gradle build
-        run: ./gradlew build --console=plain
-
-      # Real Forge server with real Flux Networks blocks; exits non-zero on failure.
-      - name: GameTests (Forge + Flux Networks)
-        run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PskipWeb=true --console=plain
-
-      - name: Web lint
-        working-directory: web
+      - name: Lint
         run: npm run lint
 
-      - name: Web typecheck
-        working-directory: web
+      - name: Typecheck
         run: npm run typecheck
 
       - name: API client is up to date with api/openapi.yaml
-        working-directory: web
         run: |
           npm run gen:api
           git diff --exit-code -- src/api/schema.gen.ts
 
-      - name: Install Playwright browser
-        working-directory: web
-        run: npx playwright install --with-deps chromium
+      - name: Build
+        run: npm run build
 
-      - name: Layout tests (360-1920 px)
-        working-directory: web
+      - name: Cache Playwright browser
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
+      - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps --only-shell chromium
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Layout and flow tests (360-1920 px)
         run: npm run test:e2e
 
       - name: Upload Playwright report
@@ -72,13 +116,6 @@ jobs:
           name: playwright-report
           path: web/playwright-report
           retention-days: 7
-
-      - name: Upload mod jar
-        uses: actions/upload-artifact@v4
-        with:
-          name: overseer-jar
-          path: platform/*/build/libs/*.jar
-          retention-days: 14
 
   pr-title:
     name: PR title is a Conventional Commit
