@@ -92,4 +92,24 @@ test.describe('flows', () => {
     await chart.getByRole('radio', { name: '7 d' }).click()
     await expect(chart.getByRole('radio', { name: '7 d' })).toHaveAttribute('aria-checked', 'true')
   })
+
+  test('zones can be changed in the UI and the storage forecast is shown', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/energy/0')
+    await expect(page.getByText(/Empty in ~/)).toBeVisible()
+
+    const rows = page.getByTestId('device-list').getByRole('listitem')
+    await rows.first().getByRole('button', { name: 'Change zone' }).click()
+    const editor = page.getByTestId('zone-editor')
+    await editor.getByLabel('Zone').fill('Reactor hall')
+    await editor.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByTestId('zones')).toContainText('Reactor hall')
+  })
+
+  test('players without edit rights see no edit buttons', async ({ page }) => {
+    await mockApi(page, { role: 'player' })
+    await page.goto('/energy/0')
+    await expect(page.getByTestId('device-list')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Change zone' })).toHaveCount(0)
+  })
 })
