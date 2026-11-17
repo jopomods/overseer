@@ -112,4 +112,20 @@ test.describe('flows', () => {
     await expect(page.getByTestId('device-list')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Change zone' })).toHaveCount(0)
   })
+
+  test('energy flow shows generation and consumption per zone', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/energy/1')
+    const sankey = page.getByTestId('flow-sankey')
+    await expect(sankey).toContainText('ACG II')
+    await expect(sankey).toContainText('Temp')
+  })
+})
+
+test('energy flow is a list on phones', async ({ page, viewport }) => {
+  test.skip((viewport?.width ?? 0) !== 360, 'phone only')
+  await mockApi(page, { realistic: true })
+  await page.goto('/energy/1')
+  await expect(page.getByTestId('flow-list')).toContainText('ACG II')
+  await expect(page.getByTestId('flow-sankey')).toHaveCount(0)
 })

@@ -140,6 +140,11 @@ const en = {
   'common.save': 'Save',
   'common.reset': 'Reset',
   'common.cancel': 'Cancel',
+  'energy.flow': 'Energy flow',
+  'energy.network': 'Network',
+  'energy.noFlow': 'No energy is flowing right now.',
+  'energy.storageCharging': 'Storage (charging)',
+  'energy.storageDischarging': 'Storage (discharging)',
 } as const
 
 export type MessageKey = keyof typeof en
@@ -280,6 +285,11 @@ const de: Record<MessageKey, string> = {
   'common.save': 'Speichern',
   'common.reset': 'Zurücksetzen',
   'common.cancel': 'Abbrechen',
+  'energy.flow': 'Energiefluss',
+  'energy.network': 'Netz',
+  'energy.noFlow': 'Gerade fließt keine Energie.',
+  'energy.storageCharging': 'Speicher (lädt)',
+  'energy.storageDischarging': 'Speicher (entlädt)',
 }
 
 const messages: Record<Locale, Record<MessageKey, string>> = { en, de }

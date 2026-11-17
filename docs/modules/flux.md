@@ -53,6 +53,13 @@ Changes apply within one collection interval (1 s).
   delivered), confirmed with real data. The UI shows magnitudes for plugs and points;
   storages show the signed value plus stored energy.
 
+## Energy flow
+
+The network page shows where energy comes from and where it goes: plug zones and
+discharging storages → network → point zones and charging storages. Storages use the same
+sign as plugs and points (positive = adding energy to the network = discharging); this is an
+assumption until verified with real storage data.
+
 ## Zones
 
 The zone of a device is, in order: the zone set in Overseer (`PUT /api/v1/overrides`,

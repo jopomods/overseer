@@ -132,3 +132,57 @@ export function zones(list: FluxDevice[]): ZoneSummary[] {
     consumption: devs.filter((d) => d.type === 'point').reduce((s, d) => s + Math.abs(d.transfer), 0),
   }))
 }
+
+export interface FlowNode {
+  name: string
+  kind: 'source' | 'network' | 'sink'
+}
+
+export interface FlowGraph {
+  nodes: FlowNode[]
+  links: Array<{ source: number; target: number; value: number }>
+  /** Total flow through the network (FE/t). */
+  total: number
+}
+
+/**
+ * Energy flow of one network for the Sankey diagram: generation per zone (plugs) and
+ * discharging storages flow into the network, which feeds consumption per zone (points)
+ * and charging storages.
+ *
+ * Flux reports transfer positive for energy entering the network (plugs) and negative for
+ * energy leaving it (points); storages follow the same sign: positive = discharging.
+ */
+export function flowGraph(list: FluxDevice[], labels: { network: string; noZone: string; storageIn: string; storageOut: string }): FlowGraph {
+  const sources = new Map<string, number>()
+  const sinks = new Map<string, number>()
+  const add = (map: Map<string, number>, key: string, value: number) => map.set(key, (map.get(key) ?? 0) + value)
+  for (const d of list) {
+    const flow = d.transfer
+    if (!flow) continue
+    if (d.type === 'plug') add(sources, d.zone ?? labels.noZone, Math.abs(flow))
+    else if (d.type === 'point') add(sinks, d.zone ?? labels.noZone, Math.abs(flow))
+    else if (d.type === 'storage') {
+      if (flow > 0) add(sources, labels.storageOut, flow)
+      else add(sinks, labels.storageIn, -flow)
+    }
+  }
+  const nodes: FlowNode[] = []
+  const links: FlowGraph['links'] = []
+  const sorted = (m: Map<string, number>) => [...m.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
+  const srcEntries = sorted(sources)
+  const sinkEntries = sorted(sinks)
+  for (const [name] of srcEntries) nodes.push({ name, kind: 'source' })
+  const network = nodes.length
+  nodes.push({ name: labels.network, kind: 'network' })
+  srcEntries.forEach(([, value], i) => links.push({ source: i, target: network, value }))
+  for (const [name, value] of sinkEntries) {
+    links.push({ source: network, target: nodes.length, value })
+    nodes.push({ name, kind: 'sink' })
+  }
+  const total = Math.max(
+    srcEntries.reduce((s, [, v]) => s + v, 0),
+    sinkEntries.reduce((s, [, v]) => s + v, 0),
+  )
+  return { nodes, links, total }
+}

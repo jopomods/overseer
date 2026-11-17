@@ -3,6 +3,7 @@ import { ArrowLeft, BatteryCharging, Cable, Check, Cpu, Pencil, Plug, Search, X,
 import { useMemo, useState, type FormEvent } from 'react'
 import { useHistory, useOverrides, useSessions, useSetOverride, useSnapshot } from '@/api/hooks'
 import { Button } from '@/components/ui/button'
+import { EnergyFlow } from '@/components/energy-flow'
 import { HistoryChart } from '@/components/history-chart'
 import { LiveBadge } from '@/components/live-badge'
 import { useSession } from '@/components/session'
@@ -91,6 +92,10 @@ export function NetworkPage() {
             format={(v) => formatEnergy(v, energyUnit, locale)}
           />
         </div>
+      </Section>
+
+      <Section title={t('energy.flow')}>
+        <EnergyFlow devices={deviceList} />
       </Section>
 
       <ZonesSection devices={deviceList} />
