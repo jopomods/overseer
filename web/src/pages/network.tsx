@@ -2,6 +2,7 @@ import { Link, useParams } from '@tanstack/react-router'
 import { ArrowLeft, BatteryCharging, Cable, Cpu, Plug, Search, type LucideIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSnapshot } from '@/api/hooks'
+import { HistoryChart } from '@/components/history-chart'
 import { LiveBadge } from '@/components/live-badge'
 import { useSession } from '@/components/session'
 import { Section, Stat } from '@/components/stat'
@@ -73,6 +74,25 @@ export function NetworkPage() {
           hint={`${t('energy.buffer')} ${formatEnergy(network.buffer, energyUnit, locale)}`}
         />
       </div>
+
+      <Section title={t('chart.history')}>
+        <div className="grid min-w-0 gap-3 xl:grid-cols-2">
+          <HistoryChart
+            testId="chart-flow"
+            resource={network.resource.ref.key}
+            series={[
+              { metric: 'energy_input', label: t('energy.input'), color: 'var(--success)' },
+              { metric: 'energy_output', label: t('energy.output'), color: 'var(--primary)' },
+            ]}
+            format={(v) => formatRate(v, energyUnit, locale)}
+          />
+          <HistoryChart
+            resource={network.resource.ref.key}
+            series={[{ metric: 'energy', label: t('chart.storedEnergy'), color: 'var(--chart-5)' }]}
+            format={(v) => formatEnergy(v, energyUnit, locale)}
+          />
+        </div>
+      </Section>
 
       <ZonesSection devices={deviceList} />
       <DevicesSection devices={deviceList} />

@@ -1,5 +1,6 @@
 import { useCollectors, useSnapshot } from '@/api/hooks'
 import { useSession } from '@/components/session'
+import { HistoryChart } from '@/components/history-chart'
 import { LiveBadge } from '@/components/live-badge'
 import { PageHeader, Section, Stat } from '@/components/stat'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +45,25 @@ export function ServerPage() {
         />
         <Stat label="Version" value={main?.attributes.version ?? '–'} hint={main?.attributes.motd} />
       </div>
+
+      <Section title={t('chart.performance')}>
+        <div className="grid min-w-0 gap-3 xl:grid-cols-2">
+          <HistoryChart
+            testId="chart-tps"
+            resource="server/server/main"
+            series={[{ metric: 'tps', label: t('server.tps'), color: 'var(--success)' }]}
+            format={(v) => formatNumber(v, locale, 1)}
+          />
+          <HistoryChart
+            resource="server/server/main"
+            series={[
+              { metric: 'mspt', label: t('server.mspt'), color: 'var(--primary)' },
+              { metric: 'players_online', label: t('server.playersOnline'), color: 'var(--chart-5)' },
+            ]}
+            format={(v) => formatNumber(v, locale, 1)}
+          />
+        </div>
+      </Section>
 
       <Section title={t('server.players')}>
         {players.length === 0 ? (

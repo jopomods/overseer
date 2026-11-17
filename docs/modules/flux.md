@@ -47,7 +47,7 @@ Changes apply within one collection interval (1 s).
 
 - `/energy`: one card per visible network (color, security, input/output, stored energy,
   device count).
-- `/energy/<networkId>`: totals and balance (input − output), zones, devices (filter by type,
+- `/energy/<networkId>`: charts of input/output and stored energy, totals and balance (input − output), zones, devices (filter by type,
   search by name, zone, position, dimension; unloaded devices dimmed), members with access.
 - Flux reports `transfer` positive for plugs (energy taken in) and negative for points (energy
   delivered), confirmed with real data. The UI shows magnitudes for plugs and points;
