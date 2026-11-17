@@ -24,7 +24,8 @@ overseer/
 │   ├── OverseerConfig       overseer-server.toml (bind, port, proxies, public URL)
 │   ├── ForgeOperatorCheck   op lookup on the server thread, cached for HTTP threads
 │   ├── command/             /ov commands (also console and RCON)
-│   └── integration/         Integrations (provider list) + one package per mod: server, (M1a) flux, (M2) ae2
+│   ├── integration/         Integrations (provider list) + one package per mod: server, flux, (M2) ae2
+│   └── src/gametest/        Forge GameTests (own source set, not shipped)
 ├── web/                     Vite + React + shadcn/ui, built into the jar at /overseer-web
 └── api/openapi.yaml         HTTP contract; the TS client is generated from it
 ```
