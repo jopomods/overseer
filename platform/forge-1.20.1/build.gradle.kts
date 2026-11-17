@@ -14,6 +14,14 @@ base {
 }
 version = "${project.version}+forge-$mcVersion"
 
+// In-game tests (Forge GameTest) live in their own source set and never ship in the jar.
+val gametest: SourceSet = sourceSets.create("gametest") {
+    compileClasspath += sourceSets.main.get().output
+    runtimeClasspath += sourceSets.main.get().output
+}
+configurations[gametest.compileClasspathConfigurationName].extendsFrom(configurations.compileClasspath.get())
+configurations[gametest.runtimeClasspathConfigurationName].extendsFrom(configurations.runtimeClasspath.get())
+
 repositories {
     // Mods without their own Maven (Flux Networks) come from CurseForge via CurseMaven.
     maven("https://cursemaven.com") {
@@ -38,12 +46,23 @@ legacyForge {
         create("client") {
             client()
         }
+        // ./gradlew :platform:forge-1.20.1:runGameTestServer runs all GameTests and exits
+        // non-zero on failure. Used in CI.
+        create("gameTestServer") {
+            type = "gameTestServer"
+            sourceSet = gametest
+            gameDirectory = project.file("run/gametest")
+            systemProperty("forge.enabledGameTestNamespaces", modId)
+        }
     }
+
+    addModdingDependenciesTo(gametest)
 
     mods {
         create(modId) {
             sourceSet(sourceSets.main.get())
             sourceSet(project(":core").sourceSets.main.get())
+            sourceSet(gametest)
         }
     }
 }

@@ -39,6 +39,10 @@ jobs:
       - name: Gradle build
         run: ./gradlew build --console=plain
 
+      # Real Forge server with real Flux Networks blocks; exits non-zero on failure.
+      - name: GameTests (Forge + Flux Networks)
+        run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PskipWeb=true --console=plain
+
       - name: Web lint
         working-directory: web
         run: npm run lint
