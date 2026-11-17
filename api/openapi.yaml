@@ -347,6 +347,54 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/overrides:
+    get:
+      tags: [data]
+      operationId: listOverrides
+      summary: Overseer-side settings of resources, e.g. zones
+      parameters:
+        - name: provider
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Overrides of resources visible to the caller.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Override"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      tags: [data]
+      operationId: setOverride
+      summary: Set or clear an override
+      description: |
+        Needs edit rights on the resource (dashboard admins, or what the mod allows, e.g.
+        Flux network owners and admins). Allowed keys - `zone`. `value: null` clears it.
+        Values are at most 48 characters.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Override"
+      responses:
+        "204":
+          description: Saved.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/admin/collectors:
     get:
       tags: [admin]
@@ -570,7 +618,7 @@ components:
 
     Resource:
       type: object
-      required: [ref, attributes, metrics]
+      required: [ref, attributes, metrics, canEdit]
       properties:
         ref:
           $ref: "#/components/schemas/ResourceRef"
@@ -582,6 +630,9 @@ components:
           type: object
           additionalProperties:
             type: number
+        canEdit:
+          type: boolean
+          description: The viewer may change Overseer settings of this resource (e.g. a zone).
 
     Snapshot:
       type: object
@@ -721,6 +772,19 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Session"
+
+    Override:
+      type: object
+      required: [resource, key]
+      properties:
+        resource:
+          type: string
+          description: Resource key, e.g. `flux/device/minecraft:overworld@1,64,2`.
+        key:
+          type: string
+          enum: [zone]
+        value:
+          type: [string, "null"]
 
     Collectors:
       type: object
