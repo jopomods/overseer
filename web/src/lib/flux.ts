@@ -1,4 +1,4 @@
-import type { Resource, Snapshot } from '@/api/hooks'
+import type { Override, Resource, Snapshot } from '@/api/hooks'
 import { metric, ofType } from './snapshot'
 
 /**
@@ -10,8 +10,11 @@ export interface FluxDevice {
   resource: Resource
   id: string
   type: DeviceType
-  /** Zone from the name prefix before the first ':' (e.g. "Power plant"), or null. */
+  /** Zone: set in Overseer, else the name prefix before the first ':' (e.g. "Power plant"), else null. */
   zone: string | null
+  /** The zone was set in Overseer rather than taken from the name. */
+  zoneOverridden: boolean
+  canEdit: boolean
   /** Name without the zone prefix; falls back to type and position. */
   label: string
   dimension: string
@@ -71,18 +74,23 @@ export function networks(snapshot: Snapshot | undefined): FluxNetwork[] {
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
 }
 
-export function devices(snapshot: Snapshot | undefined, networkId: string): FluxDevice[] {
+export function devices(snapshot: Snapshot | undefined, networkId: string, overrides: Override[] = []): FluxDevice[] {
+  const zoneOverrides = new Map(overrides.filter((o) => o.key === 'zone' && o.value).map((o) => [o.resource, o.value as string]))
   return ofType(snapshot, 'device')
     .filter((r) => r.attributes.network === networkId)
     .map((r) => {
       const type = (r.attributes.type ?? 'plug') as DeviceType
-      const { zone, rest } = splitZone(r.attributes.name ?? '')
+      const { zone: nameZone, rest } = splitZone(r.attributes.name ?? '')
+      const override = zoneOverrides.get(r.ref.key)
+      const zone = override ?? nameZone
       const pos = r.attributes.pos ?? ''
       return {
         resource: r,
         id: r.ref.id,
         type,
         zone,
+        zoneOverridden: override !== undefined,
+        canEdit: r.canEdit === true,
         label: rest || `${type} @ ${pos}`,
         dimension: r.attributes.dimension ?? '',
         pos,

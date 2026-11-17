@@ -130,6 +130,16 @@ const en = {
   'chart.flow': 'Energy flow',
   'chart.storedEnergy': 'Stored energy',
   'chart.performance': 'Performance',
+  'energy.zone': 'Zone',
+  'energy.editZone': 'Change zone',
+  'energy.zonePlaceholder': 'Zone, e.g. Power plant',
+  'energy.zoneManual': 'set in Overseer',
+  'energy.emptyIn': 'Empty in ~{time}',
+  'energy.charging': 'Charging',
+  'energy.stable': 'Stable',
+  'common.save': 'Save',
+  'common.reset': 'Reset',
+  'common.cancel': 'Cancel',
 } as const
 
 export type MessageKey = keyof typeof en
@@ -260,6 +270,16 @@ const de: Record<MessageKey, string> = {
   'chart.flow': 'Energiefluss',
   'chart.storedEnergy': 'Gespeicherte Energie',
   'chart.performance': 'Leistung',
+  'energy.zone': 'Bereich',
+  'energy.editZone': 'Bereich ändern',
+  'energy.zonePlaceholder': 'Bereich, z. B. Kraftwerk',
+  'energy.zoneManual': 'in Overseer gesetzt',
+  'energy.emptyIn': 'Leer in ~{time}',
+  'energy.charging': 'Wird geladen',
+  'energy.stable': 'Stabil',
+  'common.save': 'Speichern',
+  'common.reset': 'Zurücksetzen',
+  'common.cancel': 'Abbrechen',
 }
 
 const messages: Record<Locale, Record<MessageKey, string>> = { en, de }

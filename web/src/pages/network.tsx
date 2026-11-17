@@ -1,7 +1,8 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { ArrowLeft, BatteryCharging, Cable, Cpu, Plug, Search, type LucideIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { useSnapshot } from '@/api/hooks'
+import { ArrowLeft, BatteryCharging, Cable, Check, Cpu, Pencil, Plug, Search, X, type LucideIcon } from 'lucide-react'
+import { useMemo, useState, type FormEvent } from 'react'
+import { useHistory, useOverrides, useSessions, useSetOverride, useSnapshot } from '@/api/hooks'
+import { Button } from '@/components/ui/button'
 import { HistoryChart } from '@/components/history-chart'
 import { LiveBadge } from '@/components/live-badge'
 import { useSession } from '@/components/session'
@@ -11,7 +12,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { devices, members, networks, zones, type DeviceType, type FluxDevice } from '@/lib/flux'
-import { formatEnergy, formatRate } from '@/lib/format'
+import { forecastEmpty } from '@/lib/forecast'
+import { formatDuration, formatEnergy, formatRate } from '@/lib/format'
 import { useT, type MessageKey } from '@/lib/i18n'
 import { usePreferences } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
@@ -33,7 +35,8 @@ export function NetworkPage() {
   const { networkId } = useParams({ from: '/app/energy/$networkId' })
   const snapshot = useSnapshot('flux', { pollMs: live === 'live' ? false : 5000 })
   const network = networks(snapshot.data).find((n) => n.id === networkId)
-  const deviceList = useMemo(() => devices(snapshot.data, networkId), [snapshot.data, networkId])
+  const overrides = useOverrides('flux').data
+  const deviceList = useMemo(() => devices(snapshot.data, networkId, overrides), [snapshot.data, networkId, overrides])
   const memberList = members(snapshot.data, networkId)
 
   if (snapshot.isPending) return <Skeleton className="h-64" />
@@ -68,11 +71,7 @@ export function NetworkPage() {
           value={`${balance > 0 ? '+' : ''}${formatRate(balance, energyUnit, locale)}`}
           tone={balance > 0 ? 'good' : balance < 0 ? 'warn' : undefined}
         />
-        <Stat
-          label={t('energy.stored')}
-          value={formatEnergy(network.energy, energyUnit, locale)}
-          hint={`${t('energy.buffer')} ${formatEnergy(network.buffer, energyUnit, locale)}`}
-        />
+        <StoredStat resource={network.resource.ref.key} energy={network.energy} />
       </div>
 
       <Section title={t('chart.history')}>
@@ -115,6 +114,32 @@ export function NetworkPage() {
         </Card>
       </Section>
     </>
+  )
+}
+
+/** Stored energy with a forecast from the last hour of history. */
+function StoredStat({ resource, energy }: { resource: string; energy: number }) {
+  const t = useT()
+  const { locale, energyUnit } = usePreferences()
+  const uptime = useSessions().data?.uptimeMillis
+  const history = useHistory(resource, ['energy'], 3_600_000, uptime)
+  const points = history.data?.series[0]?.points.map((p) => ({ t: p.t, value: p.avg })) ?? []
+  const forecast = forecastEmpty(points)
+  const hint =
+    forecast.kind === 'emptying'
+      ? t('energy.emptyIn', { time: formatDuration(forecast.msUntilEmpty, locale) })
+      : forecast.kind === 'charging'
+        ? t('energy.charging')
+        : forecast.kind === 'stable'
+          ? t('energy.stable')
+          : undefined
+  return (
+    <Stat
+      label={t('energy.stored')}
+      value={formatEnergy(energy, energyUnit, locale)}
+      hint={hint}
+      tone={forecast.kind === 'emptying' && forecast.msUntilEmpty < 3_600_000 ? 'warn' : undefined}
+    />
   )
 }
 
@@ -173,6 +198,7 @@ function DevicesSection({ devices: list }: { devices: FluxDevice[] }) {
       (type === 'all' || d.type === type) &&
       (!q || `${d.zone ?? ''} ${d.label} ${d.pos} ${d.dimension}`.toLowerCase().includes(q)),
   )
+  const zoneNames = [...new Set(list.map((d) => d.zone).filter((z): z is string => !!z))].sort()
   const counts = Object.fromEntries(TYPES.map((ty) => [ty, list.filter((d) => d.type === ty).length]))
 
   return (
@@ -207,7 +233,7 @@ function DevicesSection({ devices: list }: { devices: FluxDevice[] }) {
         <Card className="min-w-0 py-1">
           <ul className="divide-border divide-y" data-testid="device-list">
             {shown.map((d) => (
-              <DeviceRow key={d.id} device={d} />
+              <DeviceRow key={d.id} device={d} zoneNames={zoneNames} />
             ))}
           </ul>
         </Card>
@@ -216,10 +242,12 @@ function DevicesSection({ devices: list }: { devices: FluxDevice[] }) {
   )
 }
 
-function DeviceRow({ device: d }: { device: FluxDevice }) {
+function DeviceRow({ device: d, zoneNames }: { device: FluxDevice; zoneNames: string[] }) {
   const t = useT()
   const { locale, energyUnit } = usePreferences()
+  const [editing, setEditing] = useState(false)
   const Icon = TYPE_ICON[d.type]
+  if (editing) return <ZoneEditor device={d} zoneNames={zoneNames} onDone={() => setEditing(false)} />
   // Plugs take energy in, points deliver it; storages show the signed flow Flux reports.
   const flow =
     d.type === 'storage' ? d.transfer : d.type === 'controller' ? 0 : Math.abs(d.transfer)
@@ -234,7 +262,12 @@ function DeviceRow({ device: d }: { device: FluxDevice }) {
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-center gap-2 text-sm font-medium">
           <span className="truncate">{d.label}</span>
-          {d.zone && <span className="text-muted-foreground hidden truncate text-xs font-normal sm:inline">{d.zone}</span>}
+          {d.zone && (
+            <span className="text-muted-foreground hidden truncate text-xs font-normal sm:inline" title={d.zoneOverridden ? t('energy.zoneManual') : undefined}>
+              {d.zone}
+              {d.zoneOverridden && ' *'}
+            </span>
+          )}
         </p>
         <p className="text-muted-foreground truncate text-xs">
           {d.pos} · {d.dimension} · {t('energy.priority')} {d.priority}
@@ -242,6 +275,11 @@ function DeviceRow({ device: d }: { device: FluxDevice }) {
           {d.surge && ` · ${t('energy.surge')}`}
         </p>
       </div>
+      {d.canEdit && (
+        <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => setEditing(true)} aria-label={t('energy.editZone')}>
+          <Pencil className="size-3.5" />
+        </Button>
+      )}
       <div className="tabular shrink-0 text-right">
         {d.type !== 'controller' && <p className="text-sm font-semibold">{formatRate(flow, energyUnit, locale)}</p>}
         {d.type === 'storage' && (
@@ -257,3 +295,57 @@ function DeviceRow({ device: d }: { device: FluxDevice }) {
   )
 }
 
+/** Inline editor for the zone of one device. Saving an empty value resets to the name prefix. */
+function ZoneEditor({ device, zoneNames, onDone }: { device: FluxDevice; zoneNames: string[]; onDone: () => void }) {
+  const t = useT()
+  const save = useSetOverride('flux')
+  const [value, setValue] = useState(device.zone ?? '')
+  const listId = `zones-${device.id}`
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    save.mutate({ resource: device.resource.ref.key, key: 'zone', value: value.trim() || null }, { onSuccess: onDone })
+  }
+  return (
+    <li className="min-w-0 px-4 py-2.5" data-testid="zone-editor">
+      <p className="text-muted-foreground mb-1.5 truncate text-xs">
+        {t('energy.editZone')}: <span className="text-foreground font-medium">{device.label}</span>
+      </p>
+      <form onSubmit={submit} className="flex min-w-0 flex-wrap gap-2">
+        <Input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={t('energy.zonePlaceholder')}
+          maxLength={48}
+          list={listId}
+          className="min-w-0 flex-1 basis-48"
+          aria-label={t('energy.zone')}
+        />
+        <datalist id={listId}>
+          {zoneNames.map((z) => (
+            <option key={z} value={z} />
+          ))}
+        </datalist>
+        <div className="flex shrink-0 gap-1">
+          <Button type="submit" size="sm" disabled={save.isPending}>
+            <Check /> {t('common.save')}
+          </Button>
+          {device.zoneOverridden && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={save.isPending}
+              onClick={() => save.mutate({ resource: device.resource.ref.key, key: 'zone', value: null }, { onSuccess: onDone })}
+            >
+              {t('common.reset')}
+            </Button>
+          )}
+          <Button type="button" size="sm" variant="ghost" onClick={onDone} aria-label={t('common.cancel')}>
+            <X />
+          </Button>
+        </div>
+      </form>
+    </li>
+  )
+}
