@@ -43,11 +43,20 @@ Mirrors Flux's own rule, evaluated on the last collected state:
 
 Changes apply within one collection interval (1 s).
 
-## Zones (M1b)
+## UI
+
+- `/energy`: one card per visible network (color, security, input/output, stored energy,
+  device count).
+- `/energy/<networkId>`: totals and balance (input − output), zones, devices (filter by type,
+  search by name, zone, position, dimension; unloaded devices dimmed), members with access.
+- Plugs show |transfer| as energy taken in, points as energy delivered; storages show the
+  signed value Flux reports plus stored energy.
+
+## Zones
 
 The zone of a device is the part of its name before the first `:` (`Power plant: Diesel 1`
-→ `Power plant`). Computed in the UI/API layer from the `name` attribute; overrides will
-be stored by Overseer.
+→ `Power plant`), computed in the UI (`web/src/lib/flux.ts`). Zone overrides stored by
+Overseer and zone history come with M1b.
 
 ## Tests
 

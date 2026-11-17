@@ -31,7 +31,7 @@ complete M1a ships as 0.2.0. Delivered as several small PRs: pipeline + storage,
 - [ ] spark as optional TPS/MSPT source
 - [x] Server page UI: players, admin details, collector cost, data freshness
 - [x] Flux provider: networks, statistics, members, devices (incl. unloaded), membership-based access
-- [ ] Flux live UI: network cards, network detail with current values, device table, members
+- [x] Flux live UI: network cards, network detail (totals, balance, zones), device list with type filter and search, members
 - [x] Units: FE/RF or EU per viewer with SI prefixes (fixed 4 FE = 1 EU; server-wide factor later)
 - [x] i18n (de, en), app shell (sidebar on desktop, bottom bar on phone), login page, account page
   (preferences, sessions, device tokens), live SSE updates with polling fallback
