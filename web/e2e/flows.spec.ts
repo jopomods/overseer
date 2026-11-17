@@ -57,4 +57,26 @@ test.describe('flows', () => {
     await page.goto('/energy/999')
     await expect(page.getByText('does not exist')).toBeVisible()
   })
+
+  test('installable: manifest and service worker that never caches API data', async ({ page }) => {
+    await mockApi(page)
+    const manifest = await page.request.get('/manifest.webmanifest')
+    expect((await manifest.json()).display).toBe('standalone')
+
+    await page.goto('/')
+    await page.evaluate(() => navigator.serviceWorker.ready)
+    await page.reload()
+    await page.goto('/server')
+    await expect(page.getByTestId('player-list')).toBeVisible()
+
+    const cached = await page.evaluate(async () => {
+      const urls: string[] = []
+      for (const key of await caches.keys()) {
+        for (const request of await (await caches.open(key)).keys()) urls.push(new URL(request.url).pathname)
+      }
+      return urls
+    })
+    expect(cached).toContain('/')
+    expect(cached.filter((u) => u.startsWith('/api/'))).toEqual([])
+  })
 })

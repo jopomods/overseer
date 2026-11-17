@@ -35,7 +35,7 @@ complete M1a ships as 0.2.0. Delivered as several small PRs: pipeline + storage,
 - [x] Units: FE/RF or EU per viewer with SI prefixes (fixed 4 FE = 1 EU; server-wide factor later)
 - [x] i18n (de, en), app shell (sidebar on desktop, bottom bar on phone), login page, account page
   (preferences, sessions, device tokens), live SSE updates with polling fallback
-- [ ] PWA (manifest, service worker caching only the app shell)
+- [x] PWA (manifest, icons, service worker caching only the app shell, never `/api`)
 - [x] Reverse proxy guide (Caddy, nginx) and server admin guide
 - [x] Forge wiring: lifecycle, tick, `overseer-server.toml`, operator check
 - [x] Forge GameTest run in CI with Flux Networks
