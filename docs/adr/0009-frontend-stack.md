@@ -38,6 +38,15 @@ served by Overseer. In development Vite proxies `/api` to a running core.
 3. Fixtures with extreme data (very long names, 200 devices, 9.2 EFE/t) catch layout
    breaks without a Minecraft server.
 
+Implementation notes (M1a):
+
+- TypeScript runs in `strict` mode.
+- Texts live in `src/lib/i18n.ts` with typed keys; a missing translation fails the build.
+- No external resources at runtime (fonts are bundled; no player-skin services, which would
+  leak UUIDs to third parties and violate the CSP). Avatars are initials.
+- Live data: one `EventSource` per tab updates the TanStack Query cache; closed while the tab
+  is hidden; pages poll every 5 s while it is down.
+
 ## Consequences
 
 - Every new page must be added to `web/e2e/layout.spec.ts`.

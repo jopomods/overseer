@@ -44,7 +44,8 @@ npm run dev          # UI dev server, proxies /api to 127.0.0.1:8765 (override: 
 npm run typecheck
 npm run lint
 npm run gen:api      # regenerate src/api/schema.gen.ts from api/openapi.yaml
-npm run test:e2e     # Playwright layout tests at 360-1920 px (port 4391)
+npm run test:e2e     # Playwright layout + flow tests at 360-1920 px (port 4391), API mocked in e2e/mock-api.ts
+node e2e/screenshots.manual.ts <dir>   # PNGs of key pages for visual review (needs `npm run preview -- --port 4391`)
 ```
 
 The mod jar lands in `platform/forge-1.20.1/build/libs/overseer-<version>+forge-1.20.1.jar`.
