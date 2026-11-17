@@ -20,6 +20,9 @@ Overseer version should mean the same feature set on every platform.
   stay visible in the PR.
 - **CI** on every push and PR: Java build and tests, web lint/typecheck/build, API client
   drift check, Playwright layout tests, jar build.
+- **CI layout** (since M1b): three parallel jobs: Java build and unit tests (also builds
+  the jar), GameTests on a flat-world Forge server, and web (lint, types, API drift, build,
+  Playwright with 4 workers and a cached browser). Wall time is set by the slowest job.
 - **Release**: release-please maintains a release PR on `main` with version bump and
   changelog. Merging it creates the tag and GitHub release; the release workflow builds
   and attaches the jar.
