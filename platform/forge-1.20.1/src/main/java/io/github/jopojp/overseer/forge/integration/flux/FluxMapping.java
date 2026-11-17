@@ -152,6 +152,14 @@ public final class FluxMapping {
             return networkId != null && access(player, networkId).canView();
         }
 
+        /** Network owners and admins may change Overseer settings (zones) of its devices. */
+        public boolean canEdit(UUID player, ResourceRef ref) {
+            Integer networkId = networkOf(ref);
+            if (networkId == null) return false;
+            Access access = access(player, networkId);
+            return access == Access.OWNER || access == Access.ADMIN || access == Access.SUPER_ADMIN;
+        }
+
         Access access(UUID player, int networkId) {
             Access member = members.getOrDefault(networkId, Map.of()).get(player);
             if (member != null) return member;

@@ -86,6 +86,15 @@ class FluxMappingTest {
     }
 
     @Test
+    void onlyOwnersAndAdminsMayEdit() {
+        var index = FluxMapping.AccessIndex.of(List.of(PRIVATE, PUBLIC));
+        var plug = new ResourceRef("flux", "device", "minecraft:overworld@1,64,0");
+        assertTrue(index.canEdit(OWNER, plug));
+        assertFalse(index.canEdit(GUEST, plug), "user access is read-only");
+        assertFalse(index.canEdit(STRANGER, FluxMapping.network(2)), "public networks are not editable by strangers");
+    }
+
+    @Test
     void unknownResourcesAreDenied() {
         var index = FluxMapping.AccessIndex.of(List.of(PRIVATE));
         assertFalse(index.canView(OWNER, FluxMapping.network(99)));
