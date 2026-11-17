@@ -74,7 +74,7 @@ flowchart LR
 
 | Thread | Does | Must not |
 |---|---|---|
-| Server thread | `DataProvider.collect()`, commands | block on IO, DB or network |
+| Server thread | `DataProvider.collect()`, `/ov` commands | block on IO, DB or network (exception: the rare `/ov` auth commands do a few millisecond SQLite writes so their replies reach RCON) |
 | Storage writer | all SQLite writes, rollups, retention | touch world state |
 | Netty event loop | HTTP parsing, SSE writes | run DB queries (hand off to workers) |
 | HTTP workers | DB reads, response building | touch world state |
