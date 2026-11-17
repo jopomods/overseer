@@ -9,17 +9,35 @@ info:
     is generated from it (`npm run gen:api` in `web/`), and the Java side is
     tested against it. Change this file first, then the code.
 
-    All routes live under `/api/v1`. Authentication: session cookie for browsers,
-    `Authorization: Bearer <device-token>` for device tokens (ADR-0007).
+    All routes live under `/api/v1`.
+
+    **Authentication** (ADR-0007): browsers use the `ov_session` cookie (HttpOnly,
+    SameSite=Strict), obtained through the link-code flow. Device tokens are sent as
+    `Authorization: Bearer <token>`. State-changing requests authenticated by cookie
+    must carry an `Origin` header matching the host.
+
+    **Permissions** (ADR-0008): default deny. Responses only contain resources the
+    caller may view; admins see everything.
+
+    **Errors** use the `Error` schema with a machine-readable `code`.
 servers:
   - url: /
+security:
+  - session: []
+  - deviceToken: []
+tags:
+  - name: system
+  - name: auth
+  - name: me
+  - name: data
+  - name: admin
 paths:
   /api/v1/health:
     get:
+      tags: [system]
       operationId: getHealth
       summary: Liveness and data freshness
-      description: |
-        Unauthenticated. Suitable for external monitoring. Exposes no world data.
+      description: Unauthenticated. Suitable for external monitoring. Exposes no world data.
       security: []
       responses:
         "200":
@@ -28,8 +46,305 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+
+  /api/v1/auth/link-codes:
+    post:
+      tags: [auth]
+      operationId: createLinkCode
+      summary: Start a login
+      description: |
+        Creates a one-time code the player confirms in game with `/ov link <code>`.
+        Sets the HttpOnly `ov_link` cookie that binds the code to this browser; only
+        this browser can complete the login. Codes expire after 5 minutes.
+        Rate limited per client address.
+      security: []
+      responses:
+        "201":
+          description: Code created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkCode"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/auth/link-codes/current:
+    get:
+      tags: [auth]
+      operationId: getLinkCodeStatus
+      summary: Poll the pending login of this browser
+      description: |
+        Uses the `ov_link` cookie. When the code was confirmed in game, the response
+        has status `confirmed`, sets the `ov_session` cookie and clears `ov_link`.
+      security: []
+      responses:
+        "200":
+          description: Current status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkCodeStatus"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/auth/login:
+    get:
+      tags: [auth]
+      operationId: loginWithToken
+      summary: One-time login link
+      description: |
+        Exchanges a one-time login token (from `ov login <player>` on the server console)
+        or a device token (kiosk setup) for a session cookie, then redirects to `/`.
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Logged in; redirect to the dashboard.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: End the current session
+      responses:
+        "204":
+          description: Logged out; session cookie cleared.
+
+  /api/v1/me:
+    get:
+      tags: [me]
+      operationId: getMe
+      summary: The logged-in player
+      responses:
+        "200":
+          description: Current principal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/me/credentials:
+    get:
+      tags: [me]
+      operationId: listCredentials
+      summary: Sessions and device tokens of the logged-in player
+      responses:
+        "200":
+          description: All active credentials.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Credential"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/me/credentials/{id}:
+    delete:
+      tags: [me]
+      operationId: revokeCredential
+      summary: Revoke one session or device token
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: Revoked.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/me/credentials/revoke-all:
+    post:
+      tags: [me]
+      operationId: revokeAllCredentials
+      summary: Log out everywhere
+      description: Revokes every session of the player, including the current one. Device tokens are kept.
+      responses:
+        "204":
+          description: All sessions revoked.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/me/device-tokens:
+    post:
+      tags: [me]
+      operationId: createDeviceToken
+      summary: Create a read-only device token
+      description: The token is returned once and cannot be retrieved later. Not available to device tokens.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDeviceToken"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedDeviceToken"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/providers:
+    get:
+      tags: [data]
+      operationId: listProviders
+      summary: Active data providers
+      responses:
+        "200":
+          description: Providers loaded on this server.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Provider"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/providers/{provider}/snapshot:
+    get:
+      tags: [data]
+      operationId: getProviderSnapshot
+      summary: Latest snapshot of one provider
+      description: Contains only resources the caller may view.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Latest filtered snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Snapshot"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/stream:
+    get:
+      tags: [data]
+      operationId: streamSnapshots
+      summary: Live updates (Server-Sent Events)
+      description: |
+        `text/event-stream`. Each `snapshot` event carries a filtered `Snapshot` as JSON.
+        Permissions are re-checked for every event; a revoked session ends the stream.
+        A comment line is sent every 15 s as keep-alive.
+      responses:
+        "200":
+          description: Event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/admin/collectors:
+    get:
+      tags: [admin]
+      operationId: getCollectors
+      summary: Collector cost and health per provider
+      responses:
+        "200":
+          description: Collector status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Collectors"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: ov_session
+    deviceToken:
+      type: http
+      scheme: bearer
+
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Not logged in, or the credential is invalid, expired or revoked.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Logged in, but not allowed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: No such resource (or not visible to the caller).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: Rate limit exceeded; retry later.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
   schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Machine-readable, e.g. `unauthorized`, `forbidden`, `not_found`, `rate_limited`.
+            message:
+              type: string
+
     Health:
       type: object
       required: [status, version]
@@ -47,3 +362,210 @@ components:
           format: int64
           description: Age of the newest snapshot in milliseconds. Absent before the first collection.
           example: 840
+
+    LinkCode:
+      type: object
+      required: [code, expiresAt]
+      properties:
+        code:
+          type: string
+          description: Shown to the user, e.g. `7KQ-4M2`. Confirm in game with `/ov link <code>`.
+          example: 7KQ-4M2
+        expiresAt:
+          type: string
+          format: date-time
+
+    LinkCodeStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, confirmed, expired]
+
+    Role:
+      type: string
+      enum: [player, admin, super_admin]
+      description: "`super_admin` = server operator or console; `admin` = granted dashboard admin."
+
+    Me:
+      type: object
+      required: [uuid, name, role, deviceToken]
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        deviceToken:
+          type: boolean
+          description: True when authenticated with a device token (read-only, cannot manage credentials).
+
+    Credential:
+      type: object
+      required: [id, kind, createdAt, lastUsedAt, current]
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          type: string
+          enum: [session, device_token]
+        name:
+          type: string
+          description: Device token name, or the browser user agent of a session.
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+        current:
+          type: boolean
+          description: The credential used for this request.
+
+    CreateDeviceToken:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: Tablet on the wall
+
+    CreatedDeviceToken:
+      type: object
+      required: [id, token]
+      properties:
+        id:
+          type: integer
+          format: int64
+        token:
+          type: string
+          description: "Shown once. Use as `Authorization: Bearer <token>`."
+
+    Provider:
+      type: object
+      required: [id, displayName, capabilities]
+      properties:
+        id:
+          type: string
+          example: flux
+        displayName:
+          type: string
+          example: Flux Networks
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum: [metrics, events, inventory, access_control]
+
+    Timestamp:
+      type: object
+      required: [wall, uptimeMillis, session]
+      properties:
+        wall:
+          type: string
+          format: date-time
+        uptimeMillis:
+          type: integer
+          format: int64
+          description: Accumulated server uptime (ADR-0005).
+        session:
+          type: integer
+          description: Uptime session number.
+
+    ResourceRef:
+      type: object
+      required: [provider, type, id, key]
+      properties:
+        provider:
+          type: string
+        type:
+          type: string
+        id:
+          type: string
+        key:
+          type: string
+          description: "`provider/type/id`"
+
+    Resource:
+      type: object
+      required: [ref, attributes, metrics]
+      properties:
+        ref:
+          $ref: "#/components/schemas/ResourceRef"
+        attributes:
+          type: object
+          additionalProperties:
+            type: string
+        metrics:
+          type: object
+          additionalProperties:
+            type: number
+
+    Snapshot:
+      type: object
+      required: [provider, at, resources]
+      properties:
+        provider:
+          type: string
+        at:
+          $ref: "#/components/schemas/Timestamp"
+        resources:
+          type: array
+          items:
+            $ref: "#/components/schemas/Resource"
+
+    CollectorStatus:
+      type: object
+      required: [provider, baseIntervalTicks, currentIntervalTicks, budgetNanos, runs, errors, overruns, lastNanos, avgNanos, maxNanos, throttled]
+      properties:
+        provider:
+          type: string
+        baseIntervalTicks:
+          type: integer
+        currentIntervalTicks:
+          type: integer
+        budgetNanos:
+          type: integer
+          format: int64
+        runs:
+          type: integer
+          format: int64
+        errors:
+          type: integer
+          format: int64
+        overruns:
+          type: integer
+          format: int64
+        lastNanos:
+          type: integer
+          format: int64
+        avgNanos:
+          type: integer
+          format: int64
+        maxNanos:
+          type: integer
+          format: int64
+        throttled:
+          type: boolean
+        lastError:
+          type: string
+
+    Collectors:
+      type: object
+      required: [collectors, droppedSnapshots, queuedSnapshots]
+      properties:
+        collectors:
+          type: array
+          items:
+            $ref: "#/components/schemas/CollectorStatus"
+        droppedSnapshots:
+          type: integer
+          format: int64
+        queuedSnapshots:
+          type: integer
