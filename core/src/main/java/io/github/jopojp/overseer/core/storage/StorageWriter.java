@@ -77,6 +77,7 @@ public final class StorageWriter implements AutoCloseable {
     private volatile boolean running;
     private Thread thread;
     private long lastSessionFlushNanos;
+    private long lastRollupNanos = System.nanoTime();
     private boolean stateLoaded;
 
     public StorageWriter(
@@ -166,6 +167,21 @@ public final class StorageWriter implements AutoCloseable {
             throw e;
         }
         lastSessionFlushNanos = System.nanoTime();
+        if (System.nanoTime() - lastRollupNanos >= TimeUnit.MILLISECONDS.toNanos(settings.rollupIntervalMillis())) {
+            rollup(clock.uptimeMillis());
+        }
+    }
+
+    /** Rollups and retention in their own transaction (ADR-0005). Package-private for tests. */
+    void rollup(long nowUptime) throws SQLException {
+        lastRollupNanos = System.nanoTime();
+        try {
+            Rollups.run(connection, nowUptime, settings);
+            connection.commit();
+        } catch (SQLException | RuntimeException e) {
+            rollbackQuietly();
+            LOG.error("Overseer rollup failed; retrying on the next run", e);
+        }
     }
 
     private void apply(ProviderSnapshot snapshot) throws SQLException {

@@ -256,6 +256,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * History of one resource for charts
+         * @description Time range in **server uptime** (ADR-0005). The server picks the resolution (raw,
+         *     minute or hour rollups) from the requested number of points and aggregates
+         *     time-weighted into equal buckets. Each point also carries the calendar time of its
+         *     bucket, so clients can plot either axis. Not visible or unknown resources → 404.
+         */
+        get: operations["getHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Server uptime sessions
+         * @description One entry per server run. Gaps between sessions are offline periods; charts on the
+         *     server-uptime axis mark them, charts on the calendar axis show them as gaps.
+         */
+        get: operations["getSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/collectors": {
         parameters: {
             query?: never;
@@ -411,6 +455,59 @@ export interface components {
             maxNanos: number;
             throttled: boolean;
             lastError?: string;
+        };
+        HistoryPoint: {
+            /**
+             * Format: int64
+             * @description Bucket start, server uptime in ms.
+             */
+            t: number;
+            /**
+             * Format: date-time
+             * @description Calendar time at the bucket start.
+             */
+            wall: string;
+            session: number;
+            min: number;
+            max: number;
+            /** @description Time-weighted average over the bucket. */
+            avg: number;
+            last: number;
+        };
+        HistorySeries: {
+            metric: string;
+            points: components["schemas"]["HistoryPoint"][];
+        };
+        History: {
+            resource: string;
+            /** @enum {string} */
+            resolution: "raw" | "minute" | "hour";
+            /** Format: int64 */
+            from: number;
+            /** Format: int64 */
+            to: number;
+            /** Format: int64 */
+            bucketMillis: number;
+            series: components["schemas"]["HistorySeries"][];
+        };
+        Session: {
+            session: number;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: int64 */
+            startedUptime: number;
+            /** Format: date-time */
+            lastAt: string;
+            /** Format: int64 */
+            lastUptime: number;
+        };
+        Sessions: {
+            /**
+             * Format: int64
+             * @description Current server uptime.
+             */
+            uptimeMillis: number;
+            sessions: components["schemas"]["Session"][];
         };
         Collectors: {
             collectors: components["schemas"]["CollectorStatus"][];
@@ -747,6 +844,61 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getHistory: {
+        parameters: {
+            query: {
+                /** @description Resource key `provider/type/id`, e.g. `flux/network/1`. */
+                resource: string;
+                /** @description One or more metrics (repeat the parameter), at most 10. */
+                metric: string[];
+                /** @description Start, server uptime in ms. Default `to` minus 24 h. */
+                from?: number;
+                /** @description End, server uptime in ms. Default now. */
+                to?: number;
+                /** @description Maximum number of points per series (10-1000, default 240). */
+                points?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Aggregated series. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["History"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sessions and the current uptime. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sessions"];
                 };
             };
             401: components["responses"]["Unauthorized"];

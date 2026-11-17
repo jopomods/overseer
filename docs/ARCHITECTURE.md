@@ -11,7 +11,8 @@ overseer/
 │   ├── provider/            DataProvider contract, snapshots, metrics, access policy
 │   ├── time/                Timestamp, UptimeClock (wall clock + server uptime)
 │   ├── pipeline/            collector scheduler (budgets, throttling), bounded queue, latest state
-│   ├── storage/             SQLite: migrations, sessions, single writer, deadband/heartbeat (rollups: M1b)
+│   ├── storage/             SQLite: migrations, sessions, single writer, deadband/heartbeat,
+│   │                        time-weighted rollups + retention, history queries
 │   ├── auth/                link codes, console login tokens, sessions, device tokens, roles, rate limits
 │   ├── access/              AccessService: admin bypass + provider policies, default deny
 │   ├── http/                Netty server, router, SSE hub, static UI, origin check, proxy handling
