@@ -45,7 +45,11 @@ public final class Dtos {
 
     public record Ref(String provider, String type, String id, String key) {}
 
-    public record Resource(Ref ref, Map<String, String> attributes, Map<String, Double> metrics) {}
+    public record Resource(Ref ref, Map<String, String> attributes, Map<String, Double> metrics, boolean canEdit) {}
+
+    public record OverrideDto(String resource, String key, String value) {}
+
+    public record SetOverride(String resource, String key, String value) {}
 
     public record Snapshot(String provider, TimestampDto at, List<Resource> resources) {}
 
@@ -108,6 +112,11 @@ public final class Dtos {
     }
 
     public static Snapshot snapshot(ProviderSnapshot snapshot) {
+        return snapshot(snapshot, ref -> false);
+    }
+
+    /** @param canEdit whether the viewer may edit a resource (shown as edit controls in the UI) */
+    public static Snapshot snapshot(ProviderSnapshot snapshot, java.util.function.Predicate<ResourceRef> canEdit) {
         Map<ResourceRef, Map<String, Double>> metrics = new LinkedHashMap<>();
         for (Sample sample : snapshot.samples()) {
             metrics.computeIfAbsent(sample.resource(), r -> new LinkedHashMap<>()).put(sample.metric(), sample.value());
@@ -116,7 +125,7 @@ public final class Dtos {
         snapshot.resources().entrySet().stream()
                 .sorted(Map.Entry.comparingByKey(Comparator.comparing(ResourceRef::key)))
                 .forEach(e -> resources.add(new Resource(ref(e.getKey()), e.getValue(),
-                        metrics.getOrDefault(e.getKey(), Map.of()))));
+                        metrics.getOrDefault(e.getKey(), Map.of()), canEdit.test(e.getKey()))));
         return new Snapshot(snapshot.provider(), timestamp(snapshot.at()), resources);
     }
 

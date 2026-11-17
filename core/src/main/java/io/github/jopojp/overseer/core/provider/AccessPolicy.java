@@ -13,6 +13,14 @@ import java.util.UUID;
 public interface AccessPolicy {
     boolean canView(UUID player, ResourceRef resource);
 
+    /**
+     * Whether the mod lets the player change Overseer-side settings of this resource (e.g. the
+     * zone of a Flux device). Default: nobody but dashboard admins (handled by core).
+     */
+    default boolean canEdit(UUID player, ResourceRef resource) {
+        return false;
+    }
+
     /** For providers without per-resource rules: everyone who is logged in may view. */
     AccessPolicy ALLOW_AUTHENTICATED = (player, resource) -> true;
 }

@@ -30,6 +30,12 @@ queries and search results. Policies only read snapshot data, never live world s
 Normal users never get more than the underlying mod allows. Admin visibility beyond mod
 rules is deliberate and only through layer 1.
 
+Edit rights (M1b): `AccessPolicy.canEdit` (default `false`) lets a provider allow changes
+to Overseer-side settings of a resource, e.g. Flux network owners and admins may set device
+zones. Dashboard admins may always edit; device tokens never. Edit rights never exceed view
+rights. Snapshots carry a per-viewer `canEdit` flag so the UI only shows edit controls
+where a save would succeed.
+
 ## Consequences
 
 - Permission tests are part of CI for every provider.

@@ -32,6 +32,10 @@ public final class Router {
         return add("POST", pattern, handler);
     }
 
+    public Router put(String pattern, Handler handler) {
+        return add("PUT", pattern, handler);
+    }
+
     public Router delete(String pattern, Handler handler) {
         return add("DELETE", pattern, handler);
     }

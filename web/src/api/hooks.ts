@@ -10,6 +10,7 @@ export type Collectors = components['schemas']['Collectors']
 export type Credential = components['schemas']['Credential']
 export type History = components['schemas']['History']
 export type Sessions = components['schemas']['Sessions']
+export type Override = components['schemas']['Override']
 
 /** An API failure with its HTTP status; 401 means "not logged in". */
 export class ApiError extends Error {
@@ -52,6 +53,7 @@ export const keys = {
   collectors: ['collectors'] as const,
   credentials: ['credentials'] as const,
   sessions: ['sessions'] as const,
+  overrides: (provider: string) => ['overrides', provider] as const,
   history: (resource: string, metrics: string[], rangeMs: number) => ['history', resource, metrics.join(','), rangeMs] as const,
 }
 
@@ -120,6 +122,24 @@ export function useHistory(resource: string, metrics: string[], rangeMs: number,
     enabled: uptimeNow !== undefined,
     refetchInterval: 30_000,
     placeholderData: (previous) => previous,
+  })
+}
+
+/** Overseer-side settings (e.g. zones) of a provider's resources. */
+export function useOverrides(provider: string) {
+  return useQuery({
+    queryKey: keys.overrides(provider),
+    queryFn: () => unwrap(api.GET('/api/v1/overrides', { params: { query: { provider } } })),
+    retry,
+    staleTime: 30_000,
+  })
+}
+
+export function useSetOverride(provider: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (override: Override) => unwrap(api.PUT('/api/v1/overrides', { body: override })),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.overrides(provider) }),
   })
 }
 

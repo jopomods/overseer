@@ -51,6 +51,14 @@ for (const path of ['/energy/1', '/server']) {
   })
 }
 
+test('no horizontal overflow with the zone editor open', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/energy/0')
+  await page.getByRole('button', { name: 'Change zone' }).first().click()
+  await expect(page.getByTestId('zone-editor')).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+})
+
 test('overflow detector catches content wider than the viewport', async ({ page }) => {
   await mockApi(page)
   await page.goto('/login')

@@ -143,7 +143,8 @@ function historyBody(url: URL) {
       metric,
       points: Array.from({ length: Math.floor((to - from) / bucket) }, (_, i) => {
         const t = from + i * bucket
-        const v = 9.2e18 * (0.6 + 0.4 * Math.sin(i / 12 + m))
+        // Stored energy drains steadily (forecast "empty in"); flows oscillate.
+        const v = metric === 'energy' ? 1e15 * (1 - (t - from) / (2 * (to - from))) : 9.2e18 * (0.6 + 0.4 * Math.sin(i / 12 + m))
         return { t, wall: new Date(wallAt(t)).toISOString(), session: t >= 10 * HOUR ? 2 : 1, min: v * 0.9, max: v * 1.1, avg: v, last: v }
       }),
     })),
@@ -154,6 +155,12 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
   const role = options.role ?? 'admin'
   const loggedIn = options.loggedIn ?? true
   const linkStatuses = [...(options.linkStatuses ?? ['pending'])]
+  const overrides: Array<{ resource: string; key: string; value: string }> = []
+  const editable = role !== 'player'
+  const withEdit = (snapshot: { resources: Array<Record<string, unknown>> }) => ({
+    ...snapshot,
+    resources: snapshot.resources.map((r) => ({ ...r, canEdit: editable })),
+  })
   const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, json: body })
   const unauthorized = (route: Route) => json(route, { error: { code: 'unauthorized', message: 'no' } }, 401)
 
@@ -187,7 +194,7 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
       case '/api/v1/providers/server/snapshot':
         return json(route, options.realistic ? realSnapshot('server') : serverSnapshot())
       case '/api/v1/providers/flux/snapshot':
-        return json(route, options.realistic ? realSnapshot('flux') : fluxSnapshot())
+        return json(route, withEdit(options.realistic ? realSnapshot('flux') : fluxSnapshot()))
       case '/api/v1/admin/collectors':
         return json(route, {
           collectors: [
@@ -197,6 +204,16 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
           droppedSnapshots: 0,
           queuedSnapshots: 0,
         })
+      case '/api/v1/overrides':
+        if (method === 'PUT') {
+          if (!editable) return json(route, { error: { code: 'forbidden', message: 'no' } }, 403)
+          const body = route.request().postDataJSON() as { resource: string; key: string; value: string | null }
+          const i = overrides.findIndex((o) => o.resource === body.resource && o.key === body.key)
+          if (i >= 0) overrides.splice(i, 1)
+          if (body.value) overrides.push({ resource: body.resource, key: body.key, value: body.value })
+          return route.fulfill({ status: 204 })
+        }
+        return json(route, overrides)
       case '/api/v1/sessions':
         return json(route, sessionsBody())
       case '/api/v1/history':

@@ -296,6 +296,34 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void overridesNeedEditRightsAndAreValidated() throws Exception {
+        collect();
+        var alex = new Browser().loginAs(ALEX);
+        String body = "{\"resource\":\"flux/network/1\",\"key\":\"zone\",\"value\":\"Power plant\"}";
+        // The fake Flux policy grants viewing only; players cannot edit.
+        assertEquals(403, alex.send("PUT", "/api/v1/overrides", body, Map.of("Content-Type", "application/json")).statusCode());
+        var snapshot = json(alex.get("/api/v1/providers/flux/snapshot"));
+        assertFalse(snapshot.getAsJsonArray("resources").get(0).getAsJsonObject().get("canEdit").getAsBoolean());
+
+        operators.add(ALEX.uuid());
+        assertEquals(204, alex.send("PUT", "/api/v1/overrides", body, Map.of("Content-Type", "application/json")).statusCode());
+        var list = JsonParser.parseString(alex.get("/api/v1/overrides?provider=flux").body()).getAsJsonArray();
+        assertEquals(1, list.size());
+        assertEquals("Power plant", list.get(0).getAsJsonObject().get("value").getAsString());
+        assertTrue(json(alex.get("/api/v1/providers/flux/snapshot")).getAsJsonArray("resources").get(0).getAsJsonObject()
+                .get("canEdit").getAsBoolean());
+
+        String reset = "{\"resource\":\"flux/network/1\",\"key\":\"zone\",\"value\":null}";
+        assertEquals(204, alex.send("PUT", "/api/v1/overrides", reset, Map.of("Content-Type", "application/json")).statusCode());
+        assertEquals(0, JsonParser.parseString(alex.get("/api/v1/overrides?provider=flux").body()).getAsJsonArray().size());
+
+        String badKey = "{\"resource\":\"flux/network/1\",\"key\":\"owner\",\"value\":\"x\"}";
+        assertEquals(400, alex.send("PUT", "/api/v1/overrides", badKey, Map.of("Content-Type", "application/json")).statusCode());
+        String tooLong = "{\"resource\":\"flux/network/1\",\"key\":\"zone\",\"value\":\"" + "x".repeat(49) + "\"}";
+        assertEquals(400, alex.send("PUT", "/api/v1/overrides", tooLong, Map.of("Content-Type", "application/json")).statusCode());
+    }
+
+    @Test
     void streamPushesFilteredSnapshots() throws Exception {
         var alex = new Browser().loginAs(ALEX);
         var request = HttpRequest.newBuilder(URI.create(base + "/api/v1/stream"))

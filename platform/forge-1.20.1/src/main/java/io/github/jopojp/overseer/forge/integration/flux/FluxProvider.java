@@ -36,6 +36,16 @@ public final class FluxProvider implements DataProvider {
 
     @Override
     public AccessPolicy access() {
-        return (player, resource) -> access.canView(player, resource);
+        return new AccessPolicy() {
+            @Override
+            public boolean canView(java.util.UUID player, io.github.jopojp.overseer.core.provider.ResourceRef resource) {
+                return access.canView(player, resource);
+            }
+
+            @Override
+            public boolean canEdit(java.util.UUID player, io.github.jopojp.overseer.core.provider.ResourceRef resource) {
+                return access.canEdit(player, resource);
+            }
+        };
     }
 }

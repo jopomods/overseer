@@ -91,7 +91,8 @@ public final class SseHub implements AutoCloseable {
             return;
         }
         var filtered = access.filter(principal.get(), snapshot);
-        String json = Json.GSON.toJson(Dtos.snapshot(filtered));
+        Principal viewer = principal.get();
+        String json = Json.GSON.toJson(Dtos.snapshot(filtered, ref -> access.canEdit(viewer, ref)));
         write(client, "event: snapshot\ndata: " + json + "\n\n");
     }
 
