@@ -1,4 +1,4 @@
-# 0003. HTTP server on Netty with relocated codec-http
+# 0003. HTTP server on Netty with embedded codec-http
 
 - Status: Accepted
 - Date: 2026-11-17
@@ -17,16 +17,25 @@ but **not** `netty-codec-http`. Forge 47 adds none.
 ## Decision
 
 - Build the HTTP server on Minecraft's Netty 4.1.82 (event loop, channels, buffers).
-- Bundle `netty-codec-http` 4.1.82.Final (same version as the shipped core) and
-  **relocate** it into `io.github.jopojp.overseer.shadow.netty...` with the Shadow
-  plugin, then reobfuscate the shadow jar. This keeps it invisible to other mods and
-  avoids Forge JarJar version resolution.
+- Bundle `netty-codec-http` 4.1.82.Final (same version as the shipped core) with
+  **Forge Jar-in-Jar**, declared with the range `[4.1.82.Final,4.2)`. If several mods
+  embed it, FML loads one copy that satisfies all ranges; staying on the 4.1 line keeps
+  it compatible with Minecraft's Netty core.
 - `core` declares Netty as `compileOnly` at exactly that version; the standalone
   simulator includes it at runtime.
 - Write only a small router on top of Netty's HTTP codec (`HttpServerCodec`,
   `HttpObjectAggregator`, chunked writes for SSE). No full framework.
 - REST for queries, Server-Sent Events for live updates (one-way, proxy-friendly,
   auto-reconnect in browsers).
+
+## Revision (M1a, 2026-11-17)
+
+The original decision was to shade and relocate codec-http with the Shadow plugin.
+Combining Shadow, ModDevGradle reobfuscation and Jar-in-Jar (needed anyway for
+sqlite-jdbc, whose native libraries cannot be relocated) proved needlessly complex.
+Jar-in-Jar with a version range gives the same safety: FML deduplicates embedded
+libraries across mods, and the codec-http package does not overlap with the Netty jars
+Minecraft ships. Verified on a Forge 1.20.1 dev server.
 
 ## Consequences
 
@@ -39,6 +48,7 @@ but **not** `netty-codec-http`. Forge 47 adds none.
 ## Alternatives considered
 
 - **Javalin/Jetty shaded**: comfortable API, large jar, more relocation work.
+- **Relocating codec-http with Shadow**: see Revision above.
 - **JDK `com.sun.net.httpserver`**: no dependency, but no proper SSE/async story and
   limited performance.
 - **WebSocket instead of SSE**: bidirectional is not needed for a read-only dashboard;

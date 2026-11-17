@@ -15,24 +15,27 @@ scope are in the [ADRs](adr/README.md).
 - [x] Docs: AGENTS.md, architecture, glossary, ADRs 0001-0013
 - [x] CI (build, tests, lint, layout tests, PR title lint) and release-please
 
-## M1a: Base → v0.1.0
+## M1a: Base → v0.2.0
 
-Delivered as several small PRs: pipeline + storage, HTTP + auth + permissions, simulator + UI shell, Flux + server providers.
+0.1.0 was released early from the core-only state (pipeline, storage, HTTP, auth); the
+complete M1a ships as 0.2.0. Delivered as several small PRs: pipeline + storage, HTTP + auth + permissions, simulator + UI shell, Flux + server providers.
 
 - [x] Snapshot pipeline: tick collector with budgets, bounded queue, latest-state cache (core)
 - [x] SQLite: WAL, single writer, migrations, uptime sessions, events and metrics with deadband and heartbeat
-- [x] Netty HTTP: router, REST, SSE, static UI, size limits, health endpoint (core; relocation/bundling with the Forge wiring)
+- [x] Netty HTTP: router, REST, SSE, static UI, size limits, health endpoint (embedded via Jar-in-Jar)
 - [x] Auth: link codes, sessions (sliding, HttpOnly cookie), device tokens, console recovery,
-  "log out everywhere", rate limiting, hashed secrets (core; `/ov` commands with the Forge wiring)
+  "log out everywhere", rate limiting, hashed secrets (`/ov` commands, console and RCON)
 - [x] Permissions: global roles, provider policies, default deny, tests, re-check on SSE push
 - [ ] Simulator providers with edge cases; record/replay with versioned files
-- [ ] Server page: TPS/MSPT (spark if present), players, admin details, collector cost,
-  data freshness
+- [x] Server provider: TPS/MSPT, players, dimensions (chunks, entities, MSPT), JVM memory
+- [ ] spark as optional TPS/MSPT source
+- [ ] Server page UI: players, admin details, collector cost, data freshness
 - [ ] Flux live: network cards, network detail with current values, device table, members
 - [ ] Units: FE/RF or EU per player (server-wide factor, default 4 FE = 1 EU), SI prefixes
 - [ ] i18n (de, en), app shell (sidebar on desktop, bottom bar on phone), PWA without
   caching private API responses
-- [ ] Reverse proxy guide (Caddy, nginx)
+- [x] Reverse proxy guide (Caddy, nginx) and server admin guide
+- [x] Forge wiring: lifecycle, tick, `overseer-server.toml`, operator check
 - [ ] Forge GameTest run in CI with Flux Networks
 
 ## M1b: Flux in depth

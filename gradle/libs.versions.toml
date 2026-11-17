@@ -7,8 +7,8 @@ parchment = "2023.09.03"
 moddevgradle = "2.0.148"
 
 # Netty core (buffer/codec/transport) ships with Minecraft 1.20.1 at this version.
-# netty-codec-http does NOT ship with it: we bundle it at the same version,
-# relocated into our package (see ADR-0003).
+# netty-codec-http does NOT ship with it: we embed it at the same version
+# via Forge Jar-in-Jar (see ADR-0003).
 netty = "4.1.82.Final"
 
 # Minecraft 1.20.1 ships slf4j-api 2.0.1; core logs through it (compileOnly).

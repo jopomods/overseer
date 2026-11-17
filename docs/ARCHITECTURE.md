@@ -19,17 +19,20 @@ overseer/
 │   ├── OverseerRuntime      wires everything; platforms call start(), tick(), close()
 │   └── (M1a) sim/           simulator providers, record/replay
 ├── platform/forge-1.20.1/   Forge mod. The only code that touches Minecraft.
-│   ├── OverseerForge        entry point, server-only display test
-│   ├── (M1a) collect/       tick hook, schedules providers, enforces budgets
-│   ├── (M1a) command/       /ov commands (also from the server console)
-│   └── (M1a) integration/   one package per mod: server, flux, (M2) ae2, ftbteams, spark
+│   ├── OverseerForge        entry point, server-only display test, config registration
+│   ├── ServerLifecycle      starts OverseerRuntime on server start, ticks it, closes on stop
+│   ├── OverseerConfig       overseer-server.toml (bind, port, proxies, public URL)
+│   ├── ForgeOperatorCheck   op lookup on the server thread, cached for HTTP threads
+│   ├── command/             /ov commands (also console and RCON)
+│   └── integration/         Integrations (provider list) + one package per mod: server, (M1a) flux, (M2) ae2
 ├── web/                     Vite + React + shadcn/ui, built into the jar at /overseer-web
 └── api/openapi.yaml         HTTP contract; the TS client is generated from it
 ```
 
 `(M1a)` marks packages that do not exist yet.
 
-The mod jar contains the platform classes, the core classes and the built web UI. Adding
+The mod jar contains the platform classes, the core classes and the built web UI, plus
+`sqlite-jdbc` and `netty-codec-http` embedded via Forge Jar-in-Jar. Adding
 a Minecraft version or loader means adding another `platform/<loader>-<version>/`
 module; `core` and `web` do not change ([ADR-0002](adr/0002-module-structure.md)).
 
