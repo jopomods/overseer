@@ -60,6 +60,13 @@ discharging storages → network → point zones and charging storages. Storages
 sign as plugs and points (positive = adding energy to the network = discharging); this is an
 assumption until verified with real storage data.
 
+## Zones over time
+
+A mirrored stacked area chart shows generation (plugs, up) and consumption (points, down)
+per zone over time. It sums the `transfer` history of every device by its **current** zone
+in one request (`/api/v1/history` accepts up to 250 resources). The six largest zones get
+their own color; the rest is grouped as "other".
+
 ## Zones
 
 The zone of a device is, in order: the zone set in Overseer (`PUT /api/v1/overrides`,

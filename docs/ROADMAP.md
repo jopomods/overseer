@@ -51,7 +51,7 @@ complete M1a ships as 0.2.0. Delivered as several small PRs: pipeline + storage,
 - [x] Zones from `Zone: Name` with UI overrides (Flux owners/admins), `canEdit` permission
 - [x] Energy flow: Sankey (zones → network → zones, storages by direction) with Recharts,
   compact bar list on phones; tested with the real recording
-- Mirrored stacked area chart per zone
+- [x] Mirrored stacked area chart per zone (generation up, consumption down, six largest zones + other)
 - [x] Forecast: "empty in ..." from the last hour ("full in" needs storage capacity)
 - [x] Admin storage page: sizes, retention per resolution (including unlimited), size
   warning, purge, VACUUM, backup download
