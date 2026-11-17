@@ -1,0 +1,23 @@
+[versions]
+# Minecraft / Forge (platform/forge-1.20.1)
+minecraft = "1.20.1"
+forge = "1.20.1-47.4.20"
+parchment-minecraft = "1.20.1"
+parchment = "2023.09.03"
+moddevgradle = "2.0.148"
+
+# Netty core (buffer/codec/transport) ships with Minecraft 1.20.1 at this version.
+# netty-codec-http does NOT ship with it: we bundle it at the same version,
+# relocated into our package (see ADR-0003).
+netty = "4.1.82.Final"
+
+junit = "5.11.4"
+
+[libraries]
+netty-codec-http = { module = "io.netty:netty-codec-http", version.ref = "netty" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+[plugins]
+moddevgradle-legacy = { id = "net.neoforged.moddev.legacyforge", version.ref = "moddevgradle" }
