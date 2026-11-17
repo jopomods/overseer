@@ -62,7 +62,9 @@ Implementation notes (M1a):
 - No passwords to store or reset.
 - Logging in requires being on the server (or console access), which is also the proof
   of account ownership.
-- Write actions (backlog) will additionally need CSRF tokens.
+- Writes (zone overrides since M1b) rely on the `SameSite=Strict` session cookie plus the
+  `Origin` check on every non-GET request; no separate CSRF token. Revisit before adding
+  control actions that affect the game.
 
 ## Alternatives considered
 

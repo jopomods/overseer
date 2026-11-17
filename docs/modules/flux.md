@@ -55,9 +55,17 @@ Changes apply within one collection interval (1 s).
 
 ## Zones
 
-The zone of a device is the part of its name before the first `:` (`Power plant: Diesel 1`
-→ `Power plant`), computed in the UI (`web/src/lib/flux.ts`). Zone overrides stored by
-Overseer and zone history come with M1b.
+The zone of a device is, in order: the zone set in Overseer (`PUT /api/v1/overrides`,
+key `zone`), else the part of its name before the first `:` (`Power plant: Diesel 1` →
+`Power plant`), else none. Overrides are keyed by the device position, so they survive
+renames. Network owners and admins (Flux access levels) and dashboard admins may edit;
+the UI shows a pencil per device for them and marks overridden zones with `*`.
+
+## Forecast
+
+The network page shows "empty in ~X" for stored energy, from a least-squares slope over
+the last hour of history (`web/src/lib/forecast.ts`); changes below 1 %/h count as stable.
+"Full in" needs the storage capacity, which Flux does not expose yet.
 
 ## Tests
 
