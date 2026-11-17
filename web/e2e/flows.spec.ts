@@ -121,6 +121,17 @@ test.describe('flows', () => {
     await expect(sankey).toContainText('Temp')
   })
 
+  test('zone chart stacks generation up and consumption down', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/energy/0')
+    const chart = page.getByTestId('zone-chart')
+    // Some areas are empty (a zone with only points generates nothing); some must be drawn.
+    await expect(chart.locator('.recharts-area-area').first()).toBeAttached()
+    expect(await chart.locator('.recharts-area-area').count()).toBeGreaterThan(2)
+    await expect(chart).toContainText('Power plant')
+    await expect(chart).toContainText('Factory')
+  })
+
   test('storage page: admins only, size warning, purge needs confirmation', async ({ page }) => {
     await mockApi(page)
     await page.goto('/admin/storage')
