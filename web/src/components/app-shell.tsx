@@ -1,6 +1,6 @@
 import { Link, Navigate, Outlet, useRouterState } from '@tanstack/react-router'
-import { LayoutDashboard, LogOut, Server, UserRound, type LucideIcon } from 'lucide-react'
-import { ApiError, useLogout, useMe, type Me } from '@/api/hooks'
+import { LayoutDashboard, LogOut, Server, UserRound, Zap, type LucideIcon } from 'lucide-react'
+import { ApiError, useLogout, useMe, useProviders, type Me } from '@/api/hooks'
 import { useLiveUpdates } from '@/api/live'
 import { SessionContext } from '@/components/session'
 import { Button } from '@/components/ui/button'
@@ -17,13 +17,16 @@ import { useT, type MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
-  to: '/' | '/server' | '/account'
+  to: '/' | '/server' | '/energy' | '/account'
+  /** Shown only when this provider is active on the server. */
+  provider?: string
   label: MessageKey
   icon: LucideIcon
 }
 
 const NAV: NavItem[] = [
   { to: '/', label: 'nav.overview', icon: LayoutDashboard },
+  { to: '/energy', label: 'nav.energy', icon: Zap, provider: 'flux' },
   { to: '/server', label: 'nav.server', icon: Server },
   { to: '/account', label: 'nav.account', icon: UserRound },
 ]
@@ -55,6 +58,12 @@ export function AppShell() {
   )
 }
 
+/** Navigation entries, without modules the server does not have. */
+function useNav(): NavItem[] {
+  const providers = useProviders().data
+  return NAV.filter((item) => !item.provider || providers?.some((p) => p.id === item.provider))
+}
+
 function useActive() {
   const path = useRouterState({ select: (s) => s.location.pathname })
   return (to: string) => (to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`))
@@ -71,6 +80,7 @@ function Logo() {
 
 function Sidebar({ me }: { me: Me }) {
   const t = useT()
+  const nav = useNav()
   const isActive = useActive()
   return (
     <aside className="bg-sidebar border-sidebar-border sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r p-3 md:flex">
@@ -78,7 +88,7 @@ function Sidebar({ me }: { me: Me }) {
         <Logo />
       </div>
       <nav className="mt-4 flex flex-col gap-1">
-        {NAV.map((item) => (
+        {nav.map((item) => (
           <Link
             key={item.to}
             to={item.to}
@@ -110,13 +120,14 @@ function TopBar({ me }: { me: Me }) {
 
 function BottomNav() {
   const t = useT()
+  const nav = useNav()
   const isActive = useActive()
   return (
     <nav
       className="bg-background/95 border-border fixed inset-x-0 bottom-0 z-20 grid border-t backdrop-blur md:hidden"
-      style={{ gridTemplateColumns: `repeat(${NAV.length}, minmax(0, 1fr))`, paddingBottom: 'env(safe-area-inset-bottom)' }}
+      style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))`, paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      {NAV.map((item) => (
+      {nav.map((item) => (
         <Link
           key={item.to}
           to={item.to}

@@ -35,7 +35,7 @@ export function OverviewPage() {
   )
 }
 
-function Tile({ icon, title, to, children }: { icon: ReactNode; title: string; to?: '/server'; children: ReactNode }) {
+function Tile({ icon, title, to, children }: { icon: ReactNode; title: string; to?: '/server' | '/energy'; children: ReactNode }) {
   const card = (
     <Card className="h-full min-w-0 gap-3 transition-colors hover:border-primary/40">
       <CardHeader className="flex min-w-0 flex-row items-center gap-2">
@@ -98,7 +98,7 @@ function FluxTile({ poll }: { poll: number | false }) {
   const input = networks.reduce((sum, n) => sum + (metric(n, 'energy_input') ?? 0), 0)
   const output = networks.reduce((sum, n) => sum + (metric(n, 'energy_output') ?? 0), 0)
   return (
-    <Tile icon={<Zap className="size-4" />} title={t('overview.energy')}>
+    <Tile icon={<Zap className="size-4" />} title={t('overview.energy')} to="/energy">
       {networks.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t('overview.noNetworks')}</p>
       ) : (
