@@ -271,6 +271,82 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/history:
+    get:
+      tags: [data]
+      operationId: getHistory
+      summary: History of one resource for charts
+      description: |
+        Time range in **server uptime** (ADR-0005). The server picks the resolution (raw,
+        minute or hour rollups) from the requested number of points and aggregates
+        time-weighted into equal buckets. Each point also carries the calendar time of its
+        bucket, so clients can plot either axis. Not visible or unknown resources → 404.
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          description: Resource key `provider/type/id`, e.g. `flux/network/1`.
+          schema:
+            type: string
+        - name: metric
+          in: query
+          required: true
+          description: One or more metrics (repeat the parameter), at most 10.
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: from
+          in: query
+          description: Start, server uptime in ms. Default `to` minus 24 h.
+          schema:
+            type: integer
+            format: int64
+        - name: to
+          in: query
+          description: End, server uptime in ms. Default now.
+          schema:
+            type: integer
+            format: int64
+        - name: points
+          in: query
+          description: Maximum number of points per series (10-1000, default 240).
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Aggregated series.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/History"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/sessions:
+    get:
+      tags: [data]
+      operationId: getSessions
+      summary: Server uptime sessions
+      description: |
+        One entry per server run. Gaps between sessions are offline periods; charts on the
+        server-uptime axis mark them, charts on the calendar axis show them as gaps.
+      responses:
+        "200":
+          description: Sessions and the current uptime.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sessions"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/admin/collectors:
     get:
       tags: [admin]
@@ -555,6 +631,96 @@ components:
           type: boolean
         lastError:
           type: string
+
+    HistoryPoint:
+      type: object
+      required: [t, wall, session, min, max, avg, last]
+      properties:
+        t:
+          type: integer
+          format: int64
+          description: Bucket start, server uptime in ms.
+        wall:
+          type: string
+          format: date-time
+          description: Calendar time at the bucket start.
+        session:
+          type: integer
+        min:
+          type: number
+        max:
+          type: number
+        avg:
+          type: number
+          description: Time-weighted average over the bucket.
+        last:
+          type: number
+
+    HistorySeries:
+      type: object
+      required: [metric, points]
+      properties:
+        metric:
+          type: string
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryPoint"
+
+    History:
+      type: object
+      required: [resource, resolution, from, to, bucketMillis, series]
+      properties:
+        resource:
+          type: string
+        resolution:
+          type: string
+          enum: [raw, minute, hour]
+        from:
+          type: integer
+          format: int64
+        to:
+          type: integer
+          format: int64
+        bucketMillis:
+          type: integer
+          format: int64
+        series:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistorySeries"
+
+    Session:
+      type: object
+      required: [session, startedAt, startedUptime, lastAt, lastUptime]
+      properties:
+        session:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+        startedUptime:
+          type: integer
+          format: int64
+        lastAt:
+          type: string
+          format: date-time
+        lastUptime:
+          type: integer
+          format: int64
+
+    Sessions:
+      type: object
+      required: [uptimeMillis, sessions]
+      properties:
+        uptimeMillis:
+          type: integer
+          format: int64
+          description: Current server uptime.
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Session"
 
     Collectors:
       type: object

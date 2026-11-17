@@ -267,6 +267,35 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void historyIsFilteredByPermissionAndValidated() throws Exception {
+        var alex = new Browser().loginAs(ALEX);
+        String own = "/api/v1/history?resource=flux/network/1&metric=power&from=0&to=600000&points=60";
+        // The storage writer runs asynchronously; wait until the samples are persisted.
+        JsonObject history = null;
+        for (int i = 0; i < 50; i++) {
+            collect();
+            history = json(alex.get(own));
+            if (!history.getAsJsonArray("series").get(0).getAsJsonObject().getAsJsonArray("points").isEmpty()) break;
+            Thread.sleep(100);
+        }
+        assertEquals("raw", history.get("resolution").getAsString());
+        var point = history.getAsJsonArray("series").get(0).getAsJsonObject().getAsJsonArray("points").get(0)
+                .getAsJsonObject();
+        assertEquals(100, point.get("avg").getAsInt());
+        assertNotNull(point.get("wall"));
+
+        assertEquals(404, alex.get("/api/v1/history?resource=flux/network/2&metric=power").statusCode(),
+                "the other player's network");
+        assertEquals(400, alex.get("/api/v1/history?resource=nonsense&metric=power").statusCode());
+        assertEquals(400, alex.get("/api/v1/history?resource=flux/network/1").statusCode(), "metric missing");
+        assertEquals(400, alex.get("/api/v1/history?resource=flux/network/1&metric=power&points=5").statusCode());
+        assertEquals(401, new Browser().get(own).statusCode());
+
+        var sessions = json(alex.get("/api/v1/sessions"));
+        assertEquals(1, sessions.getAsJsonArray("sessions").size());
+    }
+
+    @Test
     void streamPushesFilteredSnapshots() throws Exception {
         var alex = new Browser().loginAs(ALEX);
         var request = HttpRequest.newBuilder(URI.create(base + "/api/v1/stream"))

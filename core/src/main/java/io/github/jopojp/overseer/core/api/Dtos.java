@@ -7,6 +7,8 @@ import io.github.jopojp.overseer.core.provider.ProviderDescriptor;
 import io.github.jopojp.overseer.core.provider.ProviderSnapshot;
 import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.provider.Sample;
+import io.github.jopojp.overseer.core.storage.HistoryQuery;
+import io.github.jopojp.overseer.core.storage.Sessions;
 import io.github.jopojp.overseer.core.time.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -62,6 +64,31 @@ public final class Dtos {
             String lastError) {}
 
     public record Collectors(List<Collector> collectors, long droppedSnapshots, int queuedSnapshots) {}
+
+    public record HistoryPoint(long t, Instant wall, int session, double min, double max, double avg, double last) {}
+
+    public record HistorySeries(String metric, List<HistoryPoint> points) {}
+
+    public record History(String resource, String resolution, long from, long to, long bucketMillis,
+            List<HistorySeries> series) {}
+
+    public record SessionDto(int session, Instant startedAt, long startedUptime, Instant lastAt, long lastUptime) {}
+
+    public record SessionsDto(long uptimeMillis, List<SessionDto> sessions) {}
+
+    public static History history(ResourceRef ref, HistoryQuery.History h) {
+        return new History(ref.key(), h.resolution().name().toLowerCase(Locale.ROOT), h.from(), h.to(), h.bucketMillis(),
+                h.series().stream().map(s -> new HistorySeries(s.metric(), s.points().stream()
+                        .map(p -> new HistoryPoint(p.uptime(), Instant.ofEpochMilli(p.wall()), p.session(), p.min(), p.max(),
+                                p.avg(), p.last()))
+                        .toList())).toList());
+    }
+
+    public static SessionsDto sessions(long uptime, List<Sessions.Session> sessions) {
+        return new SessionsDto(uptime, sessions.stream().map(s -> new SessionDto(s.number(),
+                Instant.ofEpochMilli(s.startedWall()), s.startedUptime(), Instant.ofEpochMilli(s.lastWall()), s.lastUptime()))
+                .toList());
+    }
 
     public static Me me(Principal principal) {
         return new Me(principal.player().uuid().toString(), principal.player().name(), principal.role().json(),

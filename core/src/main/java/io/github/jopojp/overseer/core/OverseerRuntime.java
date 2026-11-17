@@ -116,7 +116,8 @@ public final class OverseerRuntime implements AutoCloseable {
         var sse = new SseHub(access, auth, latest);
         resources.push(sse);
 
-        var router = new ApiRoutes(config.version(), auth, access, latest, queue, descriptors, scheduler::status, wall)
+        var router = new ApiRoutes(config.version(), auth, access, latest, queue, descriptors, scheduler::status, wall,
+                db, clock::uptimeMillis)
                 .register(new Router());
         http = new HttpServer(config.http(), router,
                 new StaticFiles(config.webRoot(), OverseerRuntime.class.getClassLoader()), sse);

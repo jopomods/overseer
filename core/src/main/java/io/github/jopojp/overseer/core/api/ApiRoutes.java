@@ -16,6 +16,11 @@ import io.github.jopojp.overseer.core.pipeline.LatestState;
 import io.github.jopojp.overseer.core.pipeline.SnapshotQueue;
 import io.github.jopojp.overseer.core.provider.ProviderDescriptor;
 import io.github.jopojp.overseer.core.provider.ProviderSnapshot;
+import io.github.jopojp.overseer.core.provider.ResourceRef;
+import io.github.jopojp.overseer.core.storage.Database;
+import io.github.jopojp.overseer.core.storage.HistoryQuery;
+import io.github.jopojp.overseer.core.storage.Sessions;
+import java.util.function.LongSupplier;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
@@ -40,6 +45,8 @@ public final class ApiRoutes {
     private final List<ProviderDescriptor> providers;
     private final Supplier<List<CollectorStatus>> collectors;
     private final Clock clock;
+    private final Database db;
+    private final LongSupplier uptime;
 
     private final RateLimiter linkCreate = RateLimiter.perMinute(10);
     private final RateLimiter linkPoll = RateLimiter.perMinute(90);
@@ -53,7 +60,9 @@ public final class ApiRoutes {
             SnapshotQueue queue,
             List<ProviderDescriptor> providers,
             Supplier<List<CollectorStatus>> collectors,
-            Clock clock) {
+            Clock clock,
+            Database db,
+            LongSupplier uptime) {
         this.version = version;
         this.auth = auth;
         this.access = access;
@@ -62,6 +71,8 @@ public final class ApiRoutes {
         this.providers = List.copyOf(providers);
         this.collectors = collectors;
         this.clock = clock;
+        this.db = db;
+        this.uptime = uptime;
     }
 
     public Router register(Router router) {
@@ -79,6 +90,8 @@ public final class ApiRoutes {
                 .get("/api/v1/providers", this::listProviders)
                 .get("/api/v1/providers/{provider}/snapshot", this::snapshot)
                 .get("/api/v1/stream", r -> Response.sse(principal(r)))
+                .get("/api/v1/history", this::history)
+                .get("/api/v1/sessions", this::sessions)
                 .get("/api/v1/admin/collectors", this::collectors);
     }
 
@@ -186,6 +199,54 @@ public final class ApiRoutes {
         String id = r.pathParam("provider");
         ProviderSnapshot snapshot = latest.get(id).orElseThrow(HttpError::notFound);
         return Response.json(Dtos.snapshot(access.filter(p, snapshot)));
+    }
+
+    static final int MAX_METRICS = 10;
+    static final long DEFAULT_RANGE = 24 * 3_600_000L;
+
+    private Response history(Request r) throws SQLException {
+        Principal p = principal(r);
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        List<String> metrics = r.query().getOrDefault("metric", List.of());
+        if (metrics.isEmpty() || metrics.size() > MAX_METRICS) {
+            throw HttpError.badRequest("Give 1 to " + MAX_METRICS + " metric parameters.");
+        }
+        long to = longParam(r, "to", uptime.getAsLong());
+        long from = longParam(r, "from", to - DEFAULT_RANGE);
+        int points = (int) longParam(r, "points", 240);
+        if (to <= from) throw HttpError.badRequest("to must be after from.");
+        if (points < 10 || points > 1000) throw HttpError.badRequest("points must be 10 to 1000.");
+        try (var reader = db.openReader()) {
+            return Response.json(Dtos.history(ref, HistoryQuery.query(reader, ref, metrics, Math.max(0, from), to, points)));
+        }
+    }
+
+    private Response sessions(Request r) throws SQLException {
+        principal(r);
+        try (var reader = db.openReader()) {
+            return Response.json(Dtos.sessions(uptime.getAsLong(), Sessions.list(reader)));
+        }
+    }
+
+    private static ResourceRef parseRef(String key) {
+        String[] parts = key.split("/", 3);
+        try {
+            if (parts.length == 3) return new ResourceRef(parts[0], parts[1], parts[2]);
+        } catch (IllegalArgumentException e) {
+            // fall through
+        }
+        throw HttpError.badRequest("resource must look like provider/type/id.");
+    }
+
+    private static long longParam(Request r, String name, long fallback) {
+        var value = r.queryParam(name);
+        if (value.isEmpty()) return fallback;
+        try {
+            return Long.parseLong(value.get());
+        } catch (NumberFormatException e) {
+            throw HttpError.badRequest(name + " must be a number.");
+        }
     }
 
     // --- admin ---------------------------------------------------------------------------
