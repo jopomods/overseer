@@ -9,9 +9,9 @@ is in the [ADRs](adr/README.md); this page is the map.
 overseer/
 ├── core/                    Plain Java 17. No Minecraft.
 │   ├── provider/            DataProvider contract, snapshots, metrics, access policy
-│   ├── time/                Timestamp (wall clock + server uptime)
-│   ├── (M1a) pipeline/      bounded snapshot queue, collector cost tracking
-│   ├── (M1a) storage/       SQLite: schema migrations, single writer, rollups, retention
+│   ├── time/                Timestamp, UptimeClock (wall clock + server uptime)
+│   ├── pipeline/            collector scheduler (budgets, throttling), bounded queue, latest state
+│   ├── storage/             SQLite: migrations, sessions, single writer, deadband/heartbeat (rollups: M1b)
 │   ├── (M1a) http/          Netty server, router, REST, SSE, static files
 │   ├── (M1a) auth/          link codes, sessions, device tokens
 │   ├── (M1a) access/        global roles + provider policies, default deny

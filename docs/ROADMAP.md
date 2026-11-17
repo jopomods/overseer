@@ -17,21 +17,23 @@ scope are in the [ADRs](adr/README.md).
 
 ## M1a: Base → v0.1.0
 
-- Snapshot pipeline: tick collector with budgets, bounded queue, latest-state cache
-- SQLite: WAL, single writer, migrations, events and metrics with deadband and heartbeat
-- Netty HTTP: router, REST, SSE, static UI, size limits, health endpoint
-- Auth: link codes, sessions (sliding, HttpOnly cookie), device tokens, console recovery,
+Delivered as several small PRs: pipeline + storage, HTTP + auth + permissions, simulator + UI shell, Flux + server providers.
+
+- [x] Snapshot pipeline: tick collector with budgets, bounded queue, latest-state cache (core)
+- [x] SQLite: WAL, single writer, migrations, uptime sessions, events and metrics with deadband and heartbeat
+- [ ] Netty HTTP: router, REST, SSE, static UI, size limits, health endpoint
+- [ ] Auth: link codes, sessions (sliding, HttpOnly cookie), device tokens, console recovery,
   "log out everywhere", rate limiting, hashed secrets
-- Permissions: global roles, provider policies, default deny, tests, re-check on SSE push
-- Simulator providers with edge cases; record/replay with versioned files
-- Server page: TPS/MSPT (spark if present), players, admin details, collector cost,
+- [ ] Permissions: global roles, provider policies, default deny, tests, re-check on SSE push
+- [ ] Simulator providers with edge cases; record/replay with versioned files
+- [ ] Server page: TPS/MSPT (spark if present), players, admin details, collector cost,
   data freshness
-- Flux live: network cards, network detail with current values, device table, members
-- Units: FE/RF or EU per player (server-wide factor, default 4 FE = 1 EU), SI prefixes
-- i18n (de, en), app shell (sidebar on desktop, bottom bar on phone), PWA without
+- [ ] Flux live: network cards, network detail with current values, device table, members
+- [ ] Units: FE/RF or EU per player (server-wide factor, default 4 FE = 1 EU), SI prefixes
+- [ ] i18n (de, en), app shell (sidebar on desktop, bottom bar on phone), PWA without
   caching private API responses
-- Reverse proxy guide (Caddy, nginx)
-- Forge GameTest run in CI with Flux Networks
+- [ ] Reverse proxy guide (Caddy, nginx)
+- [ ] Forge GameTest run in CI with Flux Networks
 
 ## M1b: Flux in depth
 
