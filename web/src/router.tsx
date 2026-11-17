@@ -24,7 +24,13 @@ const networkRoute = createRoute({
   component: lazyRouteComponent(() => import('@/pages/network'), 'NetworkPage'),
 })
 
-const routeTree = rootRoute.addChildren([loginRoute, appRoute.addChildren([overviewRoute, serverRoute, energyRoute, networkRoute, accountRoute])])
+const storageRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/admin/storage',
+  component: lazyRouteComponent(() => import('@/pages/storage'), 'StoragePage'),
+})
+
+const routeTree = rootRoute.addChildren([loginRoute, appRoute.addChildren([overviewRoute, serverRoute, energyRoute, networkRoute, storageRoute, accountRoute])])
 
 export const router = createRouter({ routeTree, defaultPreload: 'intent' })
 
