@@ -44,6 +44,11 @@ Implementation notes (M1a):
 - Texts live in `src/lib/i18n.ts` with typed keys; a missing translation fails the build.
 - No external resources at runtime (fonts are bundled; no player-skin services, which would
   leak UUIDs to third parties and violate the CSP). Avatars are initials.
+- Charts (`components/history-chart.tsx`): Recharts via shadcn `chart`, step areas (the data
+  is a step function, ADR-0005). Axis preference per viewer: server uptime with dashed restart
+  markers labelled with the real offline time, or calendar time with shaded offline gaps.
+  Y axis shows number + SI prefix only; units are in the tooltip. Later series are dashed so
+  identical series stay visible.
 - PWA: `public/manifest.webmanifest` + `public/sw.js`. The service worker never touches
   `/api/*` (no private data on the device); hashed `/assets/*` are cache-first, page loads are
   network-first with the cached shell as offline fallback. Registered in production builds only.
