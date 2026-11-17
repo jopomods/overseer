@@ -49,6 +49,8 @@ Implementation notes (M1a):
   markers labelled with the real offline time, or calendar time with shaded offline gaps.
   Y axis shows number + SI prefix only; units are in the tooltip. Later series are dashed so
   identical series stay visible.
+- Energy flow (`components/energy-flow.tsx`): Recharts `Sankey` was sufficient with a custom
+  node renderer; ECharts was not needed. Below 640 px a bar list replaces it.
 - PWA: `public/manifest.webmanifest` + `public/sw.js`. The service worker never touches
   `/api/*` (no private data on the device); hashed `/assets/*` are cache-first, page loads are
   network-first with the cached shell as offline fallback. Registered in production builds only.
