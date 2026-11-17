@@ -18,6 +18,7 @@ permission rules allow. Mods that are not installed are skipped.
 
 - [AGENTS.md](AGENTS.md): build, test and contribution rules
 - [Server admin guide](docs/guides/server-admin.md) and [reverse proxy setup](docs/guides/reverse-proxy.md)
+- [Recordings and the simulator](docs/guides/recordings.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Architecture decisions](docs/adr/README.md)

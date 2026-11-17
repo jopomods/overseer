@@ -35,7 +35,7 @@ super admin).
 | Command | Who | What |
 |---|---|---|
 | `/ov link <code>` | any player | Confirms a dashboard login. The browser shows the code. |
-| `/ov status` | ops | Prints the dashboard address. |
+| `/ov status` | any player | Prints the dashboard address. |
 | `/ov login <player>` | level 4 / console | Prints a one-time login link (10 minutes) for that player. Recovery path if someone cannot use `/ov link`. |
 | `/ov admin add <player>` | ops | Grants dashboard admin: sees everything. |
 | `/ov admin remove <player>` | ops | Revokes dashboard admin. |

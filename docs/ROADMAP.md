@@ -26,7 +26,7 @@ complete M1a ships as 0.2.0. Delivered as several small PRs: pipeline + storage,
 - [x] Auth: link codes, sessions (sliding, HttpOnly cookie), device tokens, console recovery,
   "log out everywhere", rate limiting, hashed secrets (`/ov` commands, console and RCON)
 - [x] Permissions: global roles, provider policies, default deny, tests, re-check on SSE push
-- [ ] Simulator providers with edge cases; record/replay with versioned files
+- [x] Simulator and record/replay with versioned, anonymized recordings (done early in M1b)
 - [x] Server provider: TPS/MSPT, players, dimensions (chunks, entities, MSPT), JVM memory
 - [ ] spark as optional TPS/MSPT source
 - [x] Server page UI: players, admin details, collector cost, data freshness
@@ -41,6 +41,9 @@ complete M1a ships as 0.2.0. Delivered as several small PRs: pipeline + storage,
 - [x] Forge GameTest run in CI with Flux Networks
 
 ## M1b: Flux in depth
+
+- [x] Recordings: format, anonymized export from real databases, replay provider, simulator,
+  committed real-world fixture; `/ov status` for everyone
 
 - History with rollups; charts on server uptime / calendar time with offline markers
 - Zones from `Zone: Name` with UI overrides
