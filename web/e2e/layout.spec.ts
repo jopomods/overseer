@@ -8,6 +8,8 @@ import { mockApi } from './mock-api.ts'
 const ROUTES: Array<{ path: string; ready: (page: Page) => Promise<void> }> = [
   { path: '/', ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { path: '/server', ready: (p) => expect(p.getByTestId('player-list')).toBeVisible() },
+  { path: '/energy', ready: (p) => expect(p.getByTestId('network-list')).toBeVisible() },
+  { path: '/energy/0', ready: (p) => expect(p.getByTestId('device-list')).toBeVisible() },
   { path: '/account', ready: (p) => expect(p.getByTestId('credentials')).toBeVisible() },
   { path: '/login', ready: (p) => expect(p.getByTestId('link-command')).toBeVisible() },
 ]

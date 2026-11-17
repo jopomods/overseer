@@ -35,4 +35,26 @@ test.describe('flows', () => {
     await page.getByRole('button', { name: 'English' }).click()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Account')
   })
+
+  test('flux network: zones, device filter and search', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/')
+    await page.getByRole('link', { name: 'Energy' }).first().click()
+    await expect(page).toHaveURL(/\/energy$/)
+    await page.getByTestId('network-list').getByRole('link').first().click()
+    await expect(page.getByTestId('zones')).toContainText('Power plant')
+    const rows = page.getByTestId('device-list').getByRole('listitem')
+    await expect(rows).toHaveCount(200)
+    await page.getByRole('tab', { name: /Storages/ }).click()
+    await expect(rows).toHaveCount(50)
+    await page.getByPlaceholder('Search devices').fill('Device 2')
+    await expect(rows.first()).toContainText('Device 2')
+    await expect(page.getByTestId('member-list').getByRole('listitem')).toHaveCount(4)
+  })
+
+  test('unknown network shows a not-found message', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/energy/999')
+    await expect(page.getByText('does not exist')).toBeVisible()
+  })
 })
