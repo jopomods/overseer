@@ -41,6 +41,19 @@ public final class AccessService {
         }
     }
 
+    /** Admins may edit everything; otherwise the provider decides. Never more than viewing allows. */
+    public boolean canEdit(Principal principal, ResourceRef resource) {
+        if (principal.deviceToken()) return false;
+        if (principal.isAdmin()) return true;
+        if (!canView(principal, resource)) return false;
+        AccessPolicy policy = policies.get(resource.provider());
+        try {
+            return policy != null && policy.canEdit(principal.player().uuid(), resource);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     /** The snapshot reduced to what the principal may see. */
     public ProviderSnapshot filter(Principal principal, ProviderSnapshot snapshot) {
         if (principal.isAdmin()) return snapshot;

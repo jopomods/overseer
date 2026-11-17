@@ -16,6 +16,7 @@ import io.github.jopojp.overseer.core.pipeline.SnapshotQueue;
 import io.github.jopojp.overseer.core.provider.DataProvider;
 import io.github.jopojp.overseer.core.provider.ProviderDescriptor;
 import io.github.jopojp.overseer.core.storage.Database;
+import io.github.jopojp.overseer.core.storage.OverrideStore;
 import io.github.jopojp.overseer.core.storage.StorageSettings;
 import io.github.jopojp.overseer.core.storage.StorageWriter;
 import io.github.jopojp.overseer.core.time.UptimeClock;
@@ -111,13 +112,15 @@ public final class OverseerRuntime implements AutoCloseable {
         var authStore = new AuthStore(db.openControlWriter(), config.sessionIdleTimeout());
         resources.push(authStore);
         auth = new AuthService(authStore, operators, wall);
+        var overrides = new OverrideStore(db.openControlWriter());
+        resources.push(overrides);
         var access = new AccessService(providers);
 
         var sse = new SseHub(access, auth, latest);
         resources.push(sse);
 
         var router = new ApiRoutes(config.version(), auth, access, latest, queue, descriptors, scheduler::status, wall,
-                db, clock::uptimeMillis)
+                db, clock::uptimeMillis, overrides)
                 .register(new Router());
         http = new HttpServer(config.http(), router,
                 new StaticFiles(config.webRoot(), OverseerRuntime.class.getClassLoader()), sse);

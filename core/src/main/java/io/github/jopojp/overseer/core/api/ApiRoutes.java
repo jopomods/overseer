@@ -19,6 +19,7 @@ import io.github.jopojp.overseer.core.provider.ProviderSnapshot;
 import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.storage.Database;
 import io.github.jopojp.overseer.core.storage.HistoryQuery;
+import io.github.jopojp.overseer.core.storage.OverrideStore;
 import io.github.jopojp.overseer.core.storage.Sessions;
 import java.util.function.LongSupplier;
 import java.sql.SQLException;
@@ -47,6 +48,7 @@ public final class ApiRoutes {
     private final Clock clock;
     private final Database db;
     private final LongSupplier uptime;
+    private final OverrideStore overrides;
 
     private final RateLimiter linkCreate = RateLimiter.perMinute(10);
     private final RateLimiter linkPoll = RateLimiter.perMinute(90);
@@ -62,7 +64,8 @@ public final class ApiRoutes {
             Supplier<List<CollectorStatus>> collectors,
             Clock clock,
             Database db,
-            LongSupplier uptime) {
+            LongSupplier uptime,
+            OverrideStore overrides) {
         this.version = version;
         this.auth = auth;
         this.access = access;
@@ -73,6 +76,7 @@ public final class ApiRoutes {
         this.clock = clock;
         this.db = db;
         this.uptime = uptime;
+        this.overrides = overrides;
     }
 
     public Router register(Router router) {
@@ -92,6 +96,8 @@ public final class ApiRoutes {
                 .get("/api/v1/stream", r -> Response.sse(principal(r)))
                 .get("/api/v1/history", this::history)
                 .get("/api/v1/sessions", this::sessions)
+                .get("/api/v1/overrides", this::listOverrides)
+                .put("/api/v1/overrides", this::setOverride)
                 .get("/api/v1/admin/collectors", this::collectors);
     }
 
@@ -198,7 +204,7 @@ public final class ApiRoutes {
         Principal p = principal(r);
         String id = r.pathParam("provider");
         ProviderSnapshot snapshot = latest.get(id).orElseThrow(HttpError::notFound);
-        return Response.json(Dtos.snapshot(access.filter(p, snapshot)));
+        return Response.json(Dtos.snapshot(access.filter(p, snapshot), ref -> access.canEdit(p, ref)));
     }
 
     static final int MAX_METRICS = 10;
@@ -227,6 +233,34 @@ public final class ApiRoutes {
         try (var reader = db.openReader()) {
             return Response.json(Dtos.sessions(uptime.getAsLong(), Sessions.list(reader)));
         }
+    }
+
+    static final int MAX_OVERRIDE_LENGTH = 48;
+
+    private Response listOverrides(Request r) throws SQLException {
+        Principal p = principal(r);
+        String provider = r.queryParam("provider").orElseThrow(() -> HttpError.badRequest("provider is required."));
+        return Response.json(overrides.list(provider).stream()
+                .filter(o -> access.canView(p, o.resource()))
+                .map(o -> new Dtos.OverrideDto(o.resource().key(), o.key(), o.value()))
+                .toList());
+    }
+
+    private Response setOverride(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        var body = Json.parse(r.bodyText(), Dtos.SetOverride.class);
+        if (body.resource() == null || body.key() == null) throw HttpError.badRequest("resource and key are required.");
+        ResourceRef ref = parseRef(body.resource());
+        if (!OverrideStore.KEYS.contains(body.key())) throw HttpError.badRequest("Unknown key.");
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        if (!access.canEdit(p, ref)) throw HttpError.forbidden("You may not change this.");
+        String value = body.value() == null ? null : body.value().strip();
+        if (value != null && value.isEmpty()) value = null;
+        if (value != null && value.length() > MAX_OVERRIDE_LENGTH) {
+            throw HttpError.badRequest("Value must be at most " + MAX_OVERRIDE_LENGTH + " characters.");
+        }
+        overrides.set(ref, body.key(), value, p.player().uuid().toString(), clock.instant());
+        return Response.noContent();
     }
 
     private static ResourceRef parseRef(String key) {
