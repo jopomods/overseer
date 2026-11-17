@@ -19,3 +19,12 @@ createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </StrictMode>,
 )
+
+// Installable app; caches only the app shell, never API data (public/sw.js).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Not available (e.g. plain HTTP on a non-local address); the app works without it.
+    })
+  })
+}

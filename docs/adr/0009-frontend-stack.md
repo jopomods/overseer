@@ -44,6 +44,9 @@ Implementation notes (M1a):
 - Texts live in `src/lib/i18n.ts` with typed keys; a missing translation fails the build.
 - No external resources at runtime (fonts are bundled; no player-skin services, which would
   leak UUIDs to third parties and violate the CSP). Avatars are initials.
+- PWA: `public/manifest.webmanifest` + `public/sw.js`. The service worker never touches
+  `/api/*` (no private data on the device); hashed `/assets/*` are cache-first, page loads are
+  network-first with the cached shell as offline fallback. Registered in production builds only.
 - Live data: one `EventSource` per tab updates the TanStack Query cache; closed while the tab
   is hidden; pages poll every 5 s while it is down.
 
