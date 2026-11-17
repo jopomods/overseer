@@ -21,10 +21,10 @@ Delivered as several small PRs: pipeline + storage, HTTP + auth + permissions, s
 
 - [x] Snapshot pipeline: tick collector with budgets, bounded queue, latest-state cache (core)
 - [x] SQLite: WAL, single writer, migrations, uptime sessions, events and metrics with deadband and heartbeat
-- [ ] Netty HTTP: router, REST, SSE, static UI, size limits, health endpoint
-- [ ] Auth: link codes, sessions (sliding, HttpOnly cookie), device tokens, console recovery,
-  "log out everywhere", rate limiting, hashed secrets
-- [ ] Permissions: global roles, provider policies, default deny, tests, re-check on SSE push
+- [x] Netty HTTP: router, REST, SSE, static UI, size limits, health endpoint (core; relocation/bundling with the Forge wiring)
+- [x] Auth: link codes, sessions (sliding, HttpOnly cookie), device tokens, console recovery,
+  "log out everywhere", rate limiting, hashed secrets (core; `/ov` commands with the Forge wiring)
+- [x] Permissions: global roles, provider policies, default deny, tests, re-check on SSE push
 - [ ] Simulator providers with edge cases; record/replay with versioned files
 - [ ] Server page: TPS/MSPT (spark if present), players, admin details, collector cost,
   data freshness

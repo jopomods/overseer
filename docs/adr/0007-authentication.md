@@ -20,6 +20,20 @@ The dashboard may be reachable from the internet. An admin must never be locked 
 3. Recovery from the server console (always super-admin): `ov login <player>` prints a
    one-time login URL; `ov admin add|remove <player>`, `ov sessions revoke <player>`.
 
+Implementation notes (M1a):
+
+- `POST /api/v1/auth/link-codes` returns the code and sets an HttpOnly `ov_link` cookie
+  holding a random poll secret. Only the browser holding that secret can collect the
+  confirmed login (`GET /api/v1/auth/link-codes/current`), so someone who merely sees the
+  code on screen cannot hijack it. The session is handed out exactly once.
+- Codes use 31 unambiguous characters (no 0/O, 1/I/L), shown as `ABC-234`, and accept
+  lower case and missing separators when typed.
+- Link codes and console login tokens live in memory only; a restart invalidates them.
+- Rate limits per client address: 10 link codes/min, 90 polls/min, 20 token logins/min.
+- Sessions touch `last_used` at most once per minute.
+- Every non-GET request without a bearer token must carry an `Origin` matching the host
+  the user addressed (`X-Forwarded-Host` is honored from trusted proxies only).
+
 ### Sessions
 
 - Opaque random token in an **HttpOnly, Secure (when behind HTTPS), SameSite=Strict**

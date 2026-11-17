@@ -8,6 +8,7 @@ dependencies {
     // Provided at runtime by Minecraft; compile only against the same versions (ADR-0003).
     compileOnly(libs.netty.codec.http)
     compileOnly(libs.slf4j.api)
+    compileOnly(libs.gson)
 
     // Bundled into the mod jar by the platform module (ADR-0006).
     implementation(libs.sqlite.jdbc)
@@ -15,6 +16,8 @@ dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.slf4j.api)
+    testImplementation(libs.gson)
+    testImplementation(libs.netty.codec.http)
     testRuntimeOnly(libs.slf4j.simple)
     testRuntimeOnly(libs.junit.launcher)
 }

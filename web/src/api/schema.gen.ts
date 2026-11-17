@@ -24,10 +24,266 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/link-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a login
+         * @description Creates a one-time code the player confirms in game with `/ov link <code>`.
+         *     Sets the HttpOnly `ov_link` cookie that binds the code to this browser; only
+         *     this browser can complete the login. Codes expire after 5 minutes.
+         *     Rate limited per client address.
+         */
+        post: operations["createLinkCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/link-codes/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Poll the pending login of this browser
+         * @description Uses the `ov_link` cookie. When the code was confirmed in game, the response
+         *     has status `confirmed`, sets the `ov_session` cookie and clears `ov_link`.
+         */
+        get: operations["getLinkCodeStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One-time login link
+         * @description Exchanges a one-time login token (from `ov login <player>` on the server console)
+         *     or a device token (kiosk setup) for a session cookie, then redirects to `/`.
+         */
+        get: operations["loginWithToken"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End the current session */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The logged-in player */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sessions and device tokens of the logged-in player */
+        get: operations["listCredentials"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/credentials/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke one session or device token */
+        delete: operations["revokeCredential"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/credentials/revoke-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log out everywhere
+         * @description Revokes every session of the player, including the current one. Device tokens are kept.
+         */
+        post: operations["revokeAllCredentials"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/device-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a read-only device token
+         * @description The token is returned once and cannot be retrieved later. Not available to device tokens.
+         */
+        post: operations["createDeviceToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Active data providers */
+        get: operations["listProviders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/providers/{provider}/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest snapshot of one provider
+         * @description Contains only resources the caller may view.
+         */
+        get: operations["getProviderSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live updates (Server-Sent Events)
+         * @description `text/event-stream`. Each `snapshot` event carries a filtered `Snapshot` as JSON.
+         *     Permissions are re-checked for every event; a revoked session ends the stream.
+         *     A comment line is sent every 15 s as keep-alive.
+         */
+        get: operations["streamSnapshots"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/collectors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Collector cost and health per provider */
+        get: operations["getCollectors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Error: {
+            error: {
+                /** @description Machine-readable, e.g. `unauthorized`, `forbidden`, `not_found`, `rate_limited`. */
+                code: string;
+                message: string;
+            };
+        };
         Health: {
             /**
              * @description `degraded` when collection or storage is falling behind.
@@ -46,8 +302,170 @@ export interface components {
              */
             dataAgeMillis?: number;
         };
+        LinkCode: {
+            /**
+             * @description Shown to the user, e.g. `7KQ-4M2`. Confirm in game with `/ov link <code>`.
+             * @example 7KQ-4M2
+             */
+            code: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        LinkCodeStatus: {
+            /** @enum {string} */
+            status: "pending" | "confirmed" | "expired";
+        };
+        /**
+         * @description `super_admin` = server operator or console; `admin` = granted dashboard admin.
+         * @enum {string}
+         */
+        Role: "player" | "admin" | "super_admin";
+        Me: {
+            /** Format: uuid */
+            uuid: string;
+            name: string;
+            role: components["schemas"]["Role"];
+            /** @description True when authenticated with a device token (read-only, cannot manage credentials). */
+            deviceToken: boolean;
+        };
+        Credential: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "session" | "device_token";
+            /** @description Device token name, or the browser user agent of a session. */
+            name?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastUsedAt: string;
+            /** @description The credential used for this request. */
+            current: boolean;
+        };
+        CreateDeviceToken: {
+            /** @example Tablet on the wall */
+            name: string;
+        };
+        CreatedDeviceToken: {
+            /** Format: int64 */
+            id: number;
+            /** @description Shown once. Use as `Authorization: Bearer <token>`. */
+            token: string;
+        };
+        Provider: {
+            /** @example flux */
+            id: string;
+            /** @example Flux Networks */
+            displayName: string;
+            capabilities: ("metrics" | "events" | "inventory" | "access_control")[];
+        };
+        Timestamp: {
+            /** Format: date-time */
+            wall: string;
+            /**
+             * Format: int64
+             * @description Accumulated server uptime (ADR-0005).
+             */
+            uptimeMillis: number;
+            /** @description Uptime session number. */
+            session: number;
+        };
+        ResourceRef: {
+            provider: string;
+            type: string;
+            id: string;
+            /** @description `provider/type/id` */
+            key: string;
+        };
+        Resource: {
+            ref: components["schemas"]["ResourceRef"];
+            attributes: {
+                [key: string]: string;
+            };
+            metrics: {
+                [key: string]: number;
+            };
+        };
+        Snapshot: {
+            provider: string;
+            at: components["schemas"]["Timestamp"];
+            resources: components["schemas"]["Resource"][];
+        };
+        CollectorStatus: {
+            provider: string;
+            baseIntervalTicks: number;
+            currentIntervalTicks: number;
+            /** Format: int64 */
+            budgetNanos: number;
+            /** Format: int64 */
+            runs: number;
+            /** Format: int64 */
+            errors: number;
+            /** Format: int64 */
+            overruns: number;
+            /** Format: int64 */
+            lastNanos: number;
+            /** Format: int64 */
+            avgNanos: number;
+            /** Format: int64 */
+            maxNanos: number;
+            throttled: boolean;
+            lastError?: string;
+        };
+        Collectors: {
+            collectors: components["schemas"]["CollectorStatus"][];
+            /** Format: int64 */
+            droppedSnapshots: number;
+            queuedSnapshots: number;
+        };
     };
-    responses: never;
+    responses: {
+        /** @description Invalid request. */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Not logged in, or the credential is invalid, expired or revoked. */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Logged in, but not allowed. */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description No such resource (or not visible to the caller). */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Rate limit exceeded; retry later. */
+        TooManyRequests: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+    };
     parameters: never;
     requestBodies: never;
     headers: never;
@@ -73,6 +491,287 @@ export interface operations {
                     "application/json": components["schemas"]["Health"];
                 };
             };
+        };
+    };
+    createLinkCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Code created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkCode"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getLinkCodeStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkCodeStatus"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    loginWithToken: {
+        parameters: {
+            query: {
+                token: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logged in; redirect to the dashboard. */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logged out; session cookie cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current principal. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All active credentials. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Credential"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    revokeCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    revokeAllCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All sessions revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createDeviceToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDeviceToken"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedDeviceToken"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Providers loaded on this server. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Provider"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getProviderSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Latest filtered snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snapshot"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    streamSnapshots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event stream. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getCollectors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Collector status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Collectors"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
 }

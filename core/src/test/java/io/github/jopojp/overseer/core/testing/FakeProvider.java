@@ -28,6 +28,7 @@ public final class FakeProvider implements DataProvider {
     private long workNanos;
     private RuntimeException failure;
     private final List<Timestamp> calls = new ArrayList<>();
+    private AccessPolicy policy = AccessPolicy.ALLOW_AUTHENTICATED;
 
     public FakeProvider(String id, int intervalTicks, long budgetNanos, FakeTime time) {
         this.descriptor = new ProviderDescriptor(id, id, Set.of(Capability.METRICS, Capability.EVENTS),
@@ -62,6 +63,11 @@ public final class FakeProvider implements DataProvider {
         return this;
     }
 
+    public FakeProvider policy(AccessPolicy policy) {
+        this.policy = policy;
+        return this;
+    }
+
     public List<Timestamp> calls() {
         return calls;
     }
@@ -83,6 +89,6 @@ public final class FakeProvider implements DataProvider {
 
     @Override
     public AccessPolicy access() {
-        return AccessPolicy.ALLOW_AUTHENTICATED;
+        return (player, resource) -> policy.canView(player, resource);
     }
 }
