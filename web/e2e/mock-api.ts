@@ -45,14 +45,38 @@ function serverSnapshot() {
 }
 
 function fluxSnapshot() {
+  const zones = ['Power plant', 'Factory', LONG, '']
+  const types = ['plug', 'point', 'storage', 'controller']
+  const networks = Array.from({ length: 12 }, (_, i) => ({
+    ref: { provider: 'flux', type: 'network', id: String(i), key: `flux/network/${i}` },
+    attributes: { name: i === 0 ? LONG : `Network ${i}`, color: '#ff7a00', security: i % 3 === 0 ? 'public' : 'private', owner: 'uuid-0' },
+    metrics: { energy_input: 9.2e18, energy_output: 4.1e17, buffer: 1e12, energy: 1e15 },
+  }))
+  // Network 0: 200 devices across zones, some unloaded, some with extreme names.
+  const devices = Array.from({ length: 200 }, (_, i) => {
+    const zone = zones[i % zones.length]
+    const type = types[i % types.length]
+    const name = i === 1 ? LONG : zone ? `${zone}: Device ${i}` : i % 8 === 3 ? '' : `Device ${i}`
+    const id = `minecraft:overworld@${i * 1000},64,-${i * 1000}`
+    return {
+      ref: { provider: 'flux', type: 'device', id, key: `flux/device/${id}` },
+      attributes: {
+        network: '0', type, name, dimension: i === 5 ? `${LONG}:dimension` : 'minecraft:overworld',
+        pos: `${i * 1000},64,-${i * 1000}`, priority: String(i % 5), limit: i % 2 ? '999999999999' : '0',
+        loaded: String(i % 7 !== 0), surge: String(i % 11 === 0),
+      },
+      metrics: { transfer: type === 'point' ? -9.2e18 / (i + 1) : 9.2e18 / (i + 1), buffer: 5e15 },
+    }
+  })
+  const members = ['owner', 'admin', 'user', 'blocked'].map((access, i) => ({
+    ref: { provider: 'flux', type: 'member', id: `0:uuid-${i}`, key: `flux/member/0:uuid-${i}` },
+    attributes: { network: '0', player: `uuid-${i}`, name: i === 0 ? LONG : `Member${i}`, access },
+    metrics: {},
+  }))
   return {
     provider: 'flux',
     at: { wall: now(), uptimeMillis: 123_456_789, session: 3 },
-    resources: Array.from({ length: 12 }, (_, i) => ({
-      ref: { provider: 'flux', type: 'network', id: String(i), key: `flux/network/${i}` },
-      attributes: { name: i === 0 ? LONG : `Network ${i}`, color: '#ff7a00', security: 'private' },
-      metrics: { energy_input: 9.2e18, energy_output: 4.1e17, buffer: 1e12, energy: 1e15 },
-    })),
+    resources: [...networks, ...devices, ...members],
   }
 }
 

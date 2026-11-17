@@ -5,9 +5,9 @@ export const FE_PER_EU = 4
 
 const SI = ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z']
 
-/** 1234567 -> "1.23 M" (locale decimal separator). */
-export function formatSi(value: number, locale: Locale, digits = 3): string {
-  if (!Number.isFinite(value)) return '–'
+/** Splits a value into a number and an SI prefix: 1234567 -> ["1.23", "M"]. */
+export function siParts(value: number, locale: Locale, digits = 3): [string, string] {
+  if (!Number.isFinite(value)) return ['–', '']
   const sign = value < 0 ? '-' : ''
   let v = Math.abs(value)
   let i = 0
@@ -18,12 +18,19 @@ export function formatSi(value: number, locale: Locale, digits = 3): string {
   const formatted = new Intl.NumberFormat(locale, {
     maximumSignificantDigits: v >= 100 ? Math.max(digits, 3) : digits,
   }).format(v)
-  return `${sign}${formatted}${SI[i] ? ` ${SI[i]}` : ''}`
+  return [`${sign}${formatted}`, SI[i]]
+}
+
+/** 1234567 -> "1.23 M" (locale decimal separator). */
+export function formatSi(value: number, locale: Locale, digits = 3): string {
+  const [number, prefix] = siParts(value, locale, digits)
+  return prefix ? `${number} ${prefix}` : number
 }
 
 /** Energy amount in the viewer's unit, input in FE. */
 export function formatEnergy(fe: number, unit: EnergyUnit, locale: Locale): string {
-  return unit === 'eu' ? `${formatSi(fe / FE_PER_EU, locale)}EU` : `${formatSi(fe, locale)}FE`
+  const [number, prefix] = siParts(unit === 'eu' ? fe / FE_PER_EU : fe, locale)
+  return `${number} ${prefix}${unit === 'eu' ? 'EU' : 'FE'}`
 }
 
 /** Energy flow per tick in the viewer's unit, input in FE/t. */

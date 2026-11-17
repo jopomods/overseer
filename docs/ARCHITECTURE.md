@@ -30,7 +30,8 @@ overseer/
 │   ├── src/api/             generated schema, typed client, query hooks, SSE live updates
 │   ├── src/lib/             i18n (de/en), preferences, formatting (SI, FE/EU), snapshot helpers
 │   ├── src/components/      app shell (sidebar / bottom nav), stats, live badge, shadcn ui/
-│   ├── src/pages/           login, overview, server, account (routes in src/router.tsx)
+│   ├── src/pages/           login, overview, server, energy (Flux list + network), account; routes in
+│   │                        src/router.tsx, all but login/overview lazy-loaded
 │   └── e2e/                 Playwright: mocked API with extreme data, layout + flow tests
 └── api/openapi.yaml         HTTP contract; the TS client is generated from it
 ```
