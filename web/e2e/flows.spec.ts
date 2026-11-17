@@ -120,6 +120,28 @@ test.describe('flows', () => {
     await expect(sankey).toContainText('ACG II')
     await expect(sankey).toContainText('Temp')
   })
+
+  test('storage page: admins only, size warning, purge needs confirmation', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/admin/storage')
+    await expect(page.getByTestId('storage-overview')).toContainText('Above the warning')
+    const flux = page.getByTestId('storage-providers').locator('[data-slot=card]').first()
+    await flux.getByRole('button', { name: 'Delete history' }).click()
+    await expect(flux.getByText('Delete all history of this module?')).toBeVisible()
+    const purge = page.waitForRequest((r) => r.url().endsWith('/api/v1/admin/storage/purge'))
+    await flux.getByRole('button', { name: 'Delete history' }).click()
+    expect((await purge).postDataJSON()).toEqual({ provider: 'flux' })
+    const save = page.waitForRequest((r) => r.url().endsWith('/api/v1/admin/storage/settings'))
+    await page.getByTestId('storage-settings').getByRole('button', { name: 'Save' }).click()
+    expect((await save).postDataJSON().rawMillis).toBe(48 * 3_600_000)
+  })
+
+  test('players do not get the storage page', async ({ page }) => {
+    await mockApi(page, { role: 'player' })
+    await page.goto('/admin/storage')
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.getByRole('link', { name: 'Storage' })).toHaveCount(0)
+  })
 })
 
 test('energy flow is a list on phones', async ({ page, viewport }) => {
