@@ -21,4 +21,6 @@
 | **Link code** | One-time, short-lived code shown on the login page and confirmed in-game with `/ov link <code>`. |
 | **Device token** | Long-lived read-only bearer token for kiosks and API clients; revocable. |
 | **Dashboard admin** | Player granted admin by an op. Sees everything. Ops and the server console are always admins. |
+| **Recording** | Snapshots over time in a versioned JSON Lines file. Committed ones are anonymized. See docs/guides/recordings.md. |
+| **Simulator** | Overseer without Minecraft, replaying recordings as live providers. |
 | **Collector cost** | Time a provider spends in `collect()` per run; shown in the admin UI. |

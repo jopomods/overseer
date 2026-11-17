@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import type { Page, Route } from '@playwright/test'
 
 /**
@@ -9,6 +10,32 @@ export interface MockOptions {
   loggedIn?: boolean
   /** Sequence returned by GET /api/v1/auth/link-codes/current, last value repeats. */
   linkStatuses?: Array<'pending' | 'confirmed' | 'expired'>
+  /** Serve the last frames of the committed real-world recording instead of extreme data. */
+  realistic?: boolean
+}
+
+interface Frame {
+  provider: string
+  wall: string
+  uptimeMillis: number
+  session: number
+  resources: Array<{ type: string; id: string; attributes: Record<string, string>; metrics: Record<string, number> }>
+}
+
+/** Last frame per provider of fixtures/recordings/flux-real-01.jsonl, in API snapshot shape. */
+function realSnapshot(provider: string) {
+  const file = new URL('../../fixtures/recordings/flux-real-01.jsonl', import.meta.url)
+  const lines = fs.readFileSync(file, 'utf8').trim().split('\n')
+  const frame = lines.slice(1).map((l) => JSON.parse(l) as Frame).filter((f) => f.provider === provider).at(-1)!
+  return {
+    provider,
+    at: { wall: now(), uptimeMillis: frame.uptimeMillis, session: frame.session },
+    resources: frame.resources.map((r) => ({
+      ref: { provider, type: r.type, id: r.id, key: `${provider}/${r.type}/${r.id}` },
+      attributes: r.attributes,
+      metrics: r.metrics,
+    })),
+  }
 }
 
 const LONG = 'Extremely-Long-Name-That-Does-Not-Fit-Anywhere-On-A-Phone-Screen_xXx_1234567890'
@@ -115,9 +142,9 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
           { id: 'flux', displayName: 'Flux Networks', capabilities: ['metrics'] },
         ])
       case '/api/v1/providers/server/snapshot':
-        return json(route, serverSnapshot())
+        return json(route, options.realistic ? realSnapshot('server') : serverSnapshot())
       case '/api/v1/providers/flux/snapshot':
-        return json(route, fluxSnapshot())
+        return json(route, options.realistic ? realSnapshot('flux') : fluxSnapshot())
       case '/api/v1/admin/collectors':
         return json(route, {
           collectors: [

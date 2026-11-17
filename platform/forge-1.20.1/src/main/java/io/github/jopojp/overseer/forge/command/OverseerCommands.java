@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
  *
  * <ul>
  *   <li>{@code /ov link <code>}: confirm a dashboard login (players)</li>
- *   <li>{@code /ov status}: dashboard address and collector health (ops)</li>
+ *   <li>{@code /ov status}: dashboard address (everyone)</li>
  *   <li>{@code /ov login <player>}: one-time login link, the recovery path (level 4 / console)</li>
  *   <li>{@code /ov admin add|remove <player>}: dashboard admins (ops)</li>
  *   <li>{@code /ov sessions revoke <player>}: log a player out everywhere (ops)</li>
@@ -52,7 +52,6 @@ public final class OverseerCommands {
                         .then(Commands.argument("code", StringArgumentType.greedyString())
                                 .executes(OverseerCommands::link)))
                 .then(Commands.literal("status")
-                        .requires(s -> s.hasPermission(2))
                         .executes(OverseerCommands::status))
                 .then(Commands.literal("login")
                         .requires(s -> s.hasPermission(4))

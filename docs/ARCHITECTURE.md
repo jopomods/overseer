@@ -17,7 +17,8 @@ overseer/
 │   ├── http/                Netty server, router, SSE hub, static UI, origin check, proxy handling
 │   ├── api/                 /api/v1 routes and JSON DTOs (mirror api/openapi.yaml)
 │   ├── OverseerRuntime      wires everything; platforms call start(), tick(), close()
-│   └── (M1a) sim/           simulator providers, record/replay
+│   ├── recording/           recording format (JSON Lines), exporter from SQLite, anonymizer, replay provider
+│   └── sim/                 Simulator: OverseerRuntime + replayed recordings, no Minecraft
 ├── platform/forge-1.20.1/   Forge mod. The only code that touches Minecraft.
 │   ├── OverseerForge        entry point, server-only display test, config registration
 │   ├── ServerLifecycle      starts OverseerRuntime on server start, ticks it, closes on stop

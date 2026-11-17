@@ -49,8 +49,9 @@ Changes apply within one collection interval (1 s).
   device count).
 - `/energy/<networkId>`: totals and balance (input − output), zones, devices (filter by type,
   search by name, zone, position, dimension; unloaded devices dimmed), members with access.
-- Plugs show |transfer| as energy taken in, points as energy delivered; storages show the
-  signed value Flux reports plus stored energy.
+- Flux reports `transfer` positive for plugs (energy taken in) and negative for points (energy
+  delivered), confirmed with real data. The UI shows magnitudes for plugs and points;
+  storages show the signed value plus stored energy.
 
 ## Zones
 

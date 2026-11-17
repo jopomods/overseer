@@ -38,6 +38,8 @@ builds resources and access rules (unit-tested), a thin `*Provider`, a factory e
 ./gradlew :platform:forge-1.20.1:runServer   # Forge dev server (run dir: platform/forge-1.20.1/run)
 ./gradlew :platform:forge-1.20.1:runGameTestServer   # in-game tests (Flux etc.), exits non-zero on failure
 ./gradlew :platform:forge-1.20.1:test        # platform unit tests (pure mapping code)
+./gradlew :core:runSimulator                 # Overseer without Minecraft, replaying fixtures/recordings
+./gradlew :core:exportRecording --args="<db> <out.jsonl>"   # anonymized recording (docs/guides/recordings.md)
 
 cd web
 npm run dev          # UI dev server, proxies /api to 127.0.0.1:8765 (override: OVERSEER_API)
