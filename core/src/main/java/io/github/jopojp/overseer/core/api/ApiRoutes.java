@@ -28,6 +28,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 /**
@@ -218,12 +219,18 @@ public final class ApiRoutes {
     }
 
     static final int MAX_METRICS = 10;
+    static final int MAX_RESOURCES = 250;
     static final long DEFAULT_RANGE = 24 * 3_600_000L;
 
     private Response history(Request r) throws SQLException {
         Principal p = principal(r);
-        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
-        if (!access.canView(p, ref)) throw HttpError.notFound();
+        List<String> keys = r.query().getOrDefault("resource", List.of());
+        if (keys.isEmpty() || keys.size() > MAX_RESOURCES) {
+            throw HttpError.badRequest("Give 1 to " + MAX_RESOURCES + " resource parameters.");
+        }
+        // Invisible resources are skipped; if none is visible, the answer is 404.
+        List<ResourceRef> refs = keys.stream().map(ApiRoutes::parseRef).filter(ref -> access.canView(p, ref)).toList();
+        if (refs.isEmpty()) throw HttpError.notFound();
         List<String> metrics = r.query().getOrDefault("metric", List.of());
         if (metrics.isEmpty() || metrics.size() > MAX_METRICS) {
             throw HttpError.badRequest("Give 1 to " + MAX_METRICS + " metric parameters.");
@@ -234,7 +241,11 @@ public final class ApiRoutes {
         if (to <= from) throw HttpError.badRequest("to must be after from.");
         if (points < 10 || points > 1000) throw HttpError.badRequest("points must be 10 to 1000.");
         try (var reader = db.openReader()) {
-            return Response.json(Dtos.history(ref, HistoryQuery.query(reader, ref, metrics, Math.max(0, from), to, points)));
+            var results = new java.util.ArrayList<Map.Entry<ResourceRef, HistoryQuery.History>>();
+            for (ResourceRef ref : refs) {
+                results.add(Map.entry(ref, HistoryQuery.query(reader, ref, metrics, Math.max(0, from), to, points)));
+            }
+            return Response.json(Dtos.history(results));
         }
     }
 
