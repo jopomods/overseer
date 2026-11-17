@@ -41,6 +41,16 @@ for (const route of ROUTES) {
   })
 }
 
+// The same pages with real (anonymized) data from fixtures/recordings.
+for (const path of ['/energy/1', '/server']) {
+  test(`no horizontal overflow on ${path} with real data`, async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto(path)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expectNoHorizontalOverflow(page)
+  })
+}
+
 test('overflow detector catches content wider than the viewport', async ({ page }) => {
   await mockApi(page)
   await page.goto('/login')
