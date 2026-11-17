@@ -13,6 +13,8 @@ netty = "4.1.82.Final"
 
 # Minecraft 1.20.1 ships slf4j-api 2.0.1; core logs through it (compileOnly).
 slf4j = "2.0.1"
+# Minecraft 1.20.1 ships Gson 2.10; core serializes JSON with it (compileOnly).
+gson = "2.10"
 # Bundled into the mod jar (ADR-0006).
 sqlite-jdbc = "3.54.1.0"
 
@@ -20,6 +22,7 @@ junit = "5.11.4"
 
 [libraries]
 netty-codec-http = { module = "io.netty:netty-codec-http", version.ref = "netty" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
