@@ -17,6 +17,7 @@ import io.github.jopojp.overseer.core.provider.DataProvider;
 import io.github.jopojp.overseer.core.provider.ProviderDescriptor;
 import io.github.jopojp.overseer.core.storage.Database;
 import io.github.jopojp.overseer.core.storage.OverrideStore;
+import io.github.jopojp.overseer.core.storage.StorageAdmin;
 import io.github.jopojp.overseer.core.storage.StorageSettings;
 import io.github.jopojp.overseer.core.storage.StorageWriter;
 import io.github.jopojp.overseer.core.time.UptimeClock;
@@ -105,7 +106,12 @@ public final class OverseerRuntime implements AutoCloseable {
         scheduler = new CollectorScheduler(providers, clock, queue, latest, System::nanoTime);
         List<ProviderDescriptor> descriptors = providers.stream().map(DataProvider::descriptor).toList();
 
-        var writer = new StorageWriter(db, queue, descriptors, clock, config.storage());
+        // Admin-edited retention (stored in the database) overrides the defaults.
+        StorageSettings storage;
+        try (var reader = db.openReader()) {
+            storage = StorageAdmin.apply(config.storage(), StorageAdmin.load(reader, config.storage()));
+        }
+        var writer = new StorageWriter(db, queue, descriptors, clock, storage);
         writer.start();
         resources.push(writer);
 
@@ -120,7 +126,7 @@ public final class OverseerRuntime implements AutoCloseable {
         resources.push(sse);
 
         var router = new ApiRoutes(config.version(), auth, access, latest, queue, descriptors, scheduler::status, wall,
-                db, clock::uptimeMillis, overrides)
+                db, clock::uptimeMillis, overrides, writer)
                 .register(new Router());
         http = new HttpServer(config.http(), router,
                 new StaticFiles(config.webRoot(), OverseerRuntime.class.getClassLoader()), sse);

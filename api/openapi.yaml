@@ -412,6 +412,102 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/admin/storage:
+    get:
+      tags: [admin]
+      operationId: getStorage
+      summary: Database size, usage per provider and storage settings
+      responses:
+        "200":
+          description: Storage overview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Storage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/storage/settings:
+    put:
+      tags: [admin]
+      operationId: setStorageSettings
+      summary: Retention and size warning
+      description: Retention in server-uptime milliseconds, 0 = forever. Raw data is kept at least 1 hour.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StorageSettings"
+      responses:
+        "204":
+          description: Saved; applies from the next rollup run.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/storage/purge:
+    post:
+      tags: [admin]
+      operationId: purgeStorage
+      summary: Delete history of a provider
+      description: Deletes raw samples and rollups (all, or older than the given uptime span). Resources and events stay.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurgeRequest"
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurgeResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/storage/vacuum:
+    post:
+      tags: [admin]
+      operationId: vacuumStorage
+      summary: Compact the database file (SQLite VACUUM)
+      responses:
+        "204":
+          description: Done.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/storage/backup:
+    get:
+      tags: [admin]
+      operationId: downloadBackup
+      summary: Download a consistent copy of the database
+      responses:
+        "200":
+          description: SQLite database file.
+          content:
+            application/vnd.sqlite3:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     session:
@@ -785,6 +881,79 @@ components:
           enum: [zone]
         value:
           type: [string, "null"]
+
+    StorageSettings:
+      type: object
+      required: [rawMillis, minuteMillis, hourMillis, warnBytes]
+      properties:
+        rawMillis:
+          type: integer
+          format: int64
+        minuteMillis:
+          type: integer
+          format: int64
+        hourMillis:
+          type: integer
+          format: int64
+        warnBytes:
+          type: integer
+          format: int64
+          description: Show a warning above this database size; 0 = never.
+
+    ProviderUsage:
+      type: object
+      required: [provider, series, raw, minute, hour]
+      properties:
+        provider:
+          type: string
+        series:
+          type: integer
+          format: int64
+        raw:
+          type: integer
+          format: int64
+        minute:
+          type: integer
+          format: int64
+        hour:
+          type: integer
+          format: int64
+
+    Storage:
+      type: object
+      required: [fileBytes, walBytes, settings, providers]
+      properties:
+        fileBytes:
+          type: integer
+          format: int64
+        walBytes:
+          type: integer
+          format: int64
+        settings:
+          $ref: "#/components/schemas/StorageSettings"
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderUsage"
+
+    PurgeRequest:
+      type: object
+      required: [provider]
+      properties:
+        provider:
+          type: string
+        olderThanMillis:
+          type: integer
+          format: int64
+          description: Only delete data older than this much server uptime; omit to delete all.
+
+    PurgeResult:
+      type: object
+      required: [deletedRows]
+      properties:
+        deletedRows:
+          type: integer
+          format: int64
 
     Collectors:
       type: object

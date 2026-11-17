@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useRouterState } from '@tanstack/react-router'
-import { LayoutDashboard, LogOut, Server, UserRound, Zap, type LucideIcon } from 'lucide-react'
+import { Database, LayoutDashboard, LogOut, Server, UserRound, Zap, type LucideIcon } from 'lucide-react'
 import { ApiError, useLogout, useMe, useProviders, type Me } from '@/api/hooks'
 import { useLiveUpdates } from '@/api/live'
 import { SessionContext } from '@/components/session'
@@ -17,7 +17,9 @@ import { useT, type MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
-  to: '/' | '/server' | '/energy' | '/account'
+  to: '/' | '/server' | '/energy' | '/admin/storage' | '/account'
+  /** Only for dashboard admins and operators. */
+  admin?: boolean
   /** Shown only when this provider is active on the server. */
   provider?: string
   label: MessageKey
@@ -28,6 +30,7 @@ const NAV: NavItem[] = [
   { to: '/', label: 'nav.overview', icon: LayoutDashboard },
   { to: '/energy', label: 'nav.energy', icon: Zap, provider: 'flux' },
   { to: '/server', label: 'nav.server', icon: Server },
+  { to: '/admin/storage', label: 'nav.storage', icon: Database, admin: true },
   { to: '/account', label: 'nav.account', icon: UserRound },
 ]
 
@@ -61,7 +64,11 @@ export function AppShell() {
 /** Navigation entries, without modules the server does not have. */
 function useNav(): NavItem[] {
   const providers = useProviders().data
-  return NAV.filter((item) => !item.provider || providers?.some((p) => p.id === item.provider))
+  const me = useMe().data
+  const isAdmin = !!me && me.role !== 'player' && !me.deviceToken
+  return NAV.filter(
+    (item) => (!item.provider || providers?.some((p) => p.id === item.provider)) && (!item.admin || isAdmin),
+  )
 }
 
 function useActive() {

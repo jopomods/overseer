@@ -48,6 +48,13 @@ super admin).
 - **Players** see public server data and whatever the mods' own rules allow (e.g. Flux
   networks they are a member of).
 
+## Storage
+
+Dashboard admins find **Storage** in the navigation: database size (with a configurable
+warning), data per module, retention for raw data / minute / hour values (0 = forever,
+counted in server uptime), deleting a module's history, compacting the database and
+downloading a backup.
+
 ## Health
 
 `GET /api/v1/health` needs no login and returns `ok` or `degraded` plus the age of the

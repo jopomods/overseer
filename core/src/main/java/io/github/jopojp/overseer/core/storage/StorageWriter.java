@@ -60,7 +60,8 @@ public final class StorageWriter implements AutoCloseable {
     private final SnapshotQueue queue;
     private final Map<String, Map<String, MetricDescriptor>> metrics = new HashMap<>();
     private final UptimeClock clock;
-    private final StorageSettings settings;
+    private volatile StorageSettings settings;
+    private final java.util.concurrent.ConcurrentLinkedQueue<Runnable> maintenance = new java.util.concurrent.ConcurrentLinkedQueue<>();
 
     private final Map<ResourceRef, Long> resourceIds = new HashMap<>();
     private final Map<ResourceRef, Map<String, String>> attributes = new HashMap<>();
@@ -125,6 +126,7 @@ public final class StorageWriter implements AutoCloseable {
     private void loop() {
         var batch = new ArrayList<ProviderSnapshot>(settings.batchSize());
         while (running || queue.size() > 0) {
+            runMaintenance();
             try {
                 ProviderSnapshot first = queue.poll(POLL_MILLIS, TimeUnit.MILLISECONDS);
                 if (first != null) {
@@ -150,6 +152,44 @@ public final class StorageWriter implements AutoCloseable {
         } catch (SQLException e) {
             LOG.error("Overseer storage writer failed to persist uptime on shutdown", e);
         }
+    }
+
+/** Work that needs the writer connection, e.g. purge, VACUUM, backup. */
+    @FunctionalInterface
+    public interface Task<T> {
+        T run(java.sql.Connection connection) throws Exception;
+    }
+
+    /**
+     * Runs a task on the writer thread between batches (ADR-0006: single writer). The task
+     * owns its transaction: the connection is in auto-commit-off mode; commit when done.
+     */
+    public <T> java.util.concurrent.CompletableFuture<T> submit(Task<T> task) {
+        var future = new java.util.concurrent.CompletableFuture<T>();
+        maintenance.add(() -> {
+            try {
+                future.complete(task.run(connection));
+            } catch (Exception e) {
+                rollbackQuietly();
+                future.completeExceptionally(e);
+            }
+        });
+        if (!running) runMaintenance(); // not started (tests) or stopped: run inline
+        return future;
+    }
+
+    private void runMaintenance() {
+        Runnable job;
+        while ((job = maintenance.poll()) != null) job.run();
+    }
+
+    public StorageSettings settings() {
+        return settings;
+    }
+
+    /** Takes effect with the next rollup run. */
+    public void updateSettings(StorageSettings updated) {
+        this.settings = Objects.requireNonNull(updated);
     }
 
     /** Writes a batch in one transaction. Package-private so tests can write synchronously. */

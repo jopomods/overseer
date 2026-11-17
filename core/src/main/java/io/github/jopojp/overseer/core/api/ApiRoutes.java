@@ -20,6 +20,8 @@ import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.storage.Database;
 import io.github.jopojp.overseer.core.storage.HistoryQuery;
 import io.github.jopojp.overseer.core.storage.OverrideStore;
+import io.github.jopojp.overseer.core.storage.StorageAdmin;
+import io.github.jopojp.overseer.core.storage.StorageWriter;
 import io.github.jopojp.overseer.core.storage.Sessions;
 import java.util.function.LongSupplier;
 import java.sql.SQLException;
@@ -49,6 +51,7 @@ public final class ApiRoutes {
     private final Database db;
     private final LongSupplier uptime;
     private final OverrideStore overrides;
+    private final StorageWriter writer;
 
     private final RateLimiter linkCreate = RateLimiter.perMinute(10);
     private final RateLimiter linkPoll = RateLimiter.perMinute(90);
@@ -65,7 +68,8 @@ public final class ApiRoutes {
             Clock clock,
             Database db,
             LongSupplier uptime,
-            OverrideStore overrides) {
+            OverrideStore overrides,
+            StorageWriter writer) {
         this.version = version;
         this.auth = auth;
         this.access = access;
@@ -77,6 +81,7 @@ public final class ApiRoutes {
         this.db = db;
         this.uptime = uptime;
         this.overrides = overrides;
+        this.writer = writer;
     }
 
     public Router register(Router router) {
@@ -98,7 +103,12 @@ public final class ApiRoutes {
                 .get("/api/v1/sessions", this::sessions)
                 .get("/api/v1/overrides", this::listOverrides)
                 .put("/api/v1/overrides", this::setOverride)
-                .get("/api/v1/admin/collectors", this::collectors);
+                .get("/api/v1/admin/collectors", this::collectors)
+                .get("/api/v1/admin/storage", this::storage)
+                .put("/api/v1/admin/storage/settings", this::storageSettings)
+                .post("/api/v1/admin/storage/purge", this::purge)
+                .post("/api/v1/admin/storage/vacuum", this::vacuum)
+                .get("/api/v1/admin/storage/backup", this::backup);
     }
 
     // --- system --------------------------------------------------------------------------
@@ -290,6 +300,90 @@ public final class ApiRoutes {
         if (!p.isAdmin()) throw HttpError.forbidden("Admins only.");
         return Response.json(new Dtos.Collectors(collectors.get().stream().map(Dtos::collector).toList(),
                 queue.dropped(), queue.size()));
+    }
+
+    private Principal admin(Request r) throws SQLException {
+        Principal p = principal(r);
+        if (!p.isAdmin() || p.deviceToken()) throw HttpError.forbidden("Admins only.");
+        return p;
+    }
+
+    private Response storage(Request r) throws SQLException {
+        admin(r);
+        StorageAdmin.Usage usage;
+        StorageAdmin.Settings settings;
+        try (var reader = db.openReader()) {
+            usage = StorageAdmin.usage(reader, db.file());
+            settings = StorageAdmin.load(reader, writer.settings());
+        }
+        return Response.json(new Dtos.StorageDto(usage.fileBytes(), usage.walBytes(),
+                new Dtos.StorageSettingsDto(settings.rawMillis(), settings.minuteMillis(), settings.hourMillis(), settings.warnBytes()),
+                usage.providers().stream().map(u -> new Dtos.ProviderUsageDto(u.provider(), u.series(), u.raw(), u.minute(), u.hour())).toList()));
+    }
+
+    private Response storageSettings(Request r) throws Exception {
+        admin(r);
+        var body = Json.parse(r.bodyText(), Dtos.StorageSettingsDto.class);
+        StorageAdmin.Settings settings;
+        try {
+            settings = new StorageAdmin.Settings(body.rawMillis(), body.minuteMillis(), body.hourMillis(), body.warnBytes());
+        } catch (IllegalArgumentException e) {
+            throw HttpError.badRequest("Values must be 0 (forever) or positive.");
+        }
+        if (settings.rawMillis() != 0 && settings.rawMillis() < 3_600_000) {
+            throw HttpError.badRequest("Raw data must be kept at least 1 hour.");
+        }
+        await(writer.submit(c -> {
+            StorageAdmin.save(c, settings);
+            return null;
+        }));
+        writer.updateSettings(StorageAdmin.apply(writer.settings(), settings));
+        return Response.noContent();
+    }
+
+    private Response purge(Request r) throws Exception {
+        admin(r);
+        var body = Json.parse(r.bodyText(), Dtos.PurgeRequest.class);
+        if (body.provider() == null || body.provider().isBlank()) throw HttpError.badRequest("provider is required.");
+        Long before = body.olderThanMillis() == null ? null : uptime.getAsLong() - body.olderThanMillis();
+        long deleted = await(writer.submit(c -> StorageAdmin.purge(c, body.provider(), before)));
+        return Response.json(new Dtos.PurgeResult(deleted));
+    }
+
+    private Response vacuum(Request r) throws Exception {
+        admin(r);
+        await(writer.submit(c -> {
+            c.commit();
+            StorageAdmin.vacuum(db);
+            return null;
+        }));
+        return Response.noContent();
+    }
+
+    private Response backup(Request r) throws Exception {
+        admin(r);
+        java.nio.file.Path target = db.file().resolveSibling("overseer-backup-" + System.nanoTime() + ".db");
+        try {
+            await(writer.submit(c -> {
+                c.commit();
+                StorageAdmin.backup(db, target);
+                return null;
+            }));
+            byte[] bytes = java.nio.file.Files.readAllBytes(target);
+            String name = "overseer-" + java.time.LocalDate.now(clock) + ".db";
+            return Response.bytes(200, "application/vnd.sqlite3", bytes)
+                    .header("Content-Disposition", "attachment; filename=\"" + name + "\"");
+        } finally {
+            java.nio.file.Files.deleteIfExists(target);
+        }
+    }
+
+    private static <T> T await(java.util.concurrent.CompletableFuture<T> future) throws Exception {
+        try {
+            return future.get(5, java.util.concurrent.TimeUnit.MINUTES);
+        } catch (java.util.concurrent.ExecutionException e) {
+            throw e.getCause() instanceof Exception ex ? ex : e;
+        }
     }
 
     // --- helpers -------------------------------------------------------------------------

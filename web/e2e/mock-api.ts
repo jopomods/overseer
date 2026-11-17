@@ -214,6 +214,21 @@ export async function mockApi(page: Page, options: MockOptions = {}) {
           return route.fulfill({ status: 204 })
         }
         return json(route, overrides)
+      case '/api/v1/admin/storage':
+        return json(route, {
+          fileBytes: 3.2 * 1024 ** 3,
+          walBytes: 12_345_678,
+          settings: { rawMillis: 48 * HOUR, minuteMillis: 14 * 24 * HOUR, hourMillis: 365 * 24 * HOUR, warnBytes: 2 * 1024 ** 3 },
+          providers: [
+            { provider: 'flux', series: 1234, raw: 98_765_432, minute: 1_234_567, hour: 45_678 },
+            { provider: LONG.toLowerCase().slice(0, 40), series: 1, raw: 0, minute: 0, hour: 0 },
+          ],
+        })
+      case '/api/v1/admin/storage/settings':
+      case '/api/v1/admin/storage/vacuum':
+        return route.fulfill({ status: 204 })
+      case '/api/v1/admin/storage/purge':
+        return json(route, { deletedRows: 42 })
       case '/api/v1/sessions':
         return json(route, sessionsBody())
       case '/api/v1/history':
