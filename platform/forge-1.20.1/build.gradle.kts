@@ -43,6 +43,24 @@ legacyForge {
 
 dependencies {
     implementation(project(":core"))
+
+    // Libraries Minecraft does not ship, embedded with Forge Jar-in-Jar (ADR-0003, ADR-0006).
+    // FML picks one copy if several mods embed the same library; ranges say what we accept.
+    jarJar(libs.sqlite.jdbc) {
+        version {
+            strictly("[3.45,4)")
+            prefer(libs.versions.sqlite.jdbc.get())
+        }
+    }
+    // Must stay on Minecraft's Netty 4.1 line (4.1.82 in 1.20.1).
+    jarJar(libs.netty.codec.http) {
+        version {
+            strictly("[4.1.82.Final,4.2)")
+            prefer(libs.versions.netty.get())
+        }
+    }
+    "additionalRuntimeClasspath"(libs.sqlite.jdbc)
+    "additionalRuntimeClasspath"(libs.netty.codec.http)
 }
 
 // Bundle the core classes into the mod jar. core is plain Java (no Minecraft

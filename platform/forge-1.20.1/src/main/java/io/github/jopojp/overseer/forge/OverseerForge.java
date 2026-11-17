@@ -2,8 +2,10 @@ package io.github.jopojp.overseer.forge;
 
 import com.mojang.logging.LogUtils;
 import io.github.jopojp.overseer.core.Overseer;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.IExtensionPoint;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.network.NetworkConstants;
 import org.slf4j.Logger;
@@ -22,6 +24,10 @@ public final class OverseerForge {
         // Tell Forge that the server-side presence of this mod must not be required on clients.
         context.registerExtensionPoint(IExtensionPoint.DisplayTest.class,
                 () -> new IExtensionPoint.DisplayTest(() -> NetworkConstants.IGNORESERVERONLY, (remote, isServer) -> true));
-        LOGGER.info("{} loaded", Overseer.NAME);
+        context.registerConfig(ModConfig.Type.SERVER, OverseerConfig.SPEC, "overseer-server.toml");
+
+        String version = context.getContainer().getModInfo().getVersion().toString();
+        MinecraftForge.EVENT_BUS.register(new ServerLifecycle(version));
+        LOGGER.info("{} {} loaded", Overseer.NAME, version);
     }
 }
