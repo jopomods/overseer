@@ -5,6 +5,7 @@ import { useHistory, useOverrides, useSessions, useSetOverride, useSnapshot } fr
 import { Button } from '@/components/ui/button'
 import { EnergyFlow } from '@/components/energy-flow'
 import { HistoryChart } from '@/components/history-chart'
+import { ZoneChart } from '@/components/zone-chart'
 import { LiveBadge } from '@/components/live-badge'
 import { useSession } from '@/components/session'
 import { Section, Stat } from '@/components/stat'
@@ -99,6 +100,10 @@ export function NetworkPage() {
       </Section>
 
       <ZonesSection devices={deviceList} />
+
+      <Section title={t('energy.zoneHistory')}>
+        <ZoneChart devices={deviceList} />
+      </Section>
       <DevicesSection devices={deviceList} />
 
       <Section title={t('energy.members')}>

@@ -54,7 +54,8 @@ export const keys = {
   credentials: ['credentials'] as const,
   sessions: ['sessions'] as const,
   overrides: (provider: string) => ['overrides', provider] as const,
-  history: (resource: string, metrics: string[], rangeMs: number) => ['history', resource, metrics.join(','), rangeMs] as const,
+  history: (resources: string[], metrics: string[], rangeMs: number) =>
+    ['history', resources.join(','), metrics.join(','), rangeMs] as const,
 }
 
 export function useMe() {
@@ -106,20 +107,21 @@ export function useSessions() {
   })
 }
 
-/** History of one resource over the last `rangeMs` of server uptime. */
-export function useHistory(resource: string, metrics: string[], rangeMs: number, uptimeNow: number | undefined) {
+/** History of one or more resources over the last `rangeMs` of server uptime. */
+export function useHistory(resource: string | string[], metrics: string[], rangeMs: number, uptimeNow: number | undefined) {
+  const resources = Array.isArray(resource) ? resource : [resource]
   return useQuery({
-    queryKey: keys.history(resource, metrics, rangeMs),
+    queryKey: keys.history(resources, metrics, rangeMs),
     queryFn: () =>
       unwrap(
         api.GET('/api/v1/history', {
           params: {
-            query: { resource, metric: metrics, from: Math.max(0, (uptimeNow ?? 0) - rangeMs), points: 240 },
+            query: { resource: resources, metric: metrics, from: Math.max(0, (uptimeNow ?? 0) - rangeMs), points: 240 },
           },
         }),
       ),
     retry,
-    enabled: uptimeNow !== undefined,
+    enabled: uptimeNow !== undefined && resources.length > 0,
     refetchInterval: 30_000,
     placeholderData: (previous) => previous,
   })
