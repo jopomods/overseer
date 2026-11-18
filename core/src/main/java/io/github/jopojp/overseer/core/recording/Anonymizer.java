@@ -15,8 +15,10 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>player UUIDs become stable fake UUIDs, player names become {@code Player1}, ...;
  *       both are replaced everywhere they appear (ids, attributes, server MOTD);</li>
- *   <li>block coordinates (device ids, {@code pos}) are shifted by a random offset
- *       (multiples of 16, so chunk alignment is preserved);</li>
+ *   <li>owner names next to an owner UUID (AE2 grids) count as player names too;</li>
+ *   <li>block coordinates are shifted by a random offset (multiples of 16, so chunk alignment is
+ *       preserved): every {@code dimension@x,y,z} in ids and attributes (Flux devices, AE2 grids,
+ *       CPUs, drives and references to them) and every {@code pos} attribute;</li>
  *   <li>the server MOTD is replaced.</li>
  * </ul>
  * Device, network and zone names are kept: they are what makes a recording useful.
@@ -25,6 +27,8 @@ public final class Anonymizer {
     private static final Pattern UUID_PATTERN =
             Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
     private static final Pattern POSITION = Pattern.compile("(-?\\d+),(-?\\d+),(-?\\d+)");
+    /** A located id such as {@code minecraft:overworld@12,64,-3}. */
+    private static final Pattern LOCATED = Pattern.compile("@(-?\\d+),(-?\\d+),(-?\\d+)");
 
     private final Map<String, String> uuids = new LinkedHashMap<>();
     private final Map<String, String> names = new LinkedHashMap<>();
@@ -50,6 +54,7 @@ public final class Anonymizer {
             for (Recording.Entry e : frame.resources()) {
                 if (frame.provider().equals("server") && e.type().equals("player")) learn(e.id(), e.attributes().get("name"));
                 if (e.type().equals("member")) learn(e.attributes().get("player"), e.attributes().get("name"));
+                if (e.attributes().containsKey("ownerName")) learn(e.attributes().get("owner"), e.attributes().get("ownerName"));
                 e.attributes().values().forEach(v -> {
                     Matcher m = UUID_PATTERN.matcher(v);
                     while (m.find()) fakeUuid(m.group());
@@ -83,16 +88,13 @@ public final class Anonymizer {
     }
 
     private String rewriteId(String type, String id) {
-        String out = scrub(id);
-        if (type.equals("device")) out = shift(out);
-        return out;
+        return shiftLocated(scrub(id));
     }
 
     private String rewriteAttribute(String provider, String type, String key, String value) {
         if (provider.equals("server") && type.equals("server") && key.equals("motd")) return "A Minecraft Server";
         String out = scrub(value);
-        if (key.equals("pos")) out = shift(out);
-        return out;
+        return key.equals("pos") ? shift(out) : shiftLocated(out);
     }
 
     /** Replaces known UUIDs and player names anywhere in the text. */
@@ -119,6 +121,20 @@ public final class Anonymizer {
             int x = Integer.parseInt(m.group(1)) + dx;
             int z = Integer.parseInt(m.group(3)) + dz;
             m.appendReplacement(sb, x + "," + m.group(2) + "," + z);
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
+    /** Shifts every {@code @x,y,z} in the text: located ids and references to them. */
+    private String shiftLocated(String text) {
+        if (text == null) return null;
+        Matcher m = LOCATED.matcher(text);
+        var sb = new StringBuilder();
+        while (m.find()) {
+            int x = Integer.parseInt(m.group(1)) + dx;
+            int z = Integer.parseInt(m.group(3)) + dz;
+            m.appendReplacement(sb, "@" + x + "," + m.group(2) + "," + z);
         }
         m.appendTail(sb);
         return sb.toString();
