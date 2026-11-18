@@ -1,4 +1,4 @@
-import { Activity, Server, Zap } from 'lucide-react'
+import { Activity, Boxes, Server, Zap } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useCollectors, useProviders, useSnapshot } from '@/api/hooks'
@@ -6,7 +6,8 @@ import { useSession } from '@/components/session'
 import { LiveBadge } from '@/components/live-badge'
 import { PageHeader } from '@/components/stat'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatNumber, formatRate } from '@/lib/format'
+import { formatAeRate } from '@/lib/ae2'
+import { formatNumber, formatRate, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { usePreferences } from '@/lib/preferences'
 import { find, metric, ofType } from '@/lib/snapshot'
@@ -20,6 +21,7 @@ export function OverviewPage() {
   const poll = live === 'live' ? false : 5000
   const server = useSnapshot('server', { pollMs: poll })
   const hasFlux = providers.data?.some((p) => p.id === 'flux') ?? false
+  const hasAe2 = providers.data?.some((p) => p.id === 'ae2') ?? false
 
   return (
     <>
@@ -29,13 +31,14 @@ export function OverviewPage() {
       <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <ServerTile />
         {hasFlux && <FluxTile poll={poll} />}
+        {hasAe2 && <Ae2Tile poll={poll} />}
         {me.role !== 'player' && <HealthTile />}
       </div>
     </>
   )
 }
 
-function Tile({ icon, title, to, children }: { icon: ReactNode; title: string; to?: '/server' | '/energy'; children: ReactNode }) {
+function Tile({ icon, title, to, children }: { icon: ReactNode; title: string; to?: '/server' | '/energy' | '/ae2'; children: ReactNode }) {
   const card = (
     <Card className="h-full min-w-0 gap-3 transition-colors hover:border-primary/40">
       <CardHeader className="flex min-w-0 flex-row items-center gap-2">
@@ -108,6 +111,27 @@ function FluxTile({ poll }: { poll: number | false }) {
           <p className="text-muted-foreground col-span-2 truncate text-xs">
             {t('overview.networks', { count: networks.length })}
           </p>
+        </div>
+      )}
+    </Tile>
+  )
+}
+
+function Ae2Tile({ poll }: { poll: number | false }) {
+  const t = useT()
+  const { locale } = usePreferences()
+  const list = ofType(useSnapshot('ae2', { pollMs: poll }).data, 'grid')
+  const usage = list.reduce((sum, g) => sum + (metric(g, 'power_usage') ?? 0), 0)
+  const items = list.reduce((sum, g) => sum + (metric(g, 'items') ?? 0), 0)
+  return (
+    <Tile icon={<Boxes className="size-4" />} title={t('overview.ae2')} to="/ae2">
+      {list.length === 0 ? (
+        <p className="text-muted-foreground text-sm">{t('overview.noGrids')}</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <Figure label={t('ae2.usage')} value={formatAeRate(usage, locale)} />
+          <Figure label={t('ae2.items')} value={formatSi(items, locale)} />
+          <p className="text-muted-foreground col-span-2 truncate text-xs">{t('overview.grids', { count: list.length })}</p>
         </div>
       )}
     </Tile>

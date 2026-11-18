@@ -155,6 +155,30 @@ test.describe('flows', () => {
     await expect(chart).toContainText('Factory')
   })
 
+  test('ME networks: list, detail and rename', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/')
+    await page.getByRole('link', { name: 'ME networks' }).first().click()
+    const cards = page.getByTestId('grid-list').getByRole('link')
+    await expect(cards).toHaveCount(2)
+    await expect(cards.first()).toContainText('Main base')
+    await expect(cards.nth(1)).toContainText('Network at 8, 40, 16')
+
+    await cards.nth(1).click()
+    await expect(page.getByTestId('grid-details')).toContainText('the_nether')
+    await page.getByRole('button', { name: 'Rename' }).click()
+    await page.getByTestId('rename-form').getByLabel('Name').fill('Nether outpost')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nether outpost')
+  })
+
+  test('players cannot rename ME networks', async ({ page }) => {
+    await mockApi(page, { role: 'player', realistic: true })
+    await page.goto('/ae2/minecraft:overworld@120,64,-340')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Main base')
+    await expect(page.getByRole('button', { name: 'Rename' })).toHaveCount(0)
+  })
+
   test('storage page: admins only, size warning, purge needs confirmation', async ({ page }) => {
     await mockApi(page)
     await page.goto('/admin/storage')

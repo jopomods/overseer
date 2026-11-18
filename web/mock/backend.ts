@@ -121,6 +121,78 @@ export function fluxSnapshot() {
   }
 }
 
+interface MockGrid {
+  id: string
+  owner: string
+  ownerName: string
+  state?: string
+  powered?: boolean
+  booting?: boolean
+  nodes: number
+  controllers: number
+  cpus: number
+  metrics: Record<string, number>
+}
+
+function gridResource(g: MockGrid) {
+  return {
+    ref: { provider: 'ae2', type: 'grid', id: g.id, key: `ae2/grid/${g.id}` },
+    attributes: {
+      dimension: g.id.slice(0, g.id.lastIndexOf('@')),
+      pos: g.id.slice(g.id.lastIndexOf('@') + 1),
+      owner: g.owner,
+      ownerName: g.ownerName,
+      state: g.state ?? 'controller_online',
+      booting: String(g.booting ?? false),
+      powered: String(g.powered ?? true),
+      nodes: String(g.nodes),
+      controllers: String(g.controllers),
+      otherTypes: '0',
+      cpus: String(g.cpus),
+      cpuStorage: String(g.cpus * 65_536),
+      coProcessors: String(g.cpus * 2),
+      idlePower: '42.5',
+    },
+    metrics: g.metrics,
+  }
+}
+
+/** AE2 grids. Extreme: 9 grids, huge numbers, every state; realistic: a typical base. */
+export function ae2Snapshot(realistic = false) {
+  const grids: MockGrid[] = realistic
+    ? [
+        {
+          id: 'minecraft:overworld@120,64,-340', owner: '00000000-0000-0000-0000-000000000001', ownerName: 'Developer',
+          nodes: 412, controllers: 6, cpus: 3,
+          metrics: { power_stored: 1.6e6, power_max: 2.4e6, power_usage: 186.5, power_injection: 210, item_types: 2843, items: 18_532_118, fluid_types: 37, fluids: 4_210_000, channels: 214, cpus_busy: 1 },
+        },
+        {
+          id: 'minecraft:the_nether@8,40,16', owner: '00000000-0000-0000-0000-000000000001', ownerName: 'Developer',
+          nodes: 23, controllers: 1, cpus: 0,
+          metrics: { power_stored: 3.1e4, power_max: 1.6e5, power_usage: 12.25, power_injection: 0, item_types: 41, items: 9_876, fluid_types: 0, fluids: 0, channels: 9, cpus_busy: 0 },
+        },
+      ]
+    : Array.from({ length: 9 }, (_, i) => ({
+        id: i === 1 ? `${LONG}:dimension@-29999999,-64,29999999` : `minecraft:overworld@${i * 1000},64,-${i * 1000}`,
+        owner: `uuid-${i % 3}`,
+        ownerName: i === 0 ? LONG : `Player${i % 3}`,
+        state: i === 2 ? 'controller_conflict' : 'controller_online',
+        powered: i !== 3,
+        booting: i === 4,
+        nodes: 12_345 * (i + 1),
+        controllers: 68,
+        cpus: i === 5 ? 0 : 64,
+        metrics: {
+          power_stored: i === 3 ? 0 : 9.2e15 / (i + 1), power_max: 9.2e15, power_usage: 1.23e9 / (i + 1), power_injection: 2e9,
+          item_types: 987_654, items: 9.2e18, fluid_types: 12_345, fluids: 9.2e18, channels: 32_768 * (i + 1), cpus_busy: i === 5 ? 0 : 63,
+        },
+      }))
+  return {
+    provider: 'ae2',
+    at: { wall: now(), uptimeMillis: 123_456_789, session: 3 },
+    resources: grids.map(gridResource),
+  }
+}
 
 // Two uptime sessions: 10 h, then 14 h offline, then 16 h up to now.
 const HOUR = 3_600_000
@@ -192,7 +264,9 @@ export function createMockBackend(options: MockOptions = {}) {
   const role = options.role ?? 'admin'
   const loggedIn = options.loggedIn ?? true
   const linkStatuses = [...(options.linkStatuses ?? ['pending'])]
-  const overrides: Array<{ resource: string; key: string; value: string }> = []
+  const overrides: Array<{ resource: string; key: string; value: string }> = options.realistic
+    ? [{ resource: 'ae2/grid/minecraft:overworld@120,64,-340', key: 'name', value: 'Main base' }]
+    : [{ resource: 'ae2/grid/minecraft:overworld@0,64,-0', key: 'name', value: LONG.slice(0, 48) }]
   const editable = role !== 'player'
   let loggedInNow = false
   const withEdit = (snapshot: { resources: Array<Record<string, unknown>> }) => ({
@@ -202,12 +276,14 @@ export function createMockBackend(options: MockOptions = {}) {
   const json = (body: unknown, status = 200): MockResponse => ({ status, json: body })
 
   /** Current snapshot of a provider (also pushed over SSE by the dev server). */
-  const snapshot = (provider: 'server' | 'flux') =>
+  const snapshot = (provider: 'server' | 'flux' | 'ae2') =>
     provider === 'server'
       ? options.realistic
         ? realSnapshot('server')
         : serverSnapshot()
-      : withEdit(options.realistic ? realSnapshot('flux') : fluxSnapshot())
+      : provider === 'ae2'
+        ? withEdit(ae2Snapshot(options.realistic))
+        : withEdit(options.realistic ? realSnapshot('flux') : fluxSnapshot())
 
   function handle({ method, url, body }: MockRequest): MockResponse {
     const path = url.pathname
@@ -234,11 +310,14 @@ export function createMockBackend(options: MockOptions = {}) {
         return json([
           { id: 'server', displayName: 'Server', capabilities: ['metrics'] },
           { id: 'flux', displayName: 'Flux Networks', capabilities: ['metrics'] },
+          { id: 'ae2', displayName: 'Applied Energistics 2', capabilities: ['metrics'] },
         ])
       case '/api/v1/providers/server/snapshot':
         return json(snapshot('server'))
       case '/api/v1/providers/flux/snapshot':
         return json(snapshot('flux'))
+      case '/api/v1/providers/ae2/snapshot':
+        return json(snapshot('ae2'))
       case '/api/v1/admin/collectors':
         return json({
           collectors: [
@@ -257,7 +336,8 @@ export function createMockBackend(options: MockOptions = {}) {
           if (o.value) overrides.push({ resource: o.resource, key: o.key, value: o.value })
           return { status: 204 }
         }
-        return json(overrides)
+        const provider = url.searchParams.get('provider')
+        return json(overrides.filter((o) => o.resource.startsWith(`${provider}/`)))
       }
       case '/api/v1/admin/storage':
         return json({
