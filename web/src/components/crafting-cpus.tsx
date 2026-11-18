@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useEvents, useJob, type JobLine } from '@/api/hooks'
 import { Button } from '@/components/ui/button'
 import { ItemIcon } from '@/components/item-icon'
+import { McText } from '@/components/mc-text'
 import { Section } from '@/components/stat'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -61,7 +62,9 @@ function CpuCard({ cpu, number }: { cpu: Ae2Cpu; number: number }) {
         >
           <div className="flex min-w-0 items-center gap-2">
             <Cpu className={cn('size-4 shrink-0', job ? 'text-primary' : 'text-muted-foreground')} />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{title}</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              <McText text={title} />
+            </span>
             <span className="text-muted-foreground shrink-0 text-xs">{formatBytes(cpu.storage, locale)}</span>
             <ChevronDown className={cn('text-muted-foreground size-4 shrink-0 transition-transform', open && 'rotate-180')} />
           </div>
@@ -69,7 +72,9 @@ function CpuCard({ cpu, number }: { cpu: Ae2Cpu; number: number }) {
             <>
               <div className="flex min-w-0 items-center justify-between gap-2">
                 <ItemIcon stackKey={job.key} name={job.name} />
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold">{job.name}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                  <McText text={job.name} />
+                </span>
                 <span className="tabular shrink-0 text-sm font-semibold">×{amount(job.amount, job.kind, locale, t('ae2.buckets'))}</span>
               </div>
               <Progress
@@ -144,7 +149,7 @@ function CpuDetails({ cpu }: { cpu: Ae2Cpu }) {
             {jobs.map((j) => (
               <li key={j.startedUptime} className="flex min-w-0 justify-between gap-2">
                 <span className="min-w-0 truncate">
-                  {j.name} ×{formatNumber(j.amount, locale)}
+                  <McText text={j.name} /> ×{formatNumber(j.amount, locale)}
                 </span>
                 <span className="text-muted-foreground tabular shrink-0">
                   {new Date(j.started).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} ·{' '}
@@ -211,7 +216,7 @@ function Line({ line, locale }: { line: JobLine; locale: Locale }) {
       <span className="flex min-w-0 items-center gap-1.5">
         <ItemIcon stackKey={line.key} name={line.name} className="size-4 [&>img]:size-4" />
         <span className="min-w-0 truncate">
-          {line.name}
+          <McText text={line.name} />
           {line.kind === 'fluid' && <span className="text-muted-foreground"> (B)</span>}
         </span>
       </span>

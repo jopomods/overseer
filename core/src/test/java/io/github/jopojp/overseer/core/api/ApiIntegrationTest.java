@@ -484,6 +484,12 @@ class ApiIntegrationTest {
 
         var fluids = json(alex.get("/api/v1/inventory?resource=flux/network/1&kind=fluid"));
         assertEquals(1, fluids.get("total").getAsInt());
+        flux.inventory(ALEX_NET, List.of(new Stack(iron, "item", "Iron Ingot", 64),
+                new Stack("item:gtceu:ev_hatch", "item", "§5EV Energy Hatch", 1)));
+        collect();
+        var coloured = json(alex.get("/api/v1/inventory?resource=flux/network/1&q=ev%20energy"));
+        assertEquals("§5EV Energy Hatch", coloured.getAsJsonArray("items").get(0).getAsJsonObject().get("name")
+                .getAsString(), "names keep their colour codes; search ignores them");
         var search = json(alex.get("/api/v1/inventory?resource=flux/network/1&q=IRON&limit=1"));
         assertEquals("Iron Ingot", search.getAsJsonArray("items").get(0).getAsJsonObject().get("name").getAsString());
     }

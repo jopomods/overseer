@@ -275,6 +275,7 @@ function inventoryStacks(realistic: boolean): MockStack[] {
     { key: 'item:gtceu:copper_single_wire', kind: 'item', name: '1x Copper Wire', amount: 3_120, change1h: 0, change24h: 640 },
     { key: 'item:gtceu:basic_electronic_circuit', kind: 'item', name: 'Basic Electronic Circuit', amount: 0, change1h: -12, change24h: -96 },
     { key: 'item:gtceu:good_electronic_circuit', kind: 'item', name: 'Good Electronic Circuit', amount: 37, change1h: 4, change24h: 16 },
+    { key: 'item:gtceu:ev_energy_input_hatch', kind: 'item', name: '§5EV Energy Hatch', amount: 2, change1h: 0, change24h: 1 },
     { key: 'item:minecraft:redstone', kind: 'item', name: 'Redstone', amount: 1_843_220, change1h: 12_400, change24h: 140_220 },
     { key: 'item:minecraft:coal', kind: 'item', name: 'Coal', amount: 64_000, change1h: 0, change24h: 0 },
     { key: 'item:minecraft:cobblestone', kind: 'item', name: 'Cobblestone', amount: 2_147_483_647, change1h: 0, change24h: 0 },
@@ -339,7 +340,8 @@ function inventoryBody(url: URL, realistic: boolean) {
   const sort = url.searchParams.get('sort') ?? 'amount'
   const limit = Number(url.searchParams.get('limit') ?? 100)
   const offset = Number(url.searchParams.get('offset') ?? 0)
-  const byName = (a: MockStack, b: MockStack) => a.name.localeCompare(b.name)
+  const plain = (s: string) => s.replace(/§./g, '')
+  const byName = (a: MockStack, b: MockStack) => plain(a.name).localeCompare(plain(b.name))
   const items = inventoryStacks(realistic)
     .filter((s) => !kind || s.kind === kind)
     .filter((s) => !q || s.name.toLowerCase().includes(q) || s.key.includes(q))

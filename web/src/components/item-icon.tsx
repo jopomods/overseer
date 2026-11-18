@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { plainText } from '@/lib/mc-text'
 import { cn } from '@/lib/utils'
 
 /** Keys whose icon is known to be missing in this page view: no request, no flicker. */
@@ -21,7 +22,7 @@ export function ItemIcon({ stackKey, name, className }: { stackKey: string; name
           className,
         )}
       >
-        {name.trim().charAt(0) || '?'}
+        {plainText(name).trim().charAt(0) || '?'}
       </span>
     )
   }

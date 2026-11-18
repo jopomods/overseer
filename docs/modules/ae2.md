@@ -114,6 +114,15 @@ crafting status screen: per key `stored` (in the CPU), `active` (sent to machine
 `ProviderSnapshot.jobs`, are kept in memory only and served by `GET /api/v1/jobs?resource=…`
 (404 while idle). Nothing of it is stored.
 
+## Names
+
+Item, fluid and CPU names come as the server resolves them, including legacy colour codes
+(`§5EV Energy Hatch`): modpacks colour items by voltage tier this way. The UI shows them in
+colour by default; the account page has "Colour codes in names: Coloured / Plain". Search and
+name sorting ignore the codes. AE2 numbers unnamed CPUs by their position in the grid's CPU list
+(named ones count too); the attribute `number` carries it, so the dashboard says "CPU #8" like
+the game.
+
 ## Infinity cells
 
 Add-on infinity cells report the largest 32-bit number (2,147,483,647 items, or as many buckets

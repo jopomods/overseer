@@ -412,7 +412,7 @@ public final class ApiRoutes {
     static final long CHANGE_LONGER = 24 * 3_600_000L;
     private static final java.util.Set<String> INVENTORY_KINDS = java.util.Set.of("item", "fluid", "other");
     private static final java.util.Comparator<Dtos.InventoryItem> BY_NAME = java.util.Comparator
-            .comparing((Dtos.InventoryItem i) -> i.name().toLowerCase(java.util.Locale.ROOT))
+            .comparing((Dtos.InventoryItem i) -> plain(i.name()).toLowerCase(java.util.Locale.ROOT))
             .thenComparing(Dtos.InventoryItem::key);
 
     /** Current contents from the newest scan, with net changes from the database (ADR-0011). */
@@ -457,7 +457,7 @@ public final class ApiRoutes {
         });
         var matching = items.stream()
                 .filter(i -> kind == null || kind.equals(i.kind()))
-                .filter(i -> q.isEmpty() || i.name().toLowerCase(java.util.Locale.ROOT).contains(q)
+                .filter(i -> q.isEmpty() || plain(i.name()).toLowerCase(java.util.Locale.ROOT).contains(q)
                         || i.key().contains(q))
                 .sorted(order)
                 .toList();
@@ -783,6 +783,13 @@ public final class ApiRoutes {
     }
 
     // --- helpers -------------------------------------------------------------------------
+
+    private static final java.util.regex.Pattern FORMATTING = java.util.regex.Pattern.compile("(?i)§[0-9a-fk-orx]");
+
+    /** A game name without legacy formatting codes ({@code §5EV Energy Hatch} -> {@code EV Energy Hatch}). */
+    static String plain(String name) {
+        return FORMATTING.matcher(name).replaceAll("");
+    }
 
     private Principal principal(Request r) throws SQLException {
         return auth.authenticate(r.bearerToken().orElse(null), r.cookie(Cookies.SESSION).orElse(null))

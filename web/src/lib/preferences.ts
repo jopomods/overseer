@@ -17,6 +17,8 @@ export interface Preferences {
   energyUnit: EnergyUnit
   axis: TimeAxis
   flowDetail: FlowDetail
+  /** Show § colour codes in item and CPU names as colours (default) or hide them. */
+  nameColors: boolean
 }
 
 const KEY = 'overseer.preferences'
@@ -27,7 +29,7 @@ function detectLocale(): Locale {
 }
 
 function load(): Preferences {
-  const defaults: Preferences = { locale: detectLocale(), energyUnit: 'fe', axis: 'uptime', flowDetail: 'zones' }
+  const defaults: Preferences = { locale: detectLocale(), energyUnit: 'fe', axis: 'uptime', flowDetail: 'zones', nameColors: true }
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return defaults
@@ -37,6 +39,7 @@ function load(): Preferences {
       energyUnit: parsed.energyUnit === 'eu' ? 'eu' : 'fe',
       axis: parsed.axis === 'calendar' ? 'calendar' : 'uptime',
       flowDetail: parsed.flowDetail === 'devices' ? 'devices' : 'zones',
+      nameColors: parsed.nameColors !== false,
     }
   } catch {
     return defaults
