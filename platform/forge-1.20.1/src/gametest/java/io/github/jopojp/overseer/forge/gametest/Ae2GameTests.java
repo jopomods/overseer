@@ -161,6 +161,22 @@ public final class Ae2GameTests {
             helper.assertTrue("item".equals(plain.get().kind()), "kind: " + plain.get().kind());
             var shiny = stacks.stream().filter(s -> s.key().startsWith("item:minecraft:iron_ingot#")).findFirst();
             helper.assertTrue(shiny.isPresent() && shiny.get().amount() == 3, "NBT variant: " + stacks);
+            BlockPos driveAt = helper.absolutePos(drive);
+            ResourceRef driveRef = Ae2Mapping.drive(dimension + "@" + driveAt.getX() + "," + driveAt.getY() + "," + driveAt.getZ());
+            var driveAttrs = snapshot.resources().get(driveRef);
+            helper.assertTrue(driveAttrs != null, "drive missing; got " + snapshot.resources().keySet());
+            helper.assertTrue("ae2:drive".equals(driveAttrs.get("block")), "block: " + driveAttrs.get("block"));
+            helper.assertTrue("0=ae2:item_storage_cell_1k=not_empty".equals(driveAttrs.get("cells")),
+                    "cells: " + driveAttrs.get("cells"));
+            double total = snapshot.samples().stream()
+                    .filter(s -> s.resource().equals(driveRef) && s.metric().equals("bytes_total"))
+                    .mapToDouble(Sample::value).findFirst().orElse(-1);
+            double types = snapshot.samples().stream()
+                    .filter(s -> s.resource().equals(driveRef) && s.metric().equals("types_used"))
+                    .mapToDouble(Sample::value).findFirst().orElse(-1);
+            helper.assertTrue(total == 1024, "bytes_total: " + total);
+            helper.assertTrue(types == 2, "types_used: " + types);
+            helper.assertTrue(ref.equals(provider.access().parent(driveRef)), "a drive belongs to its grid");
             helper.assertTrue(provider.collect(AT).inventories().isEmpty(), "the next nine collections do not scan");
             helper.succeed();
         });
