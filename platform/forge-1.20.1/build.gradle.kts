@@ -189,7 +189,8 @@ tasks.test {
 // GameTests need no real terrain: a flat world skips most of the spawn-area generation,
 // which dominated the GameTest run time in CI.
 val gameTestServerProperties by tasks.registering {
-    val file = project.file("run/gametest/server.properties")
+    // Into the suite's own game directory (run/gametest-<suite>), where the server reads it.
+    val file = project.file("run/gametest-$suiteName/server.properties")
     outputs.file(file)
     doLast {
         file.parentFile.mkdirs()

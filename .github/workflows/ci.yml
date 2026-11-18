@@ -1,12 +1,13 @@
 # Runs on every push to main and every PR (ADR-0013, ADR-0015).
 #
-#   changes ─┬─ web ────────────────────────────────┐
-#            └─ build ── gametest × suites (parallel) ┼── ci-ok   (the one status to look at)
-#   pr-title ──────────────────────────────────────┘
+#   changes ─┬─ web ──────────────────────────┐
+#            ├─ build ────────────────────────┼── ci-ok   (the one status to look at)
+#            └─ gametest × suites (parallel) ─┤
+#   pr-title ────────────────────────────────┘
 #
-# Each GameTest suite runs in its own Forge server and world. `changes` decides which jobs a
-# change needs (.github/ci/classify.py). SHADOW mode: everything still runs; the summary only
-# says what would have been skipped. Turn it off once the rules have proven themselves.
+# Each GameTest suite runs in its own Forge server and (flat) world. `changes` decides which jobs
+# a change needs (.github/ci/classify.py); pushes to main always run everything. SHADOW mode
+# ("true") runs everything and only reports what would have been skipped.
 name: CI
 
 on:
@@ -23,7 +24,7 @@ permissions:
   contents: read
 
 env:
-  SHADOW: "true"
+  SHADOW: "false"
 
 jobs:
   changes:
@@ -87,7 +88,10 @@ jobs:
             echo
             sed 's/^/- `/; s/$/`/' changed.txt
             echo "</details>"
-            [ "$SHADOW" = "true" ] && echo && echo "_Shadow mode: every job runs; \"no\" would have been skipped._"
+            if [ "$SHADOW" = "true" ]; then
+              echo
+              echo "_Shadow mode: every job runs; \"no\" would have been skipped._"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   build:
@@ -128,7 +132,8 @@ jobs:
 
   gametest:
     name: GameTests (${{ matrix.suite }})
-    needs: [changes, build]
+    # Not after `build`: every suite compiles what it needs anyway, so waiting only adds time.
+    needs: changes
     if: needs.changes.outputs.suites != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
