@@ -67,6 +67,7 @@ public final class ApiRoutes {
     private final RegistrationStore registrations;
     private final io.github.jopojp.overseer.core.storage.WatchStore watches;
     private final io.github.jopojp.overseer.core.storage.IconStore icons;
+    private final io.github.jopojp.overseer.core.storage.ProfilerStore profiler;
     private final StorageWriter writer;
 
     private final RateLimiter linkCreate = RateLimiter.perMinute(10);
@@ -93,6 +94,7 @@ public final class ApiRoutes {
             RegistrationStore registrations,
             io.github.jopojp.overseer.core.storage.WatchStore watches,
             io.github.jopojp.overseer.core.storage.IconStore icons,
+            io.github.jopojp.overseer.core.storage.ProfilerStore profiler,
             StorageWriter writer) {
         this.version = version;
         this.auth = auth;
@@ -112,6 +114,7 @@ public final class ApiRoutes {
         this.registrations = registrations;
         this.watches = watches;
         this.icons = icons;
+        this.profiler = profiler;
         this.writer = writer;
     }
 
@@ -137,6 +140,9 @@ public final class ApiRoutes {
                 .get("/api/v1/jobs", this::job)
                 .get("/api/v1/watches", this::listWatches)
                 .get("/api/v1/icon", this::icon)
+                .get("/api/v1/details", this::details)
+                .get("/api/v1/admin/profiler", this::getProfiler)
+                .put("/api/v1/admin/profiler", this::setProfiler)
                 .post("/api/v1/watches", this::addWatch)
                 .delete("/api/v1/watches", this::removeWatch)
                 .get("/api/v1/overrides", this::listOverrides)
@@ -312,6 +318,58 @@ public final class ApiRoutes {
                 .map(l -> new Dtos.JobLine(l.key(), l.kind(), l.name(), l.stored(), l.active(), l.pending()))
                 .toList();
         return Response.json(new Dtos.Job(ref.key(), Dtos.timestamp(job.at()), lines));
+    }
+
+    /** The live table of a resource (e.g. the profiler's top list); 404 when none or not visible. */
+    private Response details(Request r) throws SQLException {
+        Principal p = principal(r);
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        var details = inventories.details(ref).orElseThrow(HttpError::notFound);
+        return Response.json(new Dtos.Details(ref.key(), Dtos.timestamp(details.at()), details.tables().get(ref)));
+    }
+
+    // --- tick profiler (ADR-0014) ----------------------------------------------------------
+
+    private Dtos.Profiler profilerDto() {
+        var s = profiler.current();
+        return new Dtos.Profiler(s.mode().name().toLowerCase(java.util.Locale.ROOT),
+                s.mode() == io.github.jopojp.overseer.core.storage.ProfilerStore.Mode.TIMED
+                        ? java.time.Instant.ofEpochMilli(s.untilWallMs()) : null,
+                s.intervalSeconds(), s.active(clock.instant()));
+    }
+
+    private Response getProfiler(Request r) throws SQLException {
+        admin(r);
+        return Response.json(profilerDto());
+    }
+
+    /** Start (timed or continuous) or stop the tick profiler. Admins only. */
+    private Response setProfiler(Request r) throws SQLException {
+        admin(r);
+        var body = Json.parse(r.bodyText(), Dtos.SetProfiler.class);
+        if (body.mode() == null) throw HttpError.badRequest("mode is required.");
+        var mode = switch (body.mode()) {
+            case "off" -> io.github.jopojp.overseer.core.storage.ProfilerStore.Mode.OFF;
+            case "timed" -> io.github.jopojp.overseer.core.storage.ProfilerStore.Mode.TIMED;
+            case "continuous" -> io.github.jopojp.overseer.core.storage.ProfilerStore.Mode.CONTINUOUS;
+            default -> throw HttpError.badRequest("mode must be off, timed or continuous.");
+        };
+        int interval = body.intervalSeconds() == null ? profiler.current().intervalSeconds() : body.intervalSeconds();
+        long until = 0;
+        if (mode == io.github.jopojp.overseer.core.storage.ProfilerStore.Mode.TIMED) {
+            long duration = body.durationSeconds() == null ? 0 : body.durationSeconds();
+            if (duration < 10 || duration > io.github.jopojp.overseer.core.storage.ProfilerStore.MAX_DURATION_SECONDS) {
+                throw HttpError.badRequest("durationSeconds must be 10 to 86400.");
+            }
+            until = clock.instant().toEpochMilli() + duration * 1000;
+        }
+        try {
+            profiler.set(new io.github.jopojp.overseer.core.storage.ProfilerStore.Settings(mode, until, interval));
+        } catch (IllegalArgumentException e) {
+            throw HttpError.badRequest(e.getMessage());
+        }
+        return Response.json(profilerDto());
     }
 
     /** Icon of a stack key as PNG. Missing icons are cached too, for an hour. */

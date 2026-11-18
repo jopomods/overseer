@@ -583,6 +583,36 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void adminsControlTheProfilerAndViewersReadLiveTables() throws Exception {
+        flux.details(ALEX_NET, List.of(Map.of("name", "Macerator", "us", "12.5")));
+        collect();
+        var json = Map.of("Content-Type", "application/json");
+        var alex = new Browser().loginAs(ALEX);
+        var steve = new Browser().loginAs(STEVE);
+        var table = json(alex.get("/api/v1/details?resource=flux/network/1"));
+        assertEquals("Macerator", table.getAsJsonArray("rows").get(0).getAsJsonObject().get("name").getAsString());
+        assertEquals(404, steve.get("/api/v1/details?resource=flux/network/1").statusCode());
+
+        assertEquals(403, alex.get("/api/v1/admin/profiler").statusCode());
+        operators.add(ALEX.uuid());
+        var admin = new Browser().loginAs(ALEX);
+        assertEquals("off", json(admin.get("/api/v1/admin/profiler")).get("mode").getAsString());
+        assertEquals(400, admin.send("PUT", "/api/v1/admin/profiler", "{\"mode\":\"timed\",\"durationSeconds\":1}", json)
+                .statusCode());
+        var timed = json(admin.send("PUT", "/api/v1/admin/profiler",
+                "{\"mode\":\"timed\",\"durationSeconds\":60,\"intervalSeconds\":5}", json));
+        assertTrue(timed.get("active").getAsBoolean());
+        assertTrue(timed.has("until"));
+        assertTrue(runtime.profiler().current().active(java.time.Instant.now()));
+        assertEquals(400, admin.send("PUT", "/api/v1/admin/profiler", "{\"mode\":\"continuous\",\"intervalSeconds\":1}", json)
+                .statusCode());
+        assertEquals("continuous", json(admin.send("PUT", "/api/v1/admin/profiler", "{\"mode\":\"continuous\"}", json))
+                .get("mode").getAsString());
+        assertFalse(json(admin.send("PUT", "/api/v1/admin/profiler", "{\"mode\":\"off\"}", json)).get("active")
+                .getAsBoolean());
+    }
+
+    @Test
     void sharingNeedsTheProviderCapability() throws Exception {
         operators.add(ALEX.uuid());
         var alex = new Browser().loginAs(ALEX);

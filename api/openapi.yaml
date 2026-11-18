@@ -953,6 +953,87 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/admin/profiler:
+    get:
+      tags: [admin]
+      operationId: getProfiler
+      summary: Tick profiler state (ADR-0014)
+      responses:
+        "200":
+          description: Current settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profiler"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags: [admin]
+      operationId: setProfiler
+      summary: Start or stop the tick profiler
+      description: |
+        `timed` measures for `durationSeconds` (10 to 86400), `continuous` until stopped, `off`
+        stops. `intervalSeconds` (5 to 300) is how often a measurement is taken and stored.
+        Measuring costs a little tick time itself.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode:
+                  type: string
+                  enum: [off, timed, continuous]
+                durationSeconds:
+                  type: integer
+                  format: int64
+                intervalSeconds:
+                  type: integer
+      responses:
+        "200":
+          description: New state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profiler"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/details:
+    get:
+      tags: [data]
+      operationId: getDetails
+      summary: Live table of a resource
+      description: |
+        Rows of named columns a provider sends with every collection and Overseer never stores,
+        e.g. the tick profiler's top list (`profiler/total/all`). 404 when there is none or the
+        resource is not visible.
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The table.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Details"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/admin/storage/settings:
     put:
       tags: [admin]
@@ -1286,6 +1367,38 @@ components:
           type: integer
           format: int64
           description: Still to be crafted.
+
+    Profiler:
+      type: object
+      required: [mode, intervalSeconds, active]
+      properties:
+        mode:
+          type: string
+          enum: [off, timed, continuous]
+        until:
+          type: string
+          format: date-time
+          description: End of a timed run.
+        intervalSeconds:
+          type: integer
+        active:
+          type: boolean
+          description: Measuring right now.
+
+    Details:
+      type: object
+      required: [resource, at, rows]
+      properties:
+        resource:
+          type: string
+        at:
+          $ref: "#/components/schemas/Timestamp"
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
 
     Event:
       type: object

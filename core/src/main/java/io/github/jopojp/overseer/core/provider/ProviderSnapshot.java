@@ -19,6 +19,8 @@ import java.util.Objects;
  *                    pushed to clients as part of the snapshot.
  * @param jobs        lines of running jobs, e.g. per AE2 crafting CPU. Live only: never stored,
  *                    never pushed as part of the snapshot. A resource missing here has no job.
+ * @param details     other live tables per resource (rows of named columns), e.g. the tick
+ *                    profiler's top list. Live only, like {@code jobs}.
  */
 public record ProviderSnapshot(
         String provider,
@@ -26,15 +28,21 @@ public record ProviderSnapshot(
         Map<ResourceRef, Map<String, String>> resources,
         List<Sample> samples,
         Map<ResourceRef, List<Stack>> inventories,
-        Map<ResourceRef, List<JobLine>> jobs) {
+        Map<ResourceRef, List<JobLine>> jobs,
+        Map<ResourceRef, List<Map<String, String>>> details) {
     public ProviderSnapshot(String provider, Timestamp at, Map<ResourceRef, Map<String, String>> resources,
             List<Sample> samples) {
-        this(provider, at, resources, samples, Map.of(), Map.of());
+        this(provider, at, resources, samples, Map.of(), Map.of(), Map.of());
     }
 
     public ProviderSnapshot(String provider, Timestamp at, Map<ResourceRef, Map<String, String>> resources,
             List<Sample> samples, Map<ResourceRef, List<Stack>> inventories) {
-        this(provider, at, resources, samples, inventories, Map.of());
+        this(provider, at, resources, samples, inventories, Map.of(), Map.of());
+    }
+
+    public ProviderSnapshot(String provider, Timestamp at, Map<ResourceRef, Map<String, String>> resources,
+            List<Sample> samples, Map<ResourceRef, List<Stack>> inventories, Map<ResourceRef, List<JobLine>> jobs) {
+        this(provider, at, resources, samples, inventories, jobs, Map.of());
     }
 
     public ProviderSnapshot {
@@ -44,5 +52,6 @@ public record ProviderSnapshot(
         samples = List.copyOf(samples);
         inventories = Map.copyOf(inventories);
         jobs = Map.copyOf(jobs);
+        details = Map.copyOf(details);
     }
 }
