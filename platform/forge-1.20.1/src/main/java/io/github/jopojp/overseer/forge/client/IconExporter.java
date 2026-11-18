@@ -109,6 +109,7 @@ public final class IconExporter {
             }
         }
         mc.getMainRenderTarget().bindWrite(true);
+        progress("Rendering icons", total - todo.size(), total);
         if (todo.isEmpty()) {
             todo = null;
             outgoing = new ArrayDeque<>(IconChannel.batches(rendered));
@@ -123,6 +124,7 @@ public final class IconExporter {
             IconChannel.CHANNEL.sendToServer(batch);
             sent += batch.icons().size();
         }
+        progress("Sending icons", sent, rendered.size());
         if (outgoing.isEmpty()) {
             outgoing = null;
             message("Sent " + sent + " icons to Overseer. The dashboard shows them after a reload.", ChatFormatting.GREEN);
@@ -188,6 +190,19 @@ public final class IconExporter {
         float a = ((tint >>> 24) & 0xff) / 255f;
         graphics.blit(0, 0, 0, 16, 16, sprite, ((tint >> 16) & 0xff) / 255f, ((tint >> 8) & 0xff) / 255f,
                 (tint & 0xff) / 255f, a == 0 ? 1 : a);
+    }
+
+    /** Progress bar above the hotbar, e.g. "Rendering icons [||||||....] 61 %". */
+    private static void progress(String what, int done, int of) {
+        var player = Minecraft.getInstance().player;
+        if (player == null || of <= 0) return;
+        int percent = (int) Math.min(100, done * 100L / of);
+        int filled = percent / 5;
+        var bar = Component.literal("[Overseer] " + what + " ").withStyle(ChatFormatting.GRAY)
+                .append(Component.literal("|".repeat(filled)).withStyle(ChatFormatting.GREEN))
+                .append(Component.literal("|".repeat(20 - filled)).withStyle(ChatFormatting.DARK_GRAY))
+                .append(Component.literal(" " + percent + " % (" + done + "/" + of + ")").withStyle(ChatFormatting.GRAY));
+        player.displayClientMessage(bar, true);
     }
 
     private static int message(String text, ChatFormatting color) {

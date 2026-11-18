@@ -202,7 +202,7 @@ function cpuResources(realistic: boolean) {
       cpuResource(grid, 'minecraft:overworld@118,60,-338', { name: 'Circuits', storage: '262144', coProcessors: '16', job: 'item:gtceu:good_electronic_circuit', jobKind: 'item', jobName: 'Good Electronic Circuit', jobAmount: '64' },
         { job_total: 1_280, job_progress: Math.round(1_280 * (t / 600)), job_elapsed: 30 + t }),
       cpuResource(grid, 'minecraft:overworld@118,60,-332', { job: 'fluid:gtceu:polyethylene', jobKind: 'fluid', jobName: 'Polyethylene', jobAmount: '16000' },
-        { job_total: 48, job_progress: 6, job_elapsed: 4_210 }),
+        { job_total: 2_147_483_695, job_progress: 1_073_741_830, job_elapsed: 4_210 }),
       cpuResource(grid, 'minecraft:overworld@118,60,-326', {}),
     ]
   }
@@ -277,6 +277,7 @@ function inventoryStacks(realistic: boolean): MockStack[] {
     { key: 'item:gtceu:good_electronic_circuit', kind: 'item', name: 'Good Electronic Circuit', amount: 37, change1h: 4, change24h: 16 },
     { key: 'item:minecraft:redstone', kind: 'item', name: 'Redstone', amount: 1_843_220, change1h: 12_400, change24h: 140_220 },
     { key: 'item:minecraft:coal', kind: 'item', name: 'Coal', amount: 64_000, change1h: 0, change24h: 0 },
+    { key: 'item:minecraft:cobblestone', kind: 'item', name: 'Cobblestone', amount: 2_147_483_647, change1h: 0, change24h: 0 },
     { key: 'item:ae2:certus_quartz_crystal', kind: 'item', name: 'Certus Quartz Crystal', amount: 5_512, change1h: 128, change24h: 2_048 },
     { key: 'item:minecraft:enchanted_book#3f2a91c0', kind: 'item', name: 'Enchanted Book', amount: 3, change1h: 0, change24h: 1 },
     { key: 'fluid:minecraft:water', kind: 'fluid', name: 'Water', amount: 2_400_000, change1h: -120_000, change24h: 300_000 },

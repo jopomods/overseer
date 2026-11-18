@@ -6,7 +6,7 @@ import { ItemIcon } from '@/components/item-icon'
 import { Section } from '@/components/stat'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { formatBuckets, formatClock, idPos, jobEta, pastJobs, type Ae2Cpu } from '@/lib/ae2'
+import { formatBuckets, formatClock, idPos, isInfinite, jobEta, jobProgressKnown, pastJobs, type Ae2Cpu } from '@/lib/ae2'
 import { formatBytes, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { usePreferences, type Locale } from '@/lib/preferences'
@@ -45,8 +45,9 @@ function CpuCard({ cpu, number }: { cpu: Ae2Cpu; number: number }) {
   const { locale } = usePreferences()
   const [open, setOpen] = useState(false)
   const job = cpu.job
-  const share = job && job.total > 0 ? Math.min(100, (job.progress / job.total) * 100) : 0
-  const eta = job ? jobEta(job) : undefined
+  const known = job ? jobProgressKnown(job) : false
+  const share = job && known ? Math.min(100, (job.progress / job.total) * 100) : 0
+  const eta = job && known ? jobEta(job) : undefined
   const title = cpu.name ?? t('cpu.unnamed', { n: number })
 
   return (
@@ -71,11 +72,19 @@ function CpuCard({ cpu, number }: { cpu: Ae2Cpu; number: number }) {
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold">{job.name}</span>
                 <span className="tabular shrink-0 text-sm font-semibold">×{amount(job.amount, job.kind, locale, t('ae2.buckets'))}</span>
               </div>
-              <Progress value={share} aria-label={t('cpu.progress')} />
+              <Progress
+                value={known ? share : 100}
+                aria-label={t('cpu.progress')}
+                className={cn(!known && 'animate-pulse opacity-50')}
+              />
               <div className="text-muted-foreground flex min-w-0 flex-wrap justify-between gap-x-3 text-xs">
-                <span className="tabular">
-                  {formatNumber(share, locale, 0)} % · {formatSi(job.progress, locale)} / {formatSi(job.total, locale)}
-                </span>
+                {known ? (
+                  <span className="tabular">
+                    {formatNumber(share, locale, 0)} % · {formatSi(job.progress, locale)} / {formatSi(job.total, locale)}
+                  </span>
+                ) : (
+                  <span title={t('cpu.unknownHint')}>{t('cpu.unknown')}</span>
+                )}
                 <span className="tabular">
                   {formatClock(job.elapsed)}
                   {eta !== undefined && ` · ${t('cpu.eta', { eta: formatClock(eta) })}`}
@@ -194,7 +203,7 @@ function JobLines({ resource }: { resource: string }) {
 function Line({ line, locale }: { line: JobLine; locale: Locale }) {
   const cell = (v: number, tone?: string) => (
     <span className={cn('tabular truncate text-right', v === 0 ? 'text-muted-foreground' : tone)}>
-      {v === 0 ? '–' : line.kind === 'fluid' ? formatBuckets(v, locale) : formatSi(v, locale)}
+      {v === 0 ? '–' : isInfinite(v, line.kind) ? '∞' : line.kind === 'fluid' ? formatBuckets(v, locale) : formatSi(v, locale)}
     </span>
   )
   return (

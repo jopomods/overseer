@@ -296,3 +296,18 @@ export function emptyInHours(amount: number, change1h: number, change24h: number
   const hours = forecast(amount, change1h, change24h).emptyIn
   return hours !== undefined && hours < 24 * 14 ? hours : undefined
 }
+
+/**
+ * Infinity cells (add-ons) report the largest 32-bit number: 2,147,483,647 items, or as many
+ * buckets for fluids. Anything at or above counts as infinite.
+ */
+export const INFINITE = 2_147_483_647
+
+export function isInfinite(amount: number, kind: string): boolean {
+  return amount >= (kind === 'fluid' ? INFINITE * 1000 : INFINITE)
+}
+
+/** A job that includes an infinite source: AE2's total and progress are meaningless then. */
+export function jobProgressKnown(job: Ae2Job): boolean {
+  return job.total > 0 && job.total < INFINITE
+}
