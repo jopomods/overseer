@@ -497,6 +497,121 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/access/requestable:
+    get:
+      tags: [data]
+      operationId: listRequestable
+      summary: Resources the caller cannot see but may ask access for
+      description: |
+        Shareable resources with an owner that are hidden from the caller. Only an opaque
+        handle, the Overseer name and the owner's name are returned, never ids: ids contain
+        block positions.
+      parameters:
+        - name: provider
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Requestable resources.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Requestable"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/access/requests:
+    get:
+      tags: [data]
+      operationId: listAccessRequests
+      summary: Pending requests on resources the caller may manage
+      responses:
+        "200":
+          description: Pending requests, oldest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AccessRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [data]
+      operationId: requestAccess
+      summary: Ask the owner for access
+      description: |
+        The owner gets an in-game message. Asking again while pending is harmless; after a
+        denial the same player may ask again after 24 hours (409 before).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, handle]
+              properties:
+                provider:
+                  type: string
+                handle:
+                  type: string
+      responses:
+        "201":
+          description: Pending.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Declined recently.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Too many requests.
+
+  /api/v1/access/decisions:
+    post:
+      tags: [data]
+      operationId: decideAccessRequest
+      summary: Approve (creates a share) or decline a request
+      description: Needs edit rights on the resource. The requester gets an in-game message.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resource, player, approve]
+              properties:
+                resource:
+                  type: string
+                player:
+                  type: string
+                  format: uuid
+                approve:
+                  type: boolean
+      responses:
+        "204":
+          description: Decided.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/admin/collectors:
     get:
       tags: [admin]
@@ -972,6 +1087,41 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Session"
+
+    Requestable:
+      type: object
+      required: [provider, handle, ownerName, request]
+      properties:
+        provider:
+          type: string
+        handle:
+          type: string
+          description: Opaque, stable per server.
+        name:
+          type: [string, "null"]
+          description: Overseer name, if the owner set one.
+        ownerName:
+          type: string
+        request:
+          type: string
+          enum: [none, pending, denied]
+
+    AccessRequest:
+      type: object
+      required: [resource, player, requestedAt]
+      properties:
+        resource:
+          type: string
+        resourceName:
+          type: [string, "null"]
+        player:
+          type: string
+          format: uuid
+        name:
+          type: [string, "null"]
+        requestedAt:
+          type: string
+          format: date-time
 
     Share:
       type: object
