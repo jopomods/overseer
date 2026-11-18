@@ -629,8 +629,11 @@ export interface components {
         Override: {
             /** @description Resource key, e.g. `flux/device/minecraft:overworld@1,64,2`. */
             resource: string;
-            /** @enum {string} */
-            key: "zone";
+            /**
+             * @description `zone`: zone of a Flux device. `name`: name of a resource the mod does not name (AE2 grids).
+             * @enum {string}
+             */
+            key: "zone" | "name";
             value?: string | null;
         };
         StorageSettings: {
