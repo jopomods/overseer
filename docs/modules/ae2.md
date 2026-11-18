@@ -106,7 +106,7 @@ and editable exactly like its grid (shares included). CPUs of hidden grids are n
 
 | Metric (while busy) | |
 |---|---|
-| `job_total`, `job_progress` | Items the whole job crafts (all steps) and how many are done |
+| `job_total`, `job_progress` | AE2's scale (2,147,483,647) and the done share of it; only the ratio is meaningful |
 | `job_elapsed` | Seconds since the job started; AE2 keeps counting across restarts |
 
 The job history comes from the attribute events (`GET /api/v1/events?resource=…&attribute=job`).
@@ -131,9 +131,12 @@ the game.
 ## Infinity cells
 
 Add-on infinity cells report the largest 32-bit number (2,147,483,647 items, or as many buckets
-for fluids). The UI shows such amounts as ∞. A crafting job that draws from one gets AE2's total
-inflated by it, so its card shows "progress unknown" instead of a misleading percentage and
-estimate; the job lines in the expanded card stay exact.
+for fluids). The UI shows such amounts as ∞.
+
+Job progress is not affected: AE2 15 always reports a job's total as 2,147,483,647 and its progress
+as a share of it (`ElapsedTimeTracker`, weighted across item and fluid work). The card shows the
+percentage and the remaining time from it, never the scaled counts. AE2's own crafting status
+title shows the same estimate (remaining time, not elapsed), and it survives restarts.
 
 ## Icons
 

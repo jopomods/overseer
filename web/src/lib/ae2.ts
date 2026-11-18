@@ -310,7 +310,15 @@ export function isInfinite(amount: number, kind: string): boolean {
   return amount >= (kind === 'fluid' ? INFINITE * 1000 : INFINITE)
 }
 
-/** A job that includes an infinite source: AE2's total and progress are meaningless then. */
+/**
+ * AE2 15 reports a job's total as 2,147,483,647 and its progress as a share of that (weighted
+ * across item and fluid work), so only the ratio means something. Unknown only without a total.
+ */
 export function jobProgressKnown(job: Ae2Job): boolean {
-  return job.total > 0 && job.total < INFINITE
+  return job.total > 0
+}
+
+/** Whether total and progress are real item counts (other AE2 versions) rather than a scale. */
+export function jobCountsAreItems(job: Ae2Job): boolean {
+  return job.total < INFINITE
 }
