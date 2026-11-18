@@ -16,6 +16,7 @@ export type Requestable = components['schemas']['Requestable']
 export type AccessRequest = components['schemas']['AccessRequest']
 export type Inventory = components['schemas']['Inventory']
 export type ResourceEvent = components['schemas']['Event']
+export type JobLine = components['schemas']['JobLine']
 export type InventoryItem = components['schemas']['InventoryItem']
 
 export interface InventoryQuery {
@@ -70,6 +71,7 @@ export const keys = {
   shares: (resource: string) => ['shares', resource] as const,
   requestable: (provider: string) => ['requestable', provider] as const,
   accessRequests: ['access-requests'] as const,
+  job: (resource: string) => ['job', resource] as const,
   events: (resource: string, attributes: string[]) => ['events', resource, attributes.join(',')] as const,
   inventory: (resource: string, q: InventoryQuery) => ['inventory', resource, q.q, q.sort, q.kind ?? '', q.limit] as const,
   history: (resources: string[], metrics: string[], rangeMs: number) =>
@@ -158,6 +160,18 @@ export function useInventory(resource: string, query: InventoryQuery) {
       ),
     placeholderData: keepPreviousData,
     refetchInterval: 10_000,
+    retry,
+  })
+}
+
+/** Lines of a running crafting job; live, so poll briskly while shown. */
+export function useJob(resource: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.job(resource),
+    queryFn: () => unwrap(api.GET('/api/v1/jobs', { params: { query: { resource } } })),
+    enabled,
+    refetchInterval: 2_000,
+    placeholderData: keepPreviousData,
     retry,
   })
 }

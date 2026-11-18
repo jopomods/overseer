@@ -1,6 +1,7 @@
 import { ChevronDown, Cpu } from 'lucide-react'
 import { useState } from 'react'
-import { useEvents } from '@/api/hooks'
+import { useEvents, useJob, type JobLine } from '@/api/hooks'
+import { Button } from '@/components/ui/button'
 import { Section } from '@/components/stat'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -112,6 +113,7 @@ function CpuDetails({ cpu }: { cpu: Ae2Cpu }) {
           </>
         )}
       </dl>
+      {cpu.job && <JobLines resource={cpu.resource.ref.key} />}
       <div className="min-w-0">
         <p className="text-muted-foreground mb-1 font-medium">{t('cpu.recent')}</p>
         {events.isPending ? (
@@ -135,6 +137,66 @@ function CpuDetails({ cpu }: { cpu: Ae2Cpu }) {
         )}
       </div>
     </div>
+  )
+}
+
+const SHOWN_LINES = 12
+const COLUMNS = 'grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_3.5rem] gap-x-2'
+
+/** What the running job holds and waits for, like AE2's crafting status screen. */
+function JobLines({ resource }: { resource: string }) {
+  const t = useT()
+  const { locale } = usePreferences()
+  const [all, setAll] = useState(false)
+  const job = useJob(resource, true)
+  const lines = job.data?.lines ?? []
+  if (job.isPending) return <p className="text-muted-foreground">…</p>
+  if (lines.length === 0) return null
+  const shown = all ? lines : lines.slice(0, SHOWN_LINES)
+  return (
+    <div className="min-w-0">
+      <div className={cn(COLUMNS, 'text-muted-foreground mb-1 font-medium')}>
+        <span className="truncate">{t('cpu.lines')}</span>
+        <span className="truncate text-right" title={t('cpu.activeHint')}>
+          {t('cpu.active')}
+        </span>
+        <span className="truncate text-right" title={t('cpu.pendingHint')}>
+          {t('cpu.pending')}
+        </span>
+        <span className="truncate text-right" title={t('cpu.storedHint')}>
+          {t('cpu.stored')}
+        </span>
+      </div>
+      <ul className="min-w-0 space-y-0.5" data-testid="job-lines">
+        {shown.map((l) => (
+          <Line key={l.key} line={l} locale={locale} />
+        ))}
+      </ul>
+      {lines.length > SHOWN_LINES && (
+        <Button variant="ghost" size="sm" className="mt-1 h-7 px-2 text-xs" onClick={() => setAll((a) => !a)}>
+          {all ? t('cpu.fewer') : t('cpu.allLines', { count: lines.length })}
+        </Button>
+      )}
+    </div>
+  )
+}
+
+function Line({ line, locale }: { line: JobLine; locale: Locale }) {
+  const cell = (v: number, tone?: string) => (
+    <span className={cn('tabular truncate text-right', v === 0 ? 'text-muted-foreground' : tone)}>
+      {v === 0 ? '–' : line.kind === 'fluid' ? formatBuckets(v, locale) : formatSi(v, locale)}
+    </span>
+  )
+  return (
+    <li className={cn(COLUMNS, 'min-w-0')} title={line.key}>
+      <span className="truncate">
+        {line.name}
+        {line.kind === 'fluid' && <span className="text-muted-foreground"> (B)</span>}
+      </span>
+      {cell(line.active, 'text-primary font-medium')}
+      {cell(line.pending)}
+      {cell(line.stored)}
+    </li>
   )
 }
 

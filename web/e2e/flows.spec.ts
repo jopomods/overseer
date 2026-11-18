@@ -203,6 +203,11 @@ test.describe('flows', () => {
     await expect(recent).toHaveCount(3)
     await expect(recent.first()).toContainText('Steel Ingot ×512')
     await expect(cards.first().getByTestId('cpu-details')).toContainText('Players and machines')
+    const lines = cards.first().getByTestId('job-lines').getByRole('listitem')
+    await expect(lines).toHaveCount(7)
+    await expect(lines.first()).toContainText('Resistor')
+    await cards.last().getByRole('button').click()
+    await expect(cards.last().getByTestId('job-lines')).toHaveCount(0)
   })
 
   test('ME network contents are searchable and sortable', async ({ page }) => {

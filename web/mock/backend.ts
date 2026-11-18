@@ -269,6 +269,21 @@ function inventoryStacks(realistic: boolean): MockStack[] {
   return [...base, ...many]
 }
 
+/** A good circuit job in GregTech: some parts at machines, most still planned. */
+function jobLines(realistic: boolean) {
+  const lines = [
+    { key: 'item:gtceu:resistor', kind: 'item', name: 'Resistor', stored: 4, active: 8, pending: 120 },
+    { key: 'item:gtceu:basic_electronic_circuit', kind: 'item', name: 'Basic Electronic Circuit', stored: 0, active: 4, pending: 124 },
+    { key: 'item:gtceu:fine_copper_wire', kind: 'item', name: 'Fine Copper Wire', stored: 64, active: 16, pending: 960 },
+    { key: 'item:gtceu:phenolic_printed_circuit_board', kind: 'item', name: 'Good Circuit Board', stored: 0, active: 2, pending: 62 },
+    { key: 'item:gtceu:copper_single_wire', kind: 'item', name: '1x Copper Wire', stored: 128, active: 0, pending: 0 },
+    { key: 'fluid:gtceu:soldering_alloy', kind: 'fluid', name: 'Soldering Alloy', stored: 2_304, active: 0, pending: 0 },
+    { key: 'item:gtceu:good_electronic_circuit', kind: 'item', name: 'Good Electronic Circuit', stored: 0, active: 0, pending: 64 },
+  ]
+  if (realistic) return lines
+  return Array.from({ length: 300 }, (_, i) => ({ key: `item:${LONG.toLowerCase()}:l${i}`, kind: 'item', name: `${LONG} ${i}`, stored: 9.2e18, active: 9.2e18 - i, pending: 9.2e18 }))
+}
+
 /** Job history of a CPU: three finished jobs, then the running one. */
 function eventsBody(url: URL) {
   const at = (minutesAgo: number) => ({ wall: new Date(Date.now() - minutesAgo * 60_000).toISOString(), uptimeMillis: 123_456_789 - minutesAgo * 60_000, session: 3 })
@@ -539,6 +554,14 @@ export function createMockBackend(options: MockOptions = {}) {
         return json(sessionsBody())
       case '/api/v1/history':
         return json(historyBody(url))
+      case '/api/v1/jobs': {
+        const resource = url.searchParams.get('resource') ?? ''
+        const cpu = snapshot('ae2').resources.find((r) => (r as { ref: { key: string } }).ref.key === resource) as
+          | { attributes: Record<string, string> }
+          | undefined
+        if (!cpu?.attributes.job) return json({ error: { code: 'not_found', message: 'idle' } }, 404)
+        return json({ resource, at: { wall: now(), uptimeMillis: 123_456_789, session: 3 }, lines: jobLines(options.realistic === true) })
+      }
       case '/api/v1/events':
         return json(eventsBody(url))
       case '/api/v1/inventory':
