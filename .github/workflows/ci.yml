@@ -88,7 +88,10 @@ jobs:
             echo
             sed 's/^/- `/; s/$/`/' changed.txt
             echo "</details>"
-            [ "$SHADOW" = "true" ] && echo && echo "_Shadow mode: every job runs; \"no\" would have been skipped._"
+            if [ "$SHADOW" = "true" ]; then
+              echo
+              echo "_Shadow mode: every job runs; \"no\" would have been skipped._"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   build:
