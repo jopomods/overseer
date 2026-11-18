@@ -50,7 +50,7 @@ members, explicit shares and access requests follow (ADR-0011).
 |---|---|---|
 | `power_stored`, `power_max` | AE | 1 AE = 2 FE; shown in AE like AE2 does |
 | `power_usage`, `power_injection` | AE/t | AE2's own averages |
-| `items`, `item_types` | count | from AE2's cached network inventory |
+| `items`, `item_types` | count | from AE2's cached network inventory; not sampled while the grid boots or has no power (it reports empty then) |
 | `fluids`, `fluid_types` | mB, count | UI shows buckets |
 | `channels` | count | channels in use |
 | `cpus_busy` | count | crafting CPUs with a job |
