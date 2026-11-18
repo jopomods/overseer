@@ -32,6 +32,10 @@ Overseer mandatory on every client, because blocks are synced to clients.
   implemented so far; the other access paths follow in later M2 slices.
 - 2026-11-18 (M2b): "the owner's FTB team" means an FTB Teams *party* team; team members
   may view, only the owner edits. Server teams do not count.
+- 2026-11-18 (M2c): shares live in core (`resource_share`, `ShareStore`) and apply to every
+  provider with `Capability.SHARING`, so other storage mods can reuse them. A share grants
+  viewing only. Share targets are found among players known to the dashboard (logged in
+  once), so core needs no server lookup.
 
 ## Consequences
 

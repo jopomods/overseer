@@ -14,7 +14,7 @@ overseer/
 │   ├── storage/             SQLite: migrations, sessions, single writer, deadband/heartbeat,
 │   │                        time-weighted rollups + retention, history queries
 │   ├── auth/                link codes, console login tokens, sessions, device tokens, roles, rate limits
-│   ├── access/              AccessService: admin bypass + provider policies, default deny
+│   ├── access/              AccessService: admin bypass + provider policies + shares, default deny
 │   ├── http/                Netty server, router, SSE hub, static UI, origin check, proxy handling
 │   ├── api/                 /api/v1 routes and JSON DTOs (mirror api/openapi.yaml)
 │   ├── OverseerRuntime      wires everything; platforms call start(), tick(), close()
