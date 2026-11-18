@@ -2,6 +2,7 @@ import { ChevronDown, Cpu } from 'lucide-react'
 import { useState } from 'react'
 import { useEvents, useJob, type JobLine } from '@/api/hooks'
 import { Button } from '@/components/ui/button'
+import { ItemIcon } from '@/components/item-icon'
 import { Section } from '@/components/stat'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -65,8 +66,9 @@ function CpuCard({ cpu, number }: { cpu: Ae2Cpu; number: number }) {
           </div>
           {job ? (
             <>
-              <div className="flex min-w-0 items-baseline justify-between gap-2">
-                <span className="min-w-0 truncate text-sm font-semibold">{job.name}</span>
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <ItemIcon stackKey={job.key} name={job.name} />
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold">{job.name}</span>
                 <span className="tabular shrink-0 text-sm font-semibold">×{amount(job.amount, job.kind, locale, t('ae2.buckets'))}</span>
               </div>
               <Progress value={share} aria-label={t('cpu.progress')} />
@@ -188,10 +190,13 @@ function Line({ line, locale }: { line: JobLine; locale: Locale }) {
     </span>
   )
   return (
-    <li className={cn(COLUMNS, 'min-w-0')} title={line.key}>
-      <span className="truncate">
-        {line.name}
-        {line.kind === 'fluid' && <span className="text-muted-foreground"> (B)</span>}
+    <li className={cn(COLUMNS, 'min-w-0 items-center')} title={line.key}>
+      <span className="flex min-w-0 items-center gap-1.5">
+        <ItemIcon stackKey={line.key} name={line.name} className="size-4 [&>img]:size-4" />
+        <span className="min-w-0 truncate">
+          {line.name}
+          {line.kind === 'fluid' && <span className="text-muted-foreground"> (B)</span>}
+        </span>
       </span>
       {cell(line.active, 'text-primary font-medium')}
       {cell(line.pending)}

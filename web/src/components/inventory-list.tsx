@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useInventory, useWatches, type InventoryItem, type InventoryQuery } from '@/api/hooks'
+import { ItemIcon } from '@/components/item-icon'
 import { WatchToggle } from '@/components/watchlist'
 import { Segmented } from '@/components/history-chart'
 import { Section } from '@/components/stat'
@@ -152,6 +153,7 @@ function Row({
     <li className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-2 sm:grid-cols-[minmax(0,1fr)_7rem_6rem_6rem]">
       <div className="flex min-w-0 items-center gap-1">
         {canEdit && <WatchToggle grid={grid} item={item.key} watched={watched} name={item.name} />}
+        <ItemIcon stackKey={item.key} name={item.name} className={cn('mr-1.5', item.amount === 0 && 'opacity-50')} />
         <div className="min-w-0">
           <p className={cn('truncate text-sm font-medium', item.amount === 0 && 'text-muted-foreground')}>{item.name}</p>
           <p className="text-muted-foreground truncate text-xs">
