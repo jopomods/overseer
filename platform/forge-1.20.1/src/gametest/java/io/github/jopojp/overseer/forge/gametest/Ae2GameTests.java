@@ -16,7 +16,6 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
-import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.registries.ForgeRegistries;
 
@@ -24,7 +23,6 @@ import net.minecraftforge.registries.ForgeRegistries;
  * Runs the AE2 provider against real AE2 blocks.
  * {@code ./gradlew :platform:forge-1.20.1:runGameTestServer}
  */
-@GameTestHolder(Overseer.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class Ae2GameTests {
     private static final UUID OWNER = UUID.fromString("0e1a5ee7-0000-4000-8000-0000000000c1");
@@ -33,7 +31,7 @@ public final class Ae2GameTests {
 
     private Ae2GameTests() {}
 
-    @GameTest(template = "empty", timeoutTicks = 200)
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
     public static void gridWithControllerIsDiscoveredWithOwnerAndPower(GameTestHelper helper) {
         BlockPos first = new BlockPos(1, 1, 1);
         BlockPos second = new BlockPos(2, 1, 1);
@@ -78,7 +76,7 @@ public final class Ae2GameTests {
     }
 
     /** Five energy cells form a grid without controller: hidden until registered. */
-    @GameTest(template = "empty", timeoutTicks = 200)
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
     public static void gridWithoutControllerIsHiddenUntilRegistered(GameTestHelper helper) {
         for (int x = 0; x < 5; x++) place(helper, new BlockPos(x, 1, 3), "energy_cell");
         BlockPos lowest = helper.absolutePos(new BlockPos(0, 1, 3));
@@ -115,7 +113,7 @@ public final class Ae2GameTests {
     }
 
     /** A drive with a 1k cell: the scan lists its contents, NBT variants under their own key. */
-    @GameTest(template = "empty", timeoutTicks = 200)
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
     public static void inventoryScanListsTheContents(GameTestHelper helper) {
         BlockPos controller = new BlockPos(1, 1, 1);
         BlockPos drive = new BlockPos(2, 1, 1);
@@ -184,7 +182,7 @@ public final class Ae2GameTests {
     }
 
     /** A crafting storage block forms a CPU: a resource of its own, visible like its grid. */
-    @GameTest(template = "empty", timeoutTicks = 200)
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
     public static void craftingCpusAreResources(GameTestHelper helper) {
         BlockPos controller = new BlockPos(1, 1, 1);
         BlockPos storage = new BlockPos(2, 1, 1);
@@ -213,7 +211,7 @@ public final class Ae2GameTests {
     }
 
     /** With placer access on, whoever placed a part of a grid may view it. */
-    @GameTest(template = "empty", timeoutTicks = 200)
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
     public static void placersSeeGridsOnlyWhenEnabled(GameTestHelper helper) {
         BlockPos controller = new BlockPos(1, 1, 1);
         BlockPos cell = new BlockPos(2, 1, 1);

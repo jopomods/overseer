@@ -11,16 +11,14 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.fml.ModList;
-import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 /** Icon fallback from mod jars and the icon packet format. */
-@GameTestHolder(Overseer.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class IconGameTests {
     private IconGameTests() {}
 
-    @GameTest(template = "empty")
+    @GameTest(template = "empty", templateNamespace = "overseer")
     public static void jarTexturesFindPlainItemTextures(GameTestHelper helper) {
         helper.assertTrue(JarTextures.find("item:minecraft:../../secret") == null, "no path traversal");
         helper.assertTrue(JarTextures.find("fluid:minecraft:water") == null, "fluids have no jar fallback");
@@ -32,7 +30,7 @@ public final class IconGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "empty", templateNamespace = "overseer")
     public static void iconBatchesFitOnePacketAndRoundTrip(GameTestHelper helper) {
         var icons = new LinkedHashMap<String, byte[]>();
         byte[] png = Arrays.copyOf(new byte[] {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}, 1_500);

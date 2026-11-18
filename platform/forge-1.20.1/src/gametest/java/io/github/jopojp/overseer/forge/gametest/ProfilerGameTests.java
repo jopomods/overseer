@@ -12,19 +12,17 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.server.timings.TimeTracker;
 
 /** The tick profiler against real ticking block entities. */
-@GameTestHolder(Overseer.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class ProfilerGameTests {
     private static final Timestamp AT = new Timestamp(Instant.EPOCH, 0, 1);
 
     private ProfilerGameTests() {}
 
-    @GameTest(template = "empty", timeoutTicks = 300)
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 300)
     public static void measuresTickingBlockEntitiesWhileOn(GameTestHelper helper) {
         helper.setBlock(new BlockPos(1, 1, 1), Blocks.FURNACE);
         helper.setBlock(new BlockPos(2, 1, 1), Blocks.HOPPER);

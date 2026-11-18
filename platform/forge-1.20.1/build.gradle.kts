@@ -14,15 +14,32 @@ base {
 }
 version = "${project.version}+forge-$mcVersion"
 
-// -PbareMods=true: dev runs without the optional mods (Flux Networks, AE2, FTB Teams). CI uses it to
-// prove Overseer starts without them (AGENTS.md rule 3). Their GameTests are left out.
+// GameTest suites (ADR-0015): which optional mods a dev or GameTest server loads, and which
+// GameTest classes run. Each suite gets its own server and world, so tests of one never disturb
+// another. Everything is always compiled against all mods; a suite only changes the runtime.
+//   -PgametestSuite=all        everything (default; also runServer/runClient)
+//   base, profiler             no optional mods (AGENTS.md rule 3: Overseer runs without them)
+//   flux, ae2, teams, ae2-teams the mod(s) of the integration under test
+// -PbareMods=true is kept as an alias for the old "no optional mods" run (base + profiler).
+data class Suite(val mods: Set<String>)
+val suites = mapOf(
+    "all" to Suite(setOf("flux", "ae2", "teams")),
+    "bare" to Suite(emptySet()),
+    "base" to Suite(emptySet()),
+    "profiler" to Suite(emptySet()),
+    "flux" to Suite(setOf("flux")),
+    "ae2" to Suite(setOf("ae2")),
+    "teams" to Suite(setOf("teams")),
+    "ae2-teams" to Suite(setOf("ae2", "teams")),
+)
 val bareMods = providers.gradleProperty("bareMods").map { it.toBoolean() }.getOrElse(false)
+val suiteName = providers.gradleProperty("gametestSuite").getOrElse(if (bareMods) "bare" else "all")
+val suite = suites[suiteName] ?: error("Unknown gametestSuite '$suiteName'; one of ${suites.keys}")
 
 // In-game tests (Forge GameTest) live in their own source set and never ship in the jar.
 val gametest: SourceSet = sourceSets.create("gametest") {
     compileClasspath += sourceSets.main.get().output
     runtimeClasspath += sourceSets.main.get().output
-    if (bareMods) java.exclude("**/FluxGameTests.java", "**/Ae2GameTests.java", "**/TeamGameTests.java")
 }
 configurations[gametest.compileClasspathConfigurationName].extendsFrom(configurations.compileClasspath.get())
 configurations[gametest.runtimeClasspathConfigurationName].extendsFrom(configurations.runtimeClasspath.get())
@@ -65,9 +82,11 @@ legacyForge {
         create("gameTestServer") {
             type = "gameTestServer"
             sourceSet = gametest
-            gameDirectory = project.file(if (bareMods) "run/gametest-bare" else "run/gametest")
+            gameDirectory = project.file("run/gametest-$suiteName")
+            // Test classes carry no @GameTestHolder (Forge would load every holder class, also those
+            // of absent mods): GameTestSuites registers exactly the classes of the chosen suite.
             systemProperty("forge.enabledGameTestNamespaces", modId)
-            systemProperty("overseer.bareMods", bareMods.toString())
+            systemProperty("overseer.gametestSuite", suiteName)
         }
     }
 
@@ -97,11 +116,13 @@ dependencies {
     "modCompileOnly"(libs.flux.networks)
     "modCompileOnly"(libs.ae2)
     "modCompileOnly"(libs.ftb.teams)
-    if (!bareMods) {
+    if ("teams" in suite.mods) {
         "modRuntimeOnly"(libs.ftb.teams)
         "modRuntimeOnly"(libs.ftb.library)
         "modRuntimeOnly"(libs.architectury)
-        "modRuntimeOnly"(libs.flux.networks)
+    }
+    if ("flux" in suite.mods) "modRuntimeOnly"(libs.flux.networks)
+    if ("ae2" in suite.mods) {
         "modRuntimeOnly"(libs.ae2)
         "modRuntimeOnly"(libs.guideme)
     }
@@ -177,4 +198,24 @@ val gameTestServerProperties by tasks.registering {
 }
 tasks.matching { it.name == "prepareGameTestServerRun" }.configureEach {
     dependsOn(gameTestServerProperties)
+}
+
+// ./gradlew gameTestAll runs every GameTest suite one after another, each in its own server and
+// world: locally the same as CI runs in parallel (ADR-0015). One suite: -PgametestSuite=<name>.
+val suiteOrder = listOf("base", "profiler", "flux", "ae2", "teams", "ae2-teams")
+val suiteRuns = suiteOrder.map { name ->
+    tasks.register<GradleBuild>("gameTest-$name") {
+        group = "verification"
+        description = "GameTests of suite '$name' in their own server"
+        dir = rootDir
+        buildName = "gametest-$name"
+        tasks = listOf(":platform:forge-1.20.1:runGameTestServer")
+        startParameter.projectProperties = mapOf("gametestSuite" to name, "skipWeb" to "true")
+    }
+}
+suiteRuns.zipWithNext { a, b -> b.configure { mustRunAfter(a) } }
+tasks.register("gameTestAll") {
+    group = "verification"
+    description = "All GameTest suites, one after another"
+    dependsOn(suiteRuns)
 }
