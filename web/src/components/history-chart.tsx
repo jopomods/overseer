@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
 import { Skeleton } from '@/components/ui/skeleton'
 import { offlineMarkers, RANGES, relativeLabel, wallLabel } from '@/lib/chart'
+import { plainText } from '@/lib/mc-text'
 import { formatDuration, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { usePreferences, type TimeAxis } from '@/lib/preferences'
@@ -74,7 +75,7 @@ export function HistoryChart({
           {series.map((s) => (
             <span key={s.metric} className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
               <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
-              <span className="truncate">{s.label}</span>
+              <span className="truncate">{plainText(s.label)}</span>
             </span>
           ))}
         </div>
@@ -140,7 +141,7 @@ export function HistoryChart({
                         <p key={s.metric} className="tabular flex items-center justify-between gap-4">
                           <span className="flex items-center gap-1.5">
                             <span className="size-2 rounded-sm" style={{ backgroundColor: s.color }} />
-                            {s.label}
+                            {plainText(s.label)}
                           </span>
                           <span className="text-right">
                             <span className="font-medium">{row[s.metric] == null ? '–' : format(row[s.metric] as number)}</span>

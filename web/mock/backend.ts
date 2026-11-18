@@ -199,7 +199,7 @@ function cpuResources(realistic: boolean) {
   if (realistic) {
     const grid = 'minecraft:overworld@120,64,-340'
     return [
-      cpuResource(grid, 'minecraft:overworld@118,60,-338', { name: 'Circuits', storage: '262144', coProcessors: '16', job: 'item:gtceu:good_electronic_circuit', jobKind: 'item', jobName: 'Good Electronic Circuit', jobAmount: '64' },
+      cpuResource(grid, 'minecraft:overworld@118,60,-338', { name: '§bCircuits', storage: '262144', coProcessors: '16', job: 'item:gtceu:good_electronic_circuit', jobKind: 'item', jobName: 'Good Electronic Circuit', jobAmount: '64' },
         { job_total: 1_280, job_progress: Math.round(1_280 * (t / 600)), job_elapsed: 30 + t }),
       cpuResource(grid, 'minecraft:overworld@118,60,-332', { job: 'fluid:gtceu:polyethylene', jobKind: 'fluid', jobName: 'Polyethylene', jobAmount: '16000' },
         { job_total: 2_147_483_695, job_progress: 1_073_741_830, job_elapsed: 4_210 }),
@@ -315,7 +315,7 @@ function jobLines(realistic: boolean) {
 const PROFILER_TYPES: Array<[string, string, number, number]> = [
   ['block:gtceu:ev_large_chemical_reactor', 'Large Chemical Reactor', 3_210, 2],
   ['block:ae2:pattern_provider', 'Pattern Provider', 2_480, 64],
-  ['block:gtceu:hv_macerator', 'HV Macerator', 1_150, 12],
+  ['block:gtceu:hv_macerator', '§6HV§r Macerator', 1_150, 12],
   ['block:minecraft:hopper', 'Hopper', 640, 40],
   ['entity:minecraft:item', 'Item', 420, 85],
   ['block:fluxnetworks:flux_point', 'Flux Point', 180, 16],
@@ -345,7 +345,7 @@ function profilerTop(realistic: boolean) {
   return [
     { kind: 'block', type: 'gtceu:ev_large_chemical_reactor', name: 'Large Chemical Reactor', where: 'minecraft:overworld@243,73,30', us: '1820.40' },
     { kind: 'block', type: 'gtceu:ev_large_chemical_reactor', name: 'Large Chemical Reactor', where: 'minecraft:overworld@241,73,30', us: '1389.60' },
-    { kind: 'block', type: 'gtceu:hv_macerator', name: 'HV Macerator', where: 'minecraft:overworld@205,68,43', us: '212.10' },
+    { kind: 'block', type: 'gtceu:hv_macerator', name: '§6HV§r Macerator', where: 'minecraft:overworld@205,68,43', us: '212.10' },
     { kind: 'block', type: 'ae2:pattern_provider', name: 'Pattern Provider', where: 'minecraft:overworld@120,64,-338', us: '96.30' },
     { kind: 'entity', type: 'minecraft:item', name: 'Item', where: 'minecraft:overworld@118,65,-12', us: '12.80' },
   ]

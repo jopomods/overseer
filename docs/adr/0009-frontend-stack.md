@@ -74,6 +74,11 @@ Notes:
   links have their own colours (charging amber, discharging teal). The diagram never shrinks
   while shown, so devices pausing for a second do not change the page height.
 
+- 2026-11-18: names from the game (items, CPUs, Flux devices and networks, profiler types) may
+  carry legacy colour codes (`§6HV`). They render through `McText` (colours, or plain text if the
+  viewer turned colours off); places that need a plain string (SVG labels, chart legends,
+  tooltips, search) use `plainText`. An e2e test visits every page and fails on a raw `§`.
+
 ## Consequences
 
 - Every new page must be added to `web/e2e/layout.spec.ts`.

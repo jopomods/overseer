@@ -5,6 +5,7 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { api } from '@/api/client'
 import { useHistory, useSessions, useSnapshot, type History, type Resource } from '@/api/hooks'
 import { Segmented } from '@/components/history-chart'
+import { McText } from '@/components/mc-text'
 import { Section } from '@/components/stat'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -56,14 +57,27 @@ export function ProfilerSection() {
   const [duration, setDuration] = useState(60)
   const [interval, setInterval] = useState(10)
   const snapshot = useSnapshot('profiler')
+  const sessions = useSessions()
+  const typeResources = useMemo(() => ofType(snapshot.data, 'type'), [snapshot.data])
+  // Values arrive only with a measurement; between measurements (and after a stop) the newest
+  // stored point is the last result.
+  const latestHistory = useHistory(
+    [TOTAL, ...typeResources.map((r) => r.ref.key)],
+    ['tick_us', 'objects'],
+    24 * 3_600_000,
+    sessions.data?.uptimeMillis,
+  )
+  const latest = useMemo(() => lastValues(latestHistory.data), [latestHistory.data])
   const types = useMemo(
     () =>
-      ofType(snapshot.data, 'type')
-        .map((r) => ({ r, us: metric(r, 'tick_us') ?? 0 }))
+      typeResources
+        .map((r) => ({ r, us: metric(r, 'tick_us') ?? latest.get(`${r.ref.key}|tick_us`) ?? 0 }))
         .sort((a, b) => b.us - a.us),
-    [snapshot.data],
+    [typeResources, latest],
   )
   const total = snapshot.data?.resources.find((r) => r.ref.key === TOTAL)
+  const totalUs = metric(total, 'tick_us') ?? latest.get(`${TOTAL}|tick_us`)
+  const totalObjects = metric(total, 'objects') ?? latest.get(`${TOTAL}|objects`)
   const s = state.data
 
   return (
@@ -104,11 +118,11 @@ export function ProfilerSection() {
               <Timer /> {t('prof.continuous')}
             </Button>
           </div>
-          {total && (
+          {totalUs !== undefined && (
             <p className="text-muted-foreground tabular text-xs">
               {t('prof.total', {
-                ms: ms(metric(total, 'tick_us') ?? 0, locale),
-                objects: formatNumber(metric(total, 'objects') ?? 0, locale),
+                ms: ms(totalUs, locale),
+                objects: formatNumber(totalObjects ?? 0, locale),
               })}
             </p>
           )}
@@ -165,7 +179,9 @@ function StackedTypes({ types }: { types: Resource[] }) {
           {types.map((r, i) => (
             <span key={r.ref.key} className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
               <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: PALETTE[i] }} />
-              <span className="max-w-40 truncate">{label(r, t)}</span>
+              <span className="max-w-40 truncate">
+                <McText text={label(r, t)} />
+              </span>
             </span>
           ))}
         </div>
@@ -199,7 +215,9 @@ function StackedTypes({ types }: { types: Resource[] }) {
                         <p key={r.ref.key} className="tabular flex items-center justify-between gap-4">
                           <span className="flex min-w-0 items-center gap-1.5">
                             <span className="size-2 shrink-0 rounded-sm" style={{ backgroundColor: PALETTE[i] }} />
-                            <span className="max-w-40 truncate">{label(r, t)}</span>
+                            <span className="max-w-40 truncate">
+                              <McText text={label(r, t)} />
+                            </span>
                           </span>
                           <span className="shrink-0">{ms(row[r.ref.key] ?? 0, locale)}</span>
                         </p>
@@ -227,6 +245,16 @@ function StackedTypes({ types }: { types: Resource[] }) {
       </CardContent>
     </Card>
   )
+}
+
+/** Newest point per resource and metric, keyed "resource|metric". */
+function lastValues(history: History | undefined): Map<string, number> {
+  const result = new Map<string, number>()
+  for (const s of history?.series ?? []) {
+    const last = s.points.at(-1)
+    if (last) result.set(`${s.resource}|${s.metric}`, last.avg)
+  }
+  return result
 }
 
 /** µs as milliseconds per tick with sensible precision. */
@@ -275,7 +303,9 @@ function TopList() {
         {rows.slice(0, 25).map((row) => (
           <li key={`${row.kind}:${row.where}`} className="grid min-w-0 grid-cols-[minmax(0,1fr)_5rem] items-center gap-3 px-4 py-1.5">
             <div className="min-w-0">
-              <p className="truncate text-sm">{row.name || row.type}</p>
+              <p className="truncate text-sm">
+                <McText text={row.name || row.type} />
+              </p>
               <p className="text-muted-foreground truncate text-xs">
                 {row.where.replace(/^minecraft:/, '').replace('@', ' · ').split(',').join(', ')}
               </p>
