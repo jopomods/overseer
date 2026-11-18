@@ -46,7 +46,7 @@ export function HistoryChart({
 }) {
   const t = useT()
   const { locale, axis } = usePreferences()
-  const [range, setRange] = useState(RANGES[2].ms)
+  const [range, setRange] = useState(RANGES[4].ms)
   const sessions = useSessions()
   const history = useHistory(
     resource,

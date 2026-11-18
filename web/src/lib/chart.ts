@@ -3,7 +3,10 @@ import { formatDuration } from './format'
 import type { Locale } from './preferences'
 
 /** Shared helpers for history charts (ADR-0005, ADR-0009). */
+/** Chart ranges. The first two are "live": raw samples, refreshed every few seconds. */
 export const RANGES = [
+  { ms: 5 * 60_000, label: '5 min' },
+  { ms: 15 * 60_000, label: '15 min' },
   { ms: 3_600_000, label: '1 h' },
   { ms: 6 * 3_600_000, label: '6 h' },
   { ms: 24 * 3_600_000, label: '24 h' },
