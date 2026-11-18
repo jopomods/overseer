@@ -353,6 +353,67 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/inventory:
+    get:
+      tags: [data]
+      operationId: getInventory
+      summary: Contents of a resource with net changes
+      description: |
+        Current contents from the newest scan (AE2: every 10 s) and the net change per key over
+        the last hour and day (minute resolution). Keys used up completely are listed with
+        amount 0 while they have a change. The first scan of a resource is a baseline, not a
+        change. 404 when the resource is not visible.
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          description: Resource key `provider/type/id`, e.g. `ae2/grid/minecraft:overworld@0,64,0`.
+          schema:
+            type: string
+        - name: q
+          in: query
+          description: Case-insensitive search in name and key.
+          schema:
+            type: string
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum: [item, fluid, other]
+        - name: sort
+          in: query
+          description: amount (largest first), name, or change (largest absolute 24 h change first).
+          schema:
+            type: string
+            enum: [amount, name, change]
+            default: amount
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: One page of matching keys.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inventory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/overrides:
     get:
       tags: [data]
@@ -969,6 +1030,50 @@ components:
         session:
           type: integer
           description: Uptime session number.
+
+    Inventory:
+      type: object
+      required: [resource, scannedAt, total, items]
+      properties:
+        resource:
+          type: string
+          description: Resource key.
+        scannedAt:
+          description: Time of the newest scan; null before the first scan.
+          oneOf:
+            - $ref: "#/components/schemas/Timestamp"
+            - type: "null"
+        total:
+          type: integer
+          description: Number of matching keys (all pages).
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InventoryItem"
+
+    InventoryItem:
+      type: object
+      required: [key, kind, name, amount, change1h, change24h]
+      properties:
+        key:
+          type: string
+          description: "`<kind>:<registry id>`, plus `#<hash>` of the NBT when present."
+        kind:
+          type: string
+          enum: [item, fluid, other]
+        name:
+          type: string
+          description: Display name as the server resolves it (English).
+        amount:
+          type: integer
+          format: int64
+          description: Items, or mB for fluids.
+        change1h:
+          type: integer
+          format: int64
+        change24h:
+          type: integer
+          format: int64
 
     ResourceRef:
       type: object
