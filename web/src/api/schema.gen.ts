@@ -751,6 +751,16 @@ export interface components {
             target?: number;
             /** Format: date-time */
             createdAt: string;
+            /**
+             * Format: int64
+             * @description Net change over the last hour (from the inventory scans).
+             */
+            change1h: number;
+            /**
+             * Format: int64
+             * @description Net change over the last day; basis of the forecast.
+             */
+            change24h: number;
         };
         Job: {
             resource: string;

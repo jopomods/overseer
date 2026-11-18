@@ -1196,7 +1196,7 @@ components:
 
     Watch:
       type: object
-      required: [item, name, kind, createdAt]
+      required: [item, name, kind, createdAt, change1h, change24h]
       properties:
         item:
           type: string
@@ -1213,6 +1213,14 @@ components:
         createdAt:
           type: string
           format: date-time
+        change1h:
+          type: integer
+          format: int64
+          description: Net change over the last hour (from the inventory scans).
+        change24h:
+          type: integer
+          format: int64
+          description: Net change over the last day; basis of the forecast.
 
     Job:
       type: object

@@ -316,9 +316,20 @@ public final class ApiRoutes {
         Principal p = principal(r);
         ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
         if (!access.canView(p, ref)) throw HttpError.notFound();
-        return Response.json(watches.list(ref).stream()
-                .map(w -> new Dtos.Watch(w.item(), w.name(), w.kind(), w.target(), w.createdAt()))
-                .toList());
+        var list = watches.list(ref);
+        Map<String, InventoryQuery.Change> changes = Map.of();
+        if (!list.isEmpty()) {
+            long now = uptime.getAsLong();
+            try (var reader = db.openReader()) {
+                changes = InventoryQuery.changes(reader, ref, now - CHANGE_RECENT, now - CHANGE_LONGER);
+            }
+        }
+        var byKey = changes;
+        return Response.json(list.stream().map(w -> {
+            var c = byKey.get(w.item());
+            return new Dtos.Watch(w.item(), w.name(), w.kind(), w.target(), w.createdAt(),
+                    c == null ? 0 : c.recent(), c == null ? 0 : c.longer());
+        }).toList());
     }
 
     /** Watches an item that is (or was) in the inventory, or changes its target. Owners only. */
