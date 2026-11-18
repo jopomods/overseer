@@ -25,6 +25,7 @@ public final class OverseerForge {
         context.registerExtensionPoint(IExtensionPoint.DisplayTest.class,
                 () -> new IExtensionPoint.DisplayTest(() -> NetworkConstants.IGNORESERVERONLY, (remote, isServer) -> true));
         context.registerConfig(ModConfig.Type.SERVER, OverseerConfig.SPEC, "overseer-server.toml");
+        io.github.jopojp.overseer.forge.icons.IconChannel.register();
 
         String version = context.getContainer().getModInfo().getVersion().toString();
         MinecraftForge.EVENT_BUS.register(new ServerLifecycle(version));

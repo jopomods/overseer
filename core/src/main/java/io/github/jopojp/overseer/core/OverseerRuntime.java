@@ -84,6 +84,8 @@ public final class OverseerRuntime implements AutoCloseable {
     private NotificationStore notifications;
     private RegistrationStore registrations;
     private io.github.jopojp.overseer.core.storage.WatchStore watches;
+    private io.github.jopojp.overseer.core.storage.IconStore icons;
+    private java.util.function.Function<String, byte[]> iconFallback;
     private OverrideStore overrides;
     private Clock wall;
 
@@ -94,8 +96,18 @@ public final class OverseerRuntime implements AutoCloseable {
     /** Opens storage, starts the writer and the web server. */
     public static OverseerRuntime start(Config config, List<DataProvider> providers, OperatorCheck operators)
             throws Exception {
+        return start(config, providers, operators, null);
+    }
+
+    /**
+     * @param iconFallback icon (PNG) for a base stack key when none was exported, e.g. a texture
+     *                     from a mod jar; {@code null} for none. Called off the server thread.
+     */
+    public static OverseerRuntime start(Config config, List<DataProvider> providers, OperatorCheck operators,
+            java.util.function.Function<String, byte[]> iconFallback) throws Exception {
         var runtime = new OverseerRuntime();
         runtime.operators = operators;
+        runtime.iconFallback = iconFallback;
         try {
             runtime.init(config, providers);
             return runtime;
@@ -144,6 +156,8 @@ public final class OverseerRuntime implements AutoCloseable {
         resources.push(registrations);
         watches = new io.github.jopojp.overseer.core.storage.WatchStore(db.openControlWriter());
         resources.push(watches);
+        icons = new io.github.jopojp.overseer.core.storage.IconStore(db.openControlWriter(), iconFallback);
+        resources.push(icons);
         this.overrides = overrides;
         this.wall = wall;
 
@@ -151,7 +165,7 @@ public final class OverseerRuntime implements AutoCloseable {
         resources.push(sse);
 
         var router = new ApiRoutes(config.version(), auth, access, latest, inventories, queue, descriptors, scheduler::status, wall,
-                db, clock::uptimeMillis, overrides, shares, requests, notifications, registrations, watches, writer)
+                db, clock::uptimeMillis, overrides, shares, requests, notifications, registrations, watches, icons, writer)
                 .register(new Router());
         http = new HttpServer(config.http(), router,
                 new StaticFiles(config.webRoot(), OverseerRuntime.class.getClassLoader()), sse);
@@ -180,6 +194,11 @@ public final class OverseerRuntime implements AutoCloseable {
     /** Resources registered in Overseer (e.g. AE2 grids without a controller). */
     public RegistrationStore registrations() {
         return registrations;
+    }
+
+    /** Item icons; the platform stores exported ones here. */
+    public io.github.jopojp.overseer.core.storage.IconStore icons() {
+        return icons;
     }
 
     /** Watched items per resource; providers read them every collection. */

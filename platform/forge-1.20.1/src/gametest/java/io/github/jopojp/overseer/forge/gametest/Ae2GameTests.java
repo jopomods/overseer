@@ -66,16 +66,10 @@ public final class Ae2GameTests {
                     .mapToDouble(Sample::value).findFirst().orElse(-1);
             helper.assertTrue(max > 0, "power_max: " + max);
 
-            long nearby = snapshot.resources().keySet().stream()
-                    .filter(r -> r.id().startsWith(dimension + "@"))
-                    .filter(r -> !"hidden".equals(snapshot.resources().get(r).get("kind")))
-                    .filter(r -> {
-                        String[] p = r.id().substring(r.id().indexOf('@') + 1).split(",");
-                        return Math.abs(Integer.parseInt(p[0]) - id.getX()) < 16
-                                && Math.abs(Integer.parseInt(p[2]) - id.getZ()) < 16;
-                    })
-                    .count();
-            helper.assertTrue(nearby == 1, "small grids without controller must be skipped, got " + nearby);
+            // The lone energy cell forms a grid of one node: neither listed nor hidden.
+            BlockPos lone = helper.absolutePos(new BlockPos(5, 1, 1));
+            ResourceRef loneRef = Ae2Mapping.grid(dimension + "@" + lone.getX() + "," + lone.getY() + "," + lone.getZ());
+            helper.assertFalse(snapshot.resources().containsKey(loneRef), "small grids without controller must be skipped");
 
             helper.assertTrue(provider.access().canView(OWNER, ref), "owner must see the grid");
             helper.assertFalse(provider.access().canView(STRANGER, ref), "stranger must not see the grid");

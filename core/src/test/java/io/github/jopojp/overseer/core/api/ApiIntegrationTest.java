@@ -560,6 +560,23 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void iconsNeedALoginAndAreCached() throws Exception {
+        var png = io.github.jopojp.overseer.core.storage.IconStoreTest.png(7);
+        runtime.icons().putAll(Map.of("item:minecraft:iron_ingot", png), null, java.time.Instant.EPOCH);
+        assertEquals(401, new Browser().get("/api/v1/icon?key=item:minecraft:iron_ingot").statusCode());
+        var alex = new Browser().loginAs(ALEX);
+        var found = client.send(HttpRequest.newBuilder(URI.create(base + "/api/v1/icon?key=item%3Aminecraft%3Airon_ingot%23ab"))
+                .header("Cookie", "ov_session=" + alex.cookies.get("ov_session")).build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, found.statusCode());
+        assertEquals("image/png", found.headers().firstValue("content-type").orElse(""));
+        org.junit.jupiter.api.Assertions.assertArrayEquals(png, found.body());
+        var missing = alex.get("/api/v1/icon?key=item:minecraft:dirt");
+        assertEquals(404, missing.statusCode());
+        assertTrue(missing.headers().firstValue("cache-control").orElse("").contains("max-age"));
+    }
+
+    @Test
     void sharingNeedsTheProviderCapability() throws Exception {
         operators.add(ALEX.uuid());
         var alex = new Browser().loginAs(ALEX);

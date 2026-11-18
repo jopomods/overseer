@@ -66,6 +66,7 @@ public final class ApiRoutes {
     private final NotificationStore notifications;
     private final RegistrationStore registrations;
     private final io.github.jopojp.overseer.core.storage.WatchStore watches;
+    private final io.github.jopojp.overseer.core.storage.IconStore icons;
     private final StorageWriter writer;
 
     private final RateLimiter linkCreate = RateLimiter.perMinute(10);
@@ -91,6 +92,7 @@ public final class ApiRoutes {
             NotificationStore notifications,
             RegistrationStore registrations,
             io.github.jopojp.overseer.core.storage.WatchStore watches,
+            io.github.jopojp.overseer.core.storage.IconStore icons,
             StorageWriter writer) {
         this.version = version;
         this.auth = auth;
@@ -109,6 +111,7 @@ public final class ApiRoutes {
         this.notifications = notifications;
         this.registrations = registrations;
         this.watches = watches;
+        this.icons = icons;
         this.writer = writer;
     }
 
@@ -133,6 +136,7 @@ public final class ApiRoutes {
                 .get("/api/v1/events", this::events)
                 .get("/api/v1/jobs", this::job)
                 .get("/api/v1/watches", this::listWatches)
+                .get("/api/v1/icon", this::icon)
                 .post("/api/v1/watches", this::addWatch)
                 .delete("/api/v1/watches", this::removeWatch)
                 .get("/api/v1/overrides", this::listOverrides)
@@ -308,6 +312,18 @@ public final class ApiRoutes {
                 .map(l -> new Dtos.JobLine(l.key(), l.kind(), l.name(), l.stored(), l.active(), l.pending()))
                 .toList();
         return Response.json(new Dtos.Job(ref.key(), Dtos.timestamp(job.at()), lines));
+    }
+
+    /** Icon of a stack key as PNG. Missing icons are cached too, for an hour. */
+    private Response icon(Request r) throws SQLException {
+        principal(r);
+        String key = r.queryParam("key").orElseThrow(() -> HttpError.badRequest("key is required."));
+        if (key.length() > 512) throw HttpError.badRequest("key is too long.");
+        var png = icons.find(key);
+        if (png.isEmpty()) {
+            return Response.error(HttpError.notFound()).header("Cache-Control", "private, max-age=3600");
+        }
+        return Response.bytes(200, "image/png", png.get()).header("Cache-Control", "private, max-age=86400");
     }
 
     // --- watchlist (ADR-0011) -------------------------------------------------------------

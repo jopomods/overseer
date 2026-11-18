@@ -2,6 +2,7 @@ import { ChevronDown, Star, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useRemoveWatch, useSetWatch, useWatches, type Resource, type Watch } from '@/api/hooks'
 import { HistoryChart } from '@/components/history-chart'
+import { ItemIcon } from '@/components/item-icon'
 import { Section } from '@/components/stat'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -84,7 +85,7 @@ function WatchCard({ grid, watch, canEdit }: { grid: Resource; watch: Watch; can
       <Card className={cn('min-w-0 gap-0 py-0', f.deficit > 0 && 'border-destructive/50')}>
         <div className="flex min-w-0 flex-col gap-2 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <Star className="text-warning size-4 shrink-0 fill-current" />
+            <ItemIcon stackKey={watch.item} name={watch.name} />
             <span className="min-w-0 flex-1 truncate text-sm font-medium" title={watch.item}>
               {watch.name}
             </span>
