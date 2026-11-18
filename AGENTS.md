@@ -115,6 +115,14 @@ Toolchain: JDK 17 (Minecraft 1.20.1 requirement), Node 24, Gradle via wrapper.
 - Merge the release PR only when a milestone (or a deliberate patch) is complete, not
   after every slice.
 
+## Public repository
+
+The repository is meant to be public under the [MIT License](LICENSE). Never commit secrets,
+databases, real player names, UUIDs or server addresses; recordings are anonymized
+([docs/guides/recordings.md](docs/guides/recordings.md)). Security reports go through
+[SECURITY.md](SECURITY.md), not issues. Dependabot PRs use `build(deps): ...` titles; Minecraft-,
+Forge- and mod-provided versions are pinned on purpose and ignored there.
+
 ## Language
 
 Code, comments, commits, docs: English. UI text: German and English (i18n).

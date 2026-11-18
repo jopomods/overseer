@@ -1,0 +1,33 @@
+name: Bug report
+description: Something does not work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reproduce
+      placeholder: "1. Open ... 2. Click ... 3. See ..."
+  - type: input
+    id: version
+    attributes:
+      label: Overseer version
+      placeholder: "0.7.0"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Forge version, related mods and their versions (Flux Networks, AE2, FTB Teams, GTCEu), and the browser for UI problems.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant lines from the server log. Remove player names, IP addresses and anything private.
+      render: text
