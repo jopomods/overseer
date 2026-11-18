@@ -17,16 +17,24 @@ import java.util.Objects;
  * @param inventories full inventory scans of some resources (capability INVENTORY). A resource
  *                    missing here was not scanned this time; it does not mean empty. Never
  *                    pushed to clients as part of the snapshot.
+ * @param jobs        lines of running jobs, e.g. per AE2 crafting CPU. Live only: never stored,
+ *                    never pushed as part of the snapshot. A resource missing here has no job.
  */
 public record ProviderSnapshot(
         String provider,
         Timestamp at,
         Map<ResourceRef, Map<String, String>> resources,
         List<Sample> samples,
-        Map<ResourceRef, List<Stack>> inventories) {
+        Map<ResourceRef, List<Stack>> inventories,
+        Map<ResourceRef, List<JobLine>> jobs) {
     public ProviderSnapshot(String provider, Timestamp at, Map<ResourceRef, Map<String, String>> resources,
             List<Sample> samples) {
-        this(provider, at, resources, samples, Map.of());
+        this(provider, at, resources, samples, Map.of(), Map.of());
+    }
+
+    public ProviderSnapshot(String provider, Timestamp at, Map<ResourceRef, Map<String, String>> resources,
+            List<Sample> samples, Map<ResourceRef, List<Stack>> inventories) {
+        this(provider, at, resources, samples, inventories, Map.of());
     }
 
     public ProviderSnapshot {
@@ -35,5 +43,6 @@ public record ProviderSnapshot(
         resources = Map.copyOf(resources);
         samples = List.copyOf(samples);
         inventories = Map.copyOf(inventories);
+        jobs = Map.copyOf(jobs);
     }
 }

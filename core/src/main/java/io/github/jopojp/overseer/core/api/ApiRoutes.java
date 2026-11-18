@@ -128,6 +128,7 @@ public final class ApiRoutes {
                 .get("/api/v1/sessions", this::sessions)
                 .get("/api/v1/inventory", this::inventory)
                 .get("/api/v1/events", this::events)
+                .get("/api/v1/jobs", this::job)
                 .get("/api/v1/overrides", this::listOverrides)
                 .put("/api/v1/overrides", this::setOverride)
                 .get("/api/v1/shares", this::listShares)
@@ -289,6 +290,18 @@ public final class ApiRoutes {
         try (var reader = db.openReader()) {
             return Response.json(Dtos.sessions(uptime.getAsLong(), Sessions.list(reader)));
         }
+    }
+
+    /** Lines of the running job of a resource (live, never stored); 404 when idle or invisible. */
+    private Response job(Request r) throws SQLException {
+        Principal p = principal(r);
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        var job = inventories.job(ref).orElseThrow(HttpError::notFound);
+        var lines = job.lines().get(ref).stream()
+                .map(l -> new Dtos.JobLine(l.key(), l.kind(), l.name(), l.stored(), l.active(), l.pending()))
+                .toList();
+        return Response.json(new Dtos.Job(ref.key(), Dtos.timestamp(job.at()), lines));
     }
 
     static final int MAX_EVENTS = 500;

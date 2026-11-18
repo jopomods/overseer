@@ -344,6 +344,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lines of a running crafting job (live)
+         * @description What a running job holds and waits for, as in AE2's crafting status screen: per key the
+         *     amount stored in the CPU, sent to machines (active) and still to craft (pending).
+         *     Refreshed every second, never stored. 404 when the resource is idle or not visible.
+         */
+        get: operations["getJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/overrides": {
         parameters: {
             query?: never;
@@ -688,6 +710,32 @@ export interface components {
             uptimeMillis: number;
             /** @description Uptime session number. */
             session: number;
+        };
+        Job: {
+            resource: string;
+            at: components["schemas"]["Timestamp"];
+            lines: components["schemas"]["JobLine"][];
+        };
+        JobLine: {
+            key: string;
+            /** @enum {string} */
+            kind: "item" | "fluid" | "other";
+            name: string;
+            /**
+             * Format: int64
+             * @description Already in the CPU.
+             */
+            stored: number;
+            /**
+             * Format: int64
+             * @description Sent to machines, waiting for them to return.
+             */
+            active: number;
+            /**
+             * Format: int64
+             * @description Still to be crafted.
+             */
+            pending: number;
         };
         Event: {
             at: components["schemas"]["Timestamp"];
@@ -1357,6 +1405,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Event"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getJob: {
+        parameters: {
+            query: {
+                /** @description Resource key, e.g. `ae2/cpu/minecraft:overworld@1,60,2`. */
+                resource: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The running job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
                 };
             };
             400: components["responses"]["BadRequest"];

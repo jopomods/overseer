@@ -63,6 +63,14 @@ public final class FakeProvider implements DataProvider {
     }
 
     /** Each collect() advances the fake clock by this much, simulating work. */
+    private final Map<ResourceRef, List<io.github.jopojp.overseer.core.provider.JobLine>> jobs = new LinkedHashMap<>();
+
+    /** A running job reported with every collection from now on; empty lines = idle. */
+    public FakeProvider job(ResourceRef ref, List<io.github.jopojp.overseer.core.provider.JobLine> lines) {
+        if (lines.isEmpty()) jobs.remove(ref); else jobs.put(ref, List.copyOf(lines));
+        return this;
+    }
+
     /** Contents reported with every collection from now on. */
     public FakeProvider inventory(ResourceRef ref, List<io.github.jopojp.overseer.core.provider.Stack> stacks) {
         inventories.put(ref, List.copyOf(stacks));
@@ -100,7 +108,7 @@ public final class FakeProvider implements DataProvider {
         if (failure != null) throw failure;
         var samples = new ArrayList<Sample>();
         power.forEach((ref, value) -> samples.add(new Sample(ref, POWER.key(), value)));
-        return new ProviderSnapshot(descriptor.id(), at, resources, samples, inventories);
+        return new ProviderSnapshot(descriptor.id(), at, resources, samples, inventories, jobs);
     }
 
     @Override

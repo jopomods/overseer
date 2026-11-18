@@ -510,6 +510,24 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void runningJobsAreLiveAndCheckedPerViewer() throws Exception {
+        var line = new io.github.jopojp.overseer.core.provider.JobLine("item:minecraft:iron_ingot", "item", "Iron Ingot",
+                12, 4, 48);
+        flux.job(ALEX_NET, List.of(line));
+        collect();
+        var alex = new Browser().loginAs(ALEX);
+        var steve = new Browser().loginAs(STEVE);
+        assertEquals(404, steve.get("/api/v1/jobs?resource=flux/network/1").statusCode());
+        var body = json(alex.get("/api/v1/jobs?resource=flux/network/1"));
+        var first = body.getAsJsonArray("lines").get(0).getAsJsonObject();
+        assertEquals(4, first.get("active").getAsLong());
+        assertEquals(48, first.get("pending").getAsLong());
+        flux.job(ALEX_NET, List.of());
+        collect();
+        assertEquals(404, alex.get("/api/v1/jobs?resource=flux/network/1").statusCode(), "idle");
+    }
+
+    @Test
     void sharingNeedsTheProviderCapability() throws Exception {
         operators.add(ALEX.uuid());
         var alex = new Browser().loginAs(ALEX);
