@@ -62,9 +62,19 @@ public final class Ae2Model {
      * @param amount      requested amount
      * @param totalItems  items the whole job crafts (AE2's count, all steps)
      * @param progress    items of those done
+     * @param lines       what the job holds and waits for (AE2 status screen); empty if unknown
      */
     public record Job(String key, String kind, String name, long amount, long totalItems, long progress,
-            long elapsedNanos) {}
+            long elapsedNanos, List<io.github.jopojp.overseer.core.provider.JobLine> lines) {
+        public Job {
+            lines = List.copyOf(lines);
+        }
+
+        public Job(String key, String kind, String name, long amount, long totalItems, long progress,
+                long elapsedNanos) {
+            this(key, kind, name, amount, totalItems, progress, elapsedNanos, List.of());
+        }
+    }
 
     /**
      * A grid with at least one controller, identified by its controller (ADR-0011).

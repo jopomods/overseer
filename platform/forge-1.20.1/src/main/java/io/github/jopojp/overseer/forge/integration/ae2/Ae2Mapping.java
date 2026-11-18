@@ -65,6 +65,7 @@ public final class Ae2Mapping {
         Map<ResourceRef, Map<String, String>> resources = new HashMap<>();
         List<Sample> samples = new ArrayList<>();
         Map<ResourceRef, List<io.github.jopojp.overseer.core.provider.Stack>> inventories = new HashMap<>();
+        Map<ResourceRef, List<io.github.jopojp.overseer.core.provider.JobLine>> jobs = new HashMap<>();
         for (Grid g : grids) {
             ResourceRef ref = grid(g.id());
             var attrs = new LinkedHashMap<String, String>();
@@ -102,9 +103,12 @@ public final class Ae2Mapping {
             }
             samples.add(new Sample(ref, CHANNELS.key(), g.channels()));
             samples.add(new Sample(ref, CPUS_BUSY.key(), g.crafting().busy()));
-            for (Ae2Model.Cpu cpu : g.crafting().list()) cpu(g, cpu, resources, samples);
+            for (Ae2Model.Cpu cpu : g.crafting().list()) {
+                cpu(g, cpu, resources, samples);
+                if (cpu.job() != null) jobs.put(cpu(cpu.id()), cpu.job().lines());
+            }
         }
-        return new ProviderSnapshot(PROVIDER, at, resources, samples, inventories);
+        return new ProviderSnapshot(PROVIDER, at, resources, samples, inventories, jobs);
     }
 
     /**
