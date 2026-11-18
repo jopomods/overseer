@@ -51,7 +51,8 @@ public final class ServerLifecycle {
         config = new OverseerRuntime.Config(dataDir, OverseerConfig.http(), config.storage(),
                 config.sessionIdleTimeout(), config.queueCapacity(), version, config.webRoot());
         try {
-            runtime = OverseerRuntime.start(config, providers, new ForgeOperatorCheck(server));
+            runtime = OverseerRuntime.start(config, providers, new ForgeOperatorCheck(server),
+                    io.github.jopojp.overseer.forge.icons.JarTextures::find);
             LOG.info("Overseer dashboard: {} ({} providers: {})", OverseerConfig.publicUrl(), providers.size(),
                     providers.stream().map(p -> p.descriptor().id()).toList());
         } catch (Exception e) {
