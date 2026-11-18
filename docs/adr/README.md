@@ -19,6 +19,7 @@ other. Small clarifications are fine.
 | [0011](0011-ae2-discovery-and-access.md) | AE2 grid discovery and access | Accepted (M2) |
 | [0012](0012-item-icons.md) | Item icons in the browser | Accepted (M2) |
 | [0013](0013-versioning-and-releases.md) | Versioning, branching and releases | Accepted |
+| [0014](0014-tick-profiler.md) | Tick profiler with Forge's timers and one mixin | Accepted (M2.5) |
 
 ## Template
 
