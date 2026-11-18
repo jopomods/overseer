@@ -80,7 +80,8 @@ Delivered in slices (docs/modules/ae2.md):
 - [ ] Changes view, deficit view with forecast
 - [x] M2g: crafting CPUs live (busy first), jobs with progress, elapsed time, estimate and
   history; cards expand to details and recent jobs
-- [ ] Job details (what the job waits for, what is stored or pending); drive and cell usage
+- [x] M2h: job lines in expanded CPU cards (crafting, planned, stored), live
+- [ ] Drive and cell usage
 - [ ] Item icons: optional client exporter (atlas upload) + jar texture fallback, cached by
   item id + NBT hash
 

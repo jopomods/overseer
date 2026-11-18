@@ -82,8 +82,10 @@ class Ae2MappingTest {
     @Test
     void cpusAreResourcesWithJobsAndFollowTheirGrid() {
         Grid g = grid(OWNER, 10);
+        var line = new io.github.jopojp.overseer.core.provider.JobLine("item:gtceu:resistor", "item", "Resistor", 2, 8,
+                120);
         var job = new Ae2Model.Job("item:gtceu:good_electronic_circuit", "item", "Good Electronic Circuit", 64, 1_200,
-                300, 90_000_000_000L);
+                300, 90_000_000_000L, List.of(line));
         var cpus = List.of(new Ae2Model.Cpu("minecraft:overworld@1,2,3", "Circuits", 65_536, 4, "any", job),
                 new Ae2Model.Cpu("minecraft:overworld@5,2,3", null, 1_024, 0, "any", null));
         var withCpus = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(),
@@ -101,6 +103,8 @@ class Ae2MappingTest {
         assertTrue(snapshot.samples().stream().anyMatch(s -> s.resource().equals(busy)
                 && s.metric().equals("job_elapsed") && s.value() == 90));
         assertFalse(snapshot.samples().stream().anyMatch(s -> s.resource().equals(idle)), "idle CPUs have no samples");
+        assertEquals(List.of(line), snapshot.jobs().get(busy));
+        assertFalse(snapshot.jobs().containsKey(idle), "idle CPUs have no job lines");
 
         var access = Ae2Mapping.AccessIndex.of(List.of(withCpus));
         assertEquals(Ae2Mapping.grid("minecraft:overworld@10,64,0"), access.parent(busy));

@@ -10,6 +10,7 @@ import appeng.api.networking.pathing.IPathingService;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.networking.ControllerBlockEntity;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.Grid;
@@ -20,6 +21,7 @@ import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Crafting;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Energy;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Kind;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Storage;
+import io.github.jopojp.overseer.core.provider.JobLine;
 import io.github.jopojp.overseer.core.provider.Stack;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
@@ -271,11 +273,40 @@ final class Ae2Reader {
         CraftingJobStatus status = cpu.getJobStatus();
         if (status != null && status.crafting() != null) {
             Stack what = keys.stack(status.crafting().what(), status.crafting().amount());
+            var lines = cpu instanceof CraftingCPUCluster cluster ? jobLines(cluster, keys) : List.<JobLine>of();
             job = new Ae2Model.Job(what.key(), what.kind(), what.name(), what.amount(), status.totalItems(),
-                    status.progress(), status.elapsedTimeNanos());
+                    status.progress(), status.elapsedTimeNanos(), lines);
         }
         return new Ae2Model.Cpu(id, name == null ? null : name.getString(), cpu.getAvailableStorage(),
                 cpu.getCoProcessors(), cpu.getSelectionMode().name().toLowerCase(java.util.Locale.ROOT), job);
+    }
+
+    /** Lines shown per job; large jobs keep the most active ones. */
+    static final int MAX_JOB_LINES = 300;
+
+    private static final Comparator<JobLine> MOST_ACTIVE = Comparator
+            .comparingLong((JobLine l) -> -l.active())
+            .thenComparingLong(l -> -l.pending())
+            .thenComparingLong(l -> -l.stored())
+            .thenComparing(JobLine::key);
+
+    /** What the job holds and waits for, read like AE2's crafting status screen does. */
+    private static List<JobLine> jobLines(CraftingCPUCluster cluster, StackCache keys) {
+        var logic = cluster.craftingLogic;
+        var all = new KeyCounter();
+        logic.getAllItems(all);
+        var lines = new ArrayList<JobLine>();
+        for (Object2LongMap.Entry<AEKey> entry : all) {
+            AEKey key = entry.getKey();
+            long stored = logic.getStored(key);
+            long active = logic.getWaitingFor(key);
+            long pending = logic.getPendingOutputs(key);
+            if (stored == 0 && active == 0 && pending == 0) continue;
+            Stack s = keys.stack(key, 0);
+            lines.add(new JobLine(s.key(), s.kind(), s.name(), stored, active, pending));
+        }
+        lines.sort(MOST_ACTIVE);
+        return lines.size() > MAX_JOB_LINES ? lines.subList(0, MAX_JOB_LINES) : lines;
     }
 
     private static String dimension(Level level) {

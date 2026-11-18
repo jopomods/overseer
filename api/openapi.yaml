@@ -460,6 +460,36 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/jobs:
+    get:
+      tags: [data]
+      operationId: getJob
+      summary: Lines of a running crafting job (live)
+      description: |
+        What a running job holds and waits for, as in AE2's crafting status screen: per key the
+        amount stored in the CPU, sent to machines (active) and still to craft (pending).
+        Refreshed every second, never stored. 404 when the resource is idle or not visible.
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          description: Resource key, e.g. `ae2/cpu/minecraft:overworld@1,60,2`.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The running job.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/overrides:
     get:
       tags: [data]
@@ -1076,6 +1106,43 @@ components:
         session:
           type: integer
           description: Uptime session number.
+
+    Job:
+      type: object
+      required: [resource, at, lines]
+      properties:
+        resource:
+          type: string
+        at:
+          $ref: "#/components/schemas/Timestamp"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobLine"
+
+    JobLine:
+      type: object
+      required: [key, kind, name, stored, active, pending]
+      properties:
+        key:
+          type: string
+        kind:
+          type: string
+          enum: [item, fluid, other]
+        name:
+          type: string
+        stored:
+          type: integer
+          format: int64
+          description: Already in the CPU.
+        active:
+          type: integer
+          format: int64
+          description: Sent to machines, waiting for them to return.
+        pending:
+          type: integer
+          format: int64
+          description: Still to be crafted.
 
     Event:
       type: object

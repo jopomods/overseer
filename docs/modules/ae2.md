@@ -104,6 +104,12 @@ The job history comes from the attribute events (`GET /api/v1/events?resource=â€
 A job that resumes after a restart has the same attributes, so it is not recorded twice. The UI
 estimates the remaining time from the average pace so far.
 
+Job lines: every second the reader also copies what each running job holds, like AE2's
+crafting status screen: per key `stored` (in the CPU), `active` (sent to machines) and
+`pending` (still to craft), most active first, at most 300 lines per job. They travel in
+`ProviderSnapshot.jobs`, are kept in memory only and served by `GET /api/v1/jobs?resource=â€¦`
+(404 while idle). Nothing of it is stored.
+
 ## Contents (inventory scan)
 
 Every 10th collection (every 10 s) the reader also copies the full cached inventory of each
