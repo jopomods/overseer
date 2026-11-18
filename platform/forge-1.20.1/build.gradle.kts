@@ -27,6 +27,9 @@ repositories {
     maven("https://cursemaven.com") {
         content { includeGroup("curse.maven") }
     }
+    maven("https://modmaven.dev") {
+        content { includeGroup("appeng") }
+    }
 }
 
 legacyForge {
@@ -74,6 +77,9 @@ dependencies {
     // They are present in dev runs so integrations can be exercised.
     "modCompileOnly"(libs.flux.networks)
     "modRuntimeOnly"(libs.flux.networks)
+    "modCompileOnly"(libs.ae2)
+    "modRuntimeOnly"(libs.ae2)
+    "modRuntimeOnly"(libs.guideme)
 
     // Libraries Minecraft does not ship, embedded with Forge Jar-in-Jar (ADR-0003, ADR-0006).
     // FML picks one copy if several mods embed the same library; ranges say what we accept.
