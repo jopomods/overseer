@@ -207,6 +207,10 @@ jobs:
     if: needs.changes.outputs.all == 'true' || needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Playwright's image has the browser's system libraries; installing them with apt took 4-7 min.
+    # Keep the tag at the @playwright/test version in web/package-lock.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.1-noble
     defaults:
       run:
         working-directory: web
@@ -242,28 +246,18 @@ jobs:
       - name: API client is up to date with api/openapi.yaml
         if: steps.passed.outputs.cache-hit != 'true'
         run: |
+          cp src/api/schema.gen.ts "$RUNNER_TEMP/schema.gen.ts"
           npm run gen:api
-          git diff --exit-code -- src/api/schema.gen.ts
+          cmp src/api/schema.gen.ts "$RUNNER_TEMP/schema.gen.ts"
 
       - name: Build
         if: steps.passed.outputs.cache-hit != 'true'
         run: npm run build
 
-      - name: Cache Playwright browser
+      # A no-op when the image's browser matches; downloads it otherwise (no system packages).
+      - name: Playwright browser
         if: steps.passed.outputs.cache-hit != 'true'
-        id: playwright-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
-
-      - name: Install Playwright browser
-        if: steps.passed.outputs.cache-hit != 'true' && (steps.playwright-cache.outputs.cache-hit != 'true')
-        run: npx playwright install --with-deps --only-shell chromium
-
-      - name: Install Playwright system dependencies
-        if: steps.passed.outputs.cache-hit != 'true' && (steps.playwright-cache.outputs.cache-hit == 'true')
-        run: npx playwright install-deps chromium
+        run: npx playwright install --only-shell chromium
 
       - name: Layout and flow tests (360-1920 px)
         if: steps.passed.outputs.cache-hit != 'true'
