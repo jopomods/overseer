@@ -67,6 +67,13 @@ Implementation notes (M1a):
   (`npm run dev:mock`, `dev:mock:extreme`), so the UI can be developed and demoed without
   Minecraft, Java or the simulator.
 
+Notes:
+
+- 2026-11-18: nodes are ordered by name within each column (storage and "+N more" last),
+  not by size: nodes of similar flow swapped places on every update. Storage nodes and their
+  links have their own colours (charging amber, discharging teal). The diagram never shrinks
+  while shown, so devices pausing for a second do not change the page height.
+
 ## Consequences
 
 - Every new page must be added to `web/e2e/layout.spec.ts`.

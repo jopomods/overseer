@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { ResponsiveContainer, Sankey, Tooltip } from 'recharts'
 import { Segmented } from '@/components/history-chart'
 import { Card, CardContent } from '@/components/ui/card'
@@ -41,13 +41,21 @@ export function EnergyFlow({ devices }: { devices: FluxDevice[] }) {
         {graph.links.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t('energy.noFlow')}</p>
         ) : wide ? (
-          <FlowSankey graph={graph} />
+          <FlowSankey key={flowDetail} graph={graph} />
         ) : (
           <FlowList graph={graph} />
         )}
       </CardContent>
     </Card>
   )
+}
+
+/** Storage stands out from producers and consumers: charging amber, discharging blue. */
+const STORAGE_COLOR = { charging: 'var(--warning)', discharging: 'var(--chart-2)' } as const
+
+function nodeColor(node: { kind: FlowNodeKind; storage?: 'charging' | 'discharging' } | undefined) {
+  if (!node) return COLOR.network
+  return node.storage ? STORAGE_COLOR[node.storage] : COLOR[node.kind]
 }
 
 const COLOR: Record<FlowNodeKind, string> = {
@@ -64,7 +72,12 @@ function FlowSankey({ graph }: { graph: FlowGraph }) {
   const perColumn = new Map<FlowNodeKind, number>()
   for (const n of graph.nodes) perColumn.set(n.kind, (perColumn.get(n.kind) ?? 0) + 1)
   // Each node needs room for a two-line label, even when its flow is tiny.
-  const height = Math.max(220, Math.max(...perColumn.values()) * 44)
+  const needed = Math.max(220, Math.max(...perColumn.values()) * 44)
+  // Never shrink while shown: devices that pause for a second would otherwise change the page
+  // height every update and make the page jump while scrolling.
+  const [tallest, setTallest] = useState(needed)
+  if (needed > tallest) setTallest(needed)
+  const height = Math.max(tallest, needed)
   return (
     <div style={{ height }} data-testid="flow-sankey">
       <ResponsiveContainer width="100%" height="100%">
@@ -73,8 +86,9 @@ function FlowSankey({ graph }: { graph: FlowGraph }) {
           nodeWidth={10}
           nodePadding={30}
           iterations={32}
+          sort={false}
           margin={{ top: 4, right: 170, bottom: 4, left: 170 }}
-          link={{ stroke: 'var(--primary)', strokeOpacity: 0.22 }}
+          link={(props: LinkProps) => <FlowLink {...props} graph={graph} />}
           node={(props: NodeProps) => <FlowNode {...props} graph={graph} />}
         >
           <Tooltip
@@ -95,6 +109,32 @@ function FlowSankey({ graph }: { graph: FlowGraph }) {
   )
 }
 
+interface LinkProps {
+  sourceX: number
+  sourceY: number
+  sourceControlX: number
+  targetX: number
+  targetY: number
+  targetControlX: number
+  linkWidth: number
+  index: number
+}
+
+/** Links into or out of a storage take the storage colour, the rest stay neutral. */
+function FlowLink({ sourceX, sourceY, sourceControlX, targetX, targetY, targetControlX, linkWidth, index, graph }: LinkProps & { graph: FlowGraph }) {
+  const link = graph.links[index]
+  const storage = link && (graph.nodes[link.source]?.storage ?? graph.nodes[link.target]?.storage)
+  return (
+    <path
+      d={`M${sourceX},${sourceY} C${sourceControlX},${sourceY} ${targetControlX},${targetY} ${targetX},${targetY}`}
+      fill="none"
+      stroke={storage ? STORAGE_COLOR[storage] : 'var(--primary)'}
+      strokeOpacity={storage ? 0.45 : 0.22}
+      strokeWidth={Math.max(linkWidth, 1)}
+    />
+  )
+}
+
 interface NodeProps {
   x: number
   y: number
@@ -107,7 +147,8 @@ interface NodeProps {
 function FlowNode({ x, y, width, height, index, payload, graph }: NodeProps & { graph: FlowGraph }) {
   const { locale, energyUnit } = usePreferences()
   const kind = graph.nodes[index]?.kind ?? 'network'
-  if (kind === 'network') return <rect x={x} y={y} width={width} height={Math.max(height, 2)} fill={COLOR[kind]} rx={2} />
+  const fill = nodeColor(graph.nodes[index])
+  if (kind === 'network') return <rect x={x} y={y} width={width} height={Math.max(height, 2)} fill={fill} rx={2} />
   // Outer columns label outwards; inner columns (zones next to devices) label inwards with an
   // outline in the card colour so the text stays readable over the links.
   const hasDevices = graph.nodes.some((n) => n.kind === 'device-source' || n.kind === 'device-sink')
@@ -119,7 +160,7 @@ function FlowNode({ x, y, width, height, index, payload, graph }: NodeProps & { 
   const name = payload.name.length > max ? `${payload.name.slice(0, max - 1)}…` : payload.name
   return (
     <g>
-      <rect x={x} y={y} width={width} height={Math.max(height, 2)} fill={COLOR[kind]} rx={2} />
+      <rect x={x} y={y} width={width} height={Math.max(height, 2)} fill={fill} rx={2} />
       <text
         x={labelX}
         y={y + height / 2}
