@@ -89,9 +89,14 @@ public final class Ae2Model {
      *             {@code <grid id>#<index>}, which may change.
      * @param name custom name (renamed in an anvil), {@code null} if none
      * @param mode AE2 CPU selection mode, lower case
-     * @param job  the running job, {@code null} when idle
+     * @param job    the running job, {@code null} when idle
+     * @param number position in AE2's CPU list, as AE2 shows unnamed CPUs ("CPU #3"); 0 if unknown
      */
-    public record Cpu(String id, String name, long storage, int coProcessors, String mode, Job job) {}
+    public record Cpu(String id, String name, long storage, int coProcessors, String mode, Job job, int number) {
+        public Cpu(String id, String name, long storage, int coProcessors, String mode, Job job) {
+            this(id, name, storage, coProcessors, mode, job, 0);
+        }
+    }
 
     /**
      * A crafting job.

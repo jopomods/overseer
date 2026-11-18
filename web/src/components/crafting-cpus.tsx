@@ -33,7 +33,7 @@ export function CraftingSection({ cpus }: { cpus: Ae2Cpu[] }) {
     >
       <ul className="grid min-w-0 items-start gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="cpu-list">
         {cpus.map((cpu) => (
-          <CpuCard key={cpu.id} cpu={cpu} number={numbers.get(cpu.id) ?? 0} />
+          <CpuCard key={cpu.id} cpu={cpu} number={cpu.number || (numbers.get(cpu.id) ?? 0)} />
         ))}
       </ul>
     </Section>

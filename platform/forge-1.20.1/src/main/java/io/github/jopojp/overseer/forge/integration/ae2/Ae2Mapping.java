@@ -154,6 +154,7 @@ public final class Ae2Mapping {
         attrs.put("storage", Long.toString(cpu.storage()));
         attrs.put("coProcessors", Integer.toString(cpu.coProcessors()));
         attrs.put("mode", cpu.mode());
+        if (cpu.number() > 0) attrs.put("number", Integer.toString(cpu.number()));
         Ae2Model.Job job = cpu.job();
         attrs.put("busy", Boolean.toString(job != null));
         attrs.put("job", job == null ? "" : job.key());
