@@ -20,6 +20,7 @@ import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.storage.Database;
 import io.github.jopojp.overseer.core.storage.HistoryQuery;
 import io.github.jopojp.overseer.core.storage.OverrideStore;
+import io.github.jopojp.overseer.core.storage.ShareStore;
 import io.github.jopojp.overseer.core.storage.StorageAdmin;
 import io.github.jopojp.overseer.core.storage.StorageWriter;
 import io.github.jopojp.overseer.core.storage.Sessions;
@@ -28,6 +29,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import java.util.UUID;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -52,6 +54,7 @@ public final class ApiRoutes {
     private final Database db;
     private final LongSupplier uptime;
     private final OverrideStore overrides;
+    private final ShareStore shares;
     private final StorageWriter writer;
 
     private final RateLimiter linkCreate = RateLimiter.perMinute(10);
@@ -70,6 +73,7 @@ public final class ApiRoutes {
             Database db,
             LongSupplier uptime,
             OverrideStore overrides,
+            ShareStore shares,
             StorageWriter writer) {
         this.version = version;
         this.auth = auth;
@@ -82,6 +86,7 @@ public final class ApiRoutes {
         this.db = db;
         this.uptime = uptime;
         this.overrides = overrides;
+        this.shares = shares;
         this.writer = writer;
     }
 
@@ -104,6 +109,9 @@ public final class ApiRoutes {
                 .get("/api/v1/sessions", this::sessions)
                 .get("/api/v1/overrides", this::listOverrides)
                 .put("/api/v1/overrides", this::setOverride)
+                .get("/api/v1/shares", this::listShares)
+                .post("/api/v1/shares", this::addShare)
+                .delete("/api/v1/shares", this::removeShare)
                 .get("/api/v1/admin/collectors", this::collectors)
                 .get("/api/v1/admin/storage", this::storage)
                 .put("/api/v1/admin/storage/settings", this::storageSettings)
@@ -281,6 +289,50 @@ public final class ApiRoutes {
             throw HttpError.badRequest("Value must be at most " + MAX_OVERRIDE_LENGTH + " characters.");
         }
         overrides.set(ref, body.key(), value, p.player().uuid().toString(), clock.instant());
+        return Response.noContent();
+    }
+
+    /** The resource of a share request; the caller must be allowed to manage its shares. */
+    private ResourceRef manageableShare(Principal p, String resource) {
+        if (resource == null) throw HttpError.badRequest("resource is required.");
+        ResourceRef ref = parseRef(resource);
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        if (!access.isShareable(ref)) throw HttpError.badRequest("This resource cannot be shared in Overseer.");
+        if (!access.canEdit(p, ref)) throw HttpError.forbidden("Only the owner may manage access.");
+        return ref;
+    }
+
+    private Response listShares(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        ResourceRef ref = manageableShare(p, r.queryParam("resource").orElse(null));
+        return Response.json(shares.list(ref).stream().map(Dtos::share).toList());
+    }
+
+    private Response addShare(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        var body = Json.parse(r.bodyText(), Dtos.AddShare.class);
+        ResourceRef ref = manageableShare(p, body.resource());
+        String name = body.name() == null ? "" : body.name().strip();
+        if (name.isEmpty() || name.length() > 16) throw HttpError.badRequest("name must be a player name.");
+        UUID player = shares.playerByName(name).orElseThrow(() -> HttpError.badRequest(
+                "Unknown player. They must log in to the dashboard once (/ov link) before you can share with them."));
+        shares.add(ref, player, p.player().uuid(), clock.instant());
+        return Response.json(201, shares.list(ref).stream()
+                .filter(s -> s.player().equals(player)).findFirst().map(Dtos::share).orElseThrow());
+    }
+
+    /** Owners remove anyone; a player may also remove their own share (leave). */
+    private Response removeShare(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        UUID player;
+        try {
+            player = UUID.fromString(r.queryParam("player").orElseThrow(() -> HttpError.badRequest("player is required.")));
+        } catch (IllegalArgumentException e) {
+            throw HttpError.badRequest("player must be a UUID.");
+        }
+        if (!player.equals(p.player().uuid())) manageableShare(p, ref.key());
+        if (!shares.remove(ref, player)) throw HttpError.notFound();
         return Response.noContent();
     }
 

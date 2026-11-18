@@ -172,11 +172,29 @@ test.describe('flows', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nether outpost')
   })
 
+  test('ME network owners share and unshare with players', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/ae2/minecraft:overworld@120,64,-340')
+    const access = page.getByTestId('grid-access')
+    await expect(access.getByRole('listitem')).toHaveCount(1)
+    await access.getByLabel('Player name').fill('Herobrine')
+    await access.getByRole('button', { name: 'Share' }).click()
+    await expect(access).toContainText('Unknown player')
+    await access.getByLabel('Player name').fill('steve')
+    await access.getByRole('button', { name: 'Share' }).click()
+    await expect(access.getByRole('listitem')).toHaveCount(2)
+    await expect(access).toContainText('Steve')
+    await access.getByRole('listitem').filter({ hasText: 'Alex' }).getByRole('button', { name: 'Remove access' }).click()
+    await expect(access.getByRole('listitem')).toHaveCount(1)
+    await expect(access).not.toContainText('Alex')
+  })
+
   test('players cannot rename ME networks', async ({ page }) => {
     await mockApi(page, { role: 'player', realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Main base')
     await expect(page.getByRole('button', { name: 'Rename' })).toHaveCount(0)
+    await expect(page.getByTestId('grid-access')).toHaveCount(0)
   })
 
   test('storage page: admins only, size warning, purge needs confirmation', async ({ page }) => {

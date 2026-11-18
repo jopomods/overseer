@@ -9,5 +9,10 @@ public enum Capability {
     /** Item/fluid inventories (e.g. AE2 storage). */
     INVENTORY,
     /** Has per-resource access control that must be enforced (ADR-0008). */
-    ACCESS_CONTROL
+    ACCESS_CONTROL,
+    /**
+     * Owners (players with edit rights) may share resources with single players in Overseer
+     * (ADR-0011). For mods without their own member lists, e.g. AE2.
+     */
+    SHARING
 }

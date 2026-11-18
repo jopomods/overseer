@@ -21,7 +21,8 @@ import net.minecraft.server.MinecraftServer;
  */
 public final class Ae2Provider implements DataProvider {
     private static final ProviderDescriptor DESCRIPTOR = new ProviderDescriptor(Ae2Mapping.PROVIDER,
-            "Applied Energistics 2", Set.of(Capability.METRICS, Capability.EVENTS, Capability.ACCESS_CONTROL),
+            "Applied Energistics 2", Set.of(Capability.METRICS, Capability.EVENTS, Capability.ACCESS_CONTROL,
+                    Capability.SHARING),
             Ae2Mapping.METRICS, 20, TimeUnit.MILLISECONDS.toNanos(2));
 
     private final MinecraftServer server;

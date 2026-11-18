@@ -34,9 +34,13 @@ AE2 grids have no names. The name is an Overseer override (`PUT /api/v1/override
 - Members of the owner's **FTB Teams** party see it (not rename). Recomputed every second:
   leaving the party removes access within a second. Personal and server teams add nobody.
   Without FTB Teams installed this rule does nothing (`Teams.detect()`).
+- **Shares**: the owner (or an admin) shares the grid with single players by name on the
+  grid page (`/api/v1/shares`). Shared players view, never edit. Only players who logged in
+  to the dashboard once can be found. The owner removes a share; a player can also remove
+  their own. AE2 declares `Capability.SHARING`; Flux does not (Flux has its own members).
 - Dashboard admins see and edit everything.
 
-Explicit shares and access requests follow (ADR-0011).
+Access requests follow (ADR-0011).
 
 ## Data
 

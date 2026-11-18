@@ -268,6 +268,11 @@ export function createMockBackend(options: MockOptions = {}) {
     ? [{ resource: 'ae2/grid/minecraft:overworld@120,64,-340', key: 'name', value: 'Main base' }]
     : [{ resource: 'ae2/grid/minecraft:overworld@0,64,-0', key: 'name', value: LONG.slice(0, 48) }]
   const editable = role !== 'player'
+  // Players who logged in to the dashboard once (share targets).
+  const knownPlayers = new Map([['steve', { uuid: '00000000-0000-0000-0000-0000000057e7', name: 'Steve' }], ['alex', { uuid: '00000000-0000-0000-0000-00000000a1e7', name: 'Alex' }]])
+  const shares: Array<{ resource: string; player: string; name: string; grantedAt: string }> = options.realistic
+    ? [{ resource: 'ae2/grid/minecraft:overworld@120,64,-340', player: '00000000-0000-0000-0000-00000000a1e7', name: 'Alex', grantedAt: now() }]
+    : Array.from({ length: 6 }, (_, i) => ({ resource: 'ae2/grid/minecraft:overworld@0,64,-0', player: `uuid-share-${i}`, name: i === 0 ? LONG.slice(0, 16) : `Friend${i}`, grantedAt: now() }))
   let loggedInNow = false
   const withEdit = (snapshot: { resources: Array<Record<string, unknown>> }) => ({
     ...snapshot,
@@ -338,6 +343,24 @@ export function createMockBackend(options: MockOptions = {}) {
         }
         const provider = url.searchParams.get('provider')
         return json(overrides.filter((o) => o.resource.startsWith(`${provider}/`)))
+      }
+      case '/api/v1/shares': {
+        if (!editable && !(method === 'DELETE')) return json({ error: { code: 'forbidden', message: 'no' } }, 403)
+        const resource = method === 'POST' ? (body as { resource: string }).resource : url.searchParams.get('resource')
+        if (method === 'POST') {
+          const player = knownPlayers.get(String((body as { name: string }).name).toLowerCase())
+          if (!player) return json({ error: { code: 'bad_request', message: 'unknown player' } }, 400)
+          const share = { resource: resource!, player: player.uuid, name: player.name, grantedAt: now() }
+          if (!shares.some((s) => s.resource === resource && s.player === player.uuid)) shares.push(share)
+          return json({ player: share.player, name: share.name, grantedBy: null, grantedAt: share.grantedAt }, 201)
+        }
+        if (method === 'DELETE') {
+          const i = shares.findIndex((s) => s.resource === resource && s.player === url.searchParams.get('player'))
+          if (i < 0) return json({ error: { code: 'not_found', message: 'no' } }, 404)
+          shares.splice(i, 1)
+          return { status: 204 }
+        }
+        return json(shares.filter((s) => s.resource === resource).map((s) => ({ player: s.player, name: s.name, grantedBy: null, grantedAt: s.grantedAt })))
       }
       case '/api/v1/admin/storage':
         return json({

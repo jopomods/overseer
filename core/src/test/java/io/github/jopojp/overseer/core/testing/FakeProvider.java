@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 public final class FakeProvider implements DataProvider {
     public static final MetricDescriptor POWER = new MetricDescriptor("power", MetricKind.RATE, "FE/t", 0.01);
 
-    private final ProviderDescriptor descriptor;
+    private ProviderDescriptor descriptor;
     private final FakeTime time;
     private final Map<ResourceRef, Map<String, String>> resources = new LinkedHashMap<>();
     private final Map<ResourceRef, Double> power = new LinkedHashMap<>();
@@ -34,6 +34,15 @@ public final class FakeProvider implements DataProvider {
         this.descriptor = new ProviderDescriptor(id, id, Set.of(Capability.METRICS, Capability.EVENTS),
                 List.of(POWER), intervalTicks, budgetNanos);
         this.time = time;
+    }
+
+    /** Adds a capability, e.g. {@link Capability#SHARING}. */
+    public FakeProvider capability(Capability capability) {
+        var capabilities = new java.util.HashSet<>(descriptor.capabilities());
+        capabilities.add(capability);
+        descriptor = new ProviderDescriptor(descriptor.id(), descriptor.displayName(), capabilities,
+                descriptor.metrics(), descriptor.intervalTicks(), descriptor.budgetNanos());
+        return this;
     }
 
     public FakeProvider resource(ResourceRef ref, Map<String, String> attributes) {

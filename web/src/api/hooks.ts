@@ -11,6 +11,7 @@ export type Credential = components['schemas']['Credential']
 export type History = components['schemas']['History']
 export type Sessions = components['schemas']['Sessions']
 export type Override = components['schemas']['Override']
+export type Share = components['schemas']['Share']
 
 /** An API failure with its HTTP status; 401 means "not logged in". */
 export class ApiError extends Error {
@@ -54,6 +55,7 @@ export const keys = {
   credentials: ['credentials'] as const,
   sessions: ['sessions'] as const,
   overrides: (provider: string) => ['overrides', provider] as const,
+  shares: (resource: string) => ['shares', resource] as const,
   history: (resources: string[], metrics: string[], rangeMs: number) =>
     ['history', resources.join(','), metrics.join(','), rangeMs] as const,
 }
@@ -142,6 +144,32 @@ export function useSetOverride(provider: string) {
   return useMutation({
     mutationFn: (override: Override) => unwrap(api.PUT('/api/v1/overrides', { body: override })),
     onSuccess: () => client.invalidateQueries({ queryKey: keys.overrides(provider) }),
+  })
+}
+
+/** Players a resource is shared with (owners and admins only). */
+export function useShares(resource: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.shares(resource),
+    queryFn: () => unwrap(api.GET('/api/v1/shares', { params: { query: { resource } } })),
+    retry,
+    enabled,
+  })
+}
+
+export function useAddShare(resource: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => unwrap(api.POST('/api/v1/shares', { body: { resource, name } })),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.shares(resource) }),
+  })
+}
+
+export function useRemoveShare(resource: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (player: string) => unwrap(api.DELETE('/api/v1/shares', { params: { query: { resource, player } } })),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.shares(resource) }),
   })
 }
 

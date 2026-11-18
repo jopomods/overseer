@@ -381,7 +381,7 @@ paths:
       summary: Set or clear an override
       description: |
         Needs edit rights on the resource (dashboard admins, or what the mod allows, e.g.
-        Flux network owners and admins). Allowed keys - `zone`. `value: null` clears it.
+        Flux network owners and admins). Allowed keys - `zone`, `name`. `value: null` clears it.
         Values are at most 48 characters.
       requestBody:
         required: true
@@ -392,6 +392,102 @@ paths:
       responses:
         "204":
           description: Saved.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/shares:
+    get:
+      tags: [data]
+      operationId: listShares
+      summary: Players a resource is shared with
+      description: |
+        Only for providers with Overseer sharing (AE2 grids) and for callers with edit rights
+        on the resource (its owner, dashboard admins).
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          description: Resource key, e.g. `ae2/grid/minecraft:overworld@1,64,2`.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shares of the resource.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Share"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [data]
+      operationId: addShare
+      summary: Share a resource with a player (view only)
+      description: |
+        The player is found by name among players who logged in to the dashboard at least
+        once. Sharing twice is harmless.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resource, name]
+              properties:
+                resource:
+                  type: string
+                name:
+                  type: string
+                  maxLength: 16
+      responses:
+        "201":
+          description: Shared.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Share"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [data]
+      operationId: removeShare
+      summary: Remove a share
+      description: Owners remove any share; a player may remove their own (leave).
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: player
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Removed.
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -876,6 +972,23 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Session"
+
+    Share:
+      type: object
+      required: [player, grantedAt]
+      properties:
+        player:
+          type: string
+          format: uuid
+        name:
+          type: [string, "null"]
+          description: Last known dashboard name.
+        grantedBy:
+          type: [string, "null"]
+          format: uuid
+        grantedAt:
+          type: string
+          format: date-time
 
     Override:
       type: object
