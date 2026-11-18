@@ -110,6 +110,26 @@ crafting status screen: per key `stored` (in the CPU), `active` (sent to machine
 `ProviderSnapshot.jobs`, are kept in memory only and served by `GET /api/v1/jobs?resource=…`
 (404 while idle). Nothing of it is stored.
 
+## Drives and cells
+
+Every drive and ME chest of a grid (anything implementing AE2's `IChestOrDrive`, add-on drives
+included) is a resource `ae2/drive/<dimension>@x,y,z`, visible like its grid.
+
+| Attribute | Meaning |
+|---|---|
+| `grid` | Id of the grid |
+| `block` | Registry id, e.g. `ae2:drive`, `ae2:chest` |
+| `cells` | `slot=item=state;…`; state `empty`, `not_empty`, `types_full`, `full`. Changes when a cell is inserted, removed or fills up, so these moments are events |
+
+| Metric (per drive, and summed per grid) | |
+|---|---|
+| `bytes_used`, `bytes_total` | Bytes of AE2 basic cells |
+| `types_used`, `types_total` | Types of AE2 basic cells |
+
+Add-on cells that AE2 does not describe in bytes (e.g. bulk cells) show their state only. The
+cell inventories come from the drive's own cache (`getOriginalCellInventory`), so reading them
+costs no NBT parsing. Metrics are skipped while a grid boots.
+
 ## Contents (inventory scan)
 
 Every 10th collection (every 10 s) the reader also copies the full cached inventory of each

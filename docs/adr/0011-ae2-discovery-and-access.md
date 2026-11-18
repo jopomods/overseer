@@ -59,6 +59,9 @@ Overseer mandatory on every client, because blocks are synced to clients.
 - 2026-11-18 (M2h): job lines (stored, active, pending per key) are live data in
   `ProviderSnapshot.jobs`: read every second, never stored, fetched only while a card is open.
   They change too fast and are too large for events or SSE pushes.
+- 2026-11-18 (M2i): drives are resources like CPUs (parent = grid). Cell states are one
+  attribute so that "a cell got full" is an event; bytes and types are metrics, summed per grid
+  for the history chart.
 
 ## Consequences
 
