@@ -190,6 +190,23 @@ test.describe('flows', () => {
     await expect(list).not.toContainText('Alex')
   })
 
+  test('ME network contents are searchable and sortable', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/ae2/minecraft:overworld@120,64,-340')
+    const inventory = page.getByTestId('inventory')
+    const rows = page.getByTestId('inventory-list').getByRole('listitem')
+    await expect(rows.first()).toContainText('Water')
+    await expect(inventory).toContainText('14 of 14')
+    await inventory.getByRole('radio', { name: 'Name' }).click()
+    await expect(rows.first()).toContainText('1x Copper Wire')
+    await inventory.getByRole('radio', { name: 'Fluids' }).click()
+    await expect(rows).toHaveCount(3)
+    await inventory.getByRole('radio', { name: 'All' }).click()
+    await inventory.getByLabel('Search items and fluids').fill('circuit')
+    await expect(rows).toHaveCount(2)
+    await expect(rows.filter({ hasText: 'Basic Electronic Circuit' })).toContainText('−96')
+  })
+
   test('players ask for access to hidden ME networks', async ({ page }) => {
     await mockApi(page, { role: 'player', realistic: true })
     await page.goto('/ae2')

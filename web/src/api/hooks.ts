@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 import type { components } from './schema.gen'
 
@@ -14,6 +14,15 @@ export type Override = components['schemas']['Override']
 export type Share = components['schemas']['Share']
 export type Requestable = components['schemas']['Requestable']
 export type AccessRequest = components['schemas']['AccessRequest']
+export type Inventory = components['schemas']['Inventory']
+export type InventoryItem = components['schemas']['InventoryItem']
+
+export interface InventoryQuery {
+  q: string
+  sort: 'amount' | 'name' | 'change'
+  kind?: 'item' | 'fluid' | 'other'
+  limit: number
+}
 
 /** An API failure with its HTTP status; 401 means "not logged in". */
 export class ApiError extends Error {
@@ -60,6 +69,7 @@ export const keys = {
   shares: (resource: string) => ['shares', resource] as const,
   requestable: (provider: string) => ['requestable', provider] as const,
   accessRequests: ['access-requests'] as const,
+  inventory: (resource: string, q: InventoryQuery) => ['inventory', resource, q.q, q.sort, q.kind ?? '', q.limit] as const,
   history: (resources: string[], metrics: string[], rangeMs: number) =>
     ['history', resources.join(','), metrics.join(','), rangeMs] as const,
 }
@@ -134,6 +144,22 @@ export function useHistory(resource: string | string[], metrics: string[], range
 }
 
 /** Overseer-side settings (e.g. zones) of a provider's resources. */
+/** Contents and changes of an inventory; the server scans every 10 s, so poll at that pace. */
+export function useInventory(resource: string, query: InventoryQuery) {
+  return useQuery({
+    queryKey: keys.inventory(resource, query),
+    queryFn: () =>
+      unwrap(
+        api.GET('/api/v1/inventory', {
+          params: { query: { resource, q: query.q || undefined, sort: query.sort, kind: query.kind, limit: query.limit } },
+        }),
+      ),
+    placeholderData: keepPreviousData,
+    refetchInterval: 10_000,
+    retry,
+  })
+}
+
 export function useOverrides(provider: string) {
   return useQuery({
     queryKey: keys.overrides(provider),

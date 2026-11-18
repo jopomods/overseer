@@ -15,6 +15,7 @@ import {
 } from '@/api/hooks'
 import { GridStateBadge } from '@/components/grid-state-badge'
 import { HistoryChart } from '@/components/history-chart'
+import { InventorySection } from '@/components/inventory-list'
 import { LiveBadge } from '@/components/live-badge'
 import { useSession } from '@/components/session'
 import { Section, Stat } from '@/components/stat'
@@ -123,6 +124,8 @@ export function GridPage() {
           />
         </div>
       </Section>
+
+      <InventorySection resource={key} />
 
       {grid.canEdit && <AccessSection resource={key} />}
       {grid.canEdit && grid.kind === 'registered' && <UnregisterButton resource={key} />}
