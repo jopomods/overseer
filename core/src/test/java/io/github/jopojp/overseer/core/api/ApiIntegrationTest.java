@@ -429,6 +429,26 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void adminsAdoptResourcesAndOwnersUnregister() throws Exception {
+        collect();
+        var json = Map.of("Content-Type", "application/json");
+        var alex = new Browser().loginAs(ALEX);
+        String adopt = "{\"resource\":\"flux/network/2\",\"name\":\"Spawn storage\"}";
+        assertEquals(403, alex.send("POST", "/api/v1/registrations", adopt, json).statusCode());
+        operators.add(ALEX.uuid());
+        assertEquals(404, alex.send("POST", "/api/v1/registrations", "{\"resource\":\"flux/network/9\"}", json).statusCode());
+        assertEquals(204, alex.send("POST", "/api/v1/registrations", adopt, json).statusCode());
+        var registration = runtime.registrations().find(STEVE_NET).orElseThrow();
+        assertEquals(ALEX.uuid(), registration.owner());
+        var names = JsonParser.parseString(alex.get("/api/v1/overrides?provider=flux").body()).getAsJsonArray();
+        assertEquals("Spawn storage", names.get(0).getAsJsonObject().get("value").getAsString());
+
+        assertEquals(204, alex.send("DELETE", "/api/v1/registrations?resource=flux/network/2", null, Map.of()).statusCode());
+        assertTrue(runtime.registrations().find(STEVE_NET).isEmpty());
+        assertEquals(404, alex.send("DELETE", "/api/v1/registrations?resource=flux/network/2", null, Map.of()).statusCode());
+    }
+
+    @Test
     void sharingNeedsTheProviderCapability() throws Exception {
         operators.add(ALEX.uuid());
         var alex = new Browser().loginAs(ALEX);

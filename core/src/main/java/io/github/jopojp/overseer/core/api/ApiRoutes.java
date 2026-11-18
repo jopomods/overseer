@@ -22,6 +22,7 @@ import io.github.jopojp.overseer.core.storage.Database;
 import io.github.jopojp.overseer.core.storage.HistoryQuery;
 import io.github.jopojp.overseer.core.storage.NotificationStore;
 import io.github.jopojp.overseer.core.storage.OverrideStore;
+import io.github.jopojp.overseer.core.storage.RegistrationStore;
 import io.github.jopojp.overseer.core.storage.Sessions;
 import io.github.jopojp.overseer.core.storage.ShareStore;
 import io.github.jopojp.overseer.core.storage.StorageAdmin;
@@ -59,6 +60,7 @@ public final class ApiRoutes {
     private final ShareStore shares;
     private final AccessRequestStore requests;
     private final NotificationStore notifications;
+    private final RegistrationStore registrations;
     private final StorageWriter writer;
 
     private final RateLimiter linkCreate = RateLimiter.perMinute(10);
@@ -81,6 +83,7 @@ public final class ApiRoutes {
             ShareStore shares,
             AccessRequestStore requests,
             NotificationStore notifications,
+            RegistrationStore registrations,
             StorageWriter writer) {
         this.version = version;
         this.auth = auth;
@@ -96,6 +99,7 @@ public final class ApiRoutes {
         this.shares = shares;
         this.requests = requests;
         this.notifications = notifications;
+        this.registrations = registrations;
         this.writer = writer;
     }
 
@@ -125,6 +129,8 @@ public final class ApiRoutes {
                 .get("/api/v1/access/requests", this::listRequests)
                 .post("/api/v1/access/requests", this::createRequest)
                 .post("/api/v1/access/decisions", this::decide)
+                .post("/api/v1/registrations", this::register)
+                .delete("/api/v1/registrations", this::unregister)
                 .get("/api/v1/admin/collectors", this::collectors)
                 .get("/api/v1/admin/storage", this::storage)
                 .put("/api/v1/admin/storage/settings", this::storageSettings)
@@ -446,6 +452,37 @@ public final class ApiRoutes {
             requests.deny(ref, player, clock.instant());
             notifications.add(player, "[Overseer] Your access request for " + what + " was declined.", clock.instant());
         }
+        return Response.noContent();
+    }
+
+    // --- registrations (ADR-0011) ---------------------------------------------------------
+
+    /** Admins adopt a hidden resource (e.g. an AE2 grid without controller); they become its owner. */
+    private Response register(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        if (!p.isAdmin()) throw HttpError.forbidden("Only dashboard admins may adopt networks.");
+        var body = Json.parse(r.bodyText(), Dtos.Register.class);
+        if (body.resource() == null) throw HttpError.badRequest("resource is required.");
+        ResourceRef ref = parseRef(body.resource());
+        if (!access.isShareable(ref)) throw HttpError.badRequest("This resource cannot be registered.");
+        boolean exists = latest.get(ref.provider()).map(s -> s.resources().containsKey(ref)).orElse(false);
+        if (!exists) throw HttpError.notFound();
+        String name = body.name() == null ? null : body.name().strip();
+        if (name != null && name.length() > MAX_OVERRIDE_LENGTH) {
+            throw HttpError.badRequest("Name must be at most " + MAX_OVERRIDE_LENGTH + " characters.");
+        }
+        registrations.put(ref, p.player().uuid(), clock.instant());
+        if (name != null && !name.isEmpty()) overrides.set(ref, "name", name, p.player().uuid().toString(), clock.instant());
+        return Response.noContent();
+    }
+
+    /** The owner or an admin turns a registered resource back into a hidden one. */
+    private Response unregister(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        if (registrations.find(ref).isEmpty() || !access.canView(p, ref)) throw HttpError.notFound();
+        if (!access.canEdit(p, ref)) throw HttpError.forbidden("Only the owner may remove the registration.");
+        registrations.remove(ref);
         return Response.noContent();
     }
 
