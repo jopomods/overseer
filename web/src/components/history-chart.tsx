@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { offlineMarkers, RANGES, relativeLabel, wallLabel } from '@/lib/chart'
 import { formatDuration, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
-import { setPreferences, usePreferences, type TimeAxis } from '@/lib/preferences'
+import { usePreferences, type TimeAxis } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
 
 /**
@@ -67,14 +67,6 @@ export function HistoryChart({
             value={String(range)}
             options={RANGES.map((r) => ({ value: String(r.ms), label: locale === 'de' ? r.label.replace(' d', ' T') : r.label }))}
             onChange={(v) => setRange(Number(v))}
-          />
-          <Segmented<TimeAxis>
-            value={axis}
-            options={[
-              { value: 'uptime', label: t('chart.uptime') },
-              { value: 'calendar', label: t('chart.calendar') },
-            ]}
-            onChange={(value) => setPreferences({ axis: value })}
           />
         </div>
 
@@ -170,7 +162,7 @@ export function HistoryChart({
                 <Area
                   key={`${s.metric}:range`}
                   dataKey={`${s.metric}:range`}
-                  type="stepAfter"
+                  type="monotone"
                   stroke="none"
                   fill={s.color}
                   fillOpacity={0.12}
@@ -183,7 +175,7 @@ export function HistoryChart({
                 <Area
                   key={s.metric}
                   dataKey={s.metric}
-                  type="stepAfter"
+                  type="monotone"
                   stroke={s.color}
                   strokeWidth={1.5}
                   strokeDasharray={i > 0 ? '6 4' : undefined}

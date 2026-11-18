@@ -9,7 +9,7 @@ import { offlineMarkers, RANGES, relativeLabel, wallLabel } from '@/lib/chart'
 import type { FluxDevice } from '@/lib/flux'
 import { formatDuration, formatRate, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
-import { setPreferences, usePreferences, type TimeAxis } from '@/lib/preferences'
+import { usePreferences, type TimeAxis } from '@/lib/preferences'
 
 /**
  * Generation (up) and consumption (down) per zone over time, stacked and mirrored
@@ -68,14 +68,6 @@ export function ZoneChart({ devices }: { devices: FluxDevice[] }) {
             value={String(range)}
             options={RANGES.map((r) => ({ value: String(r.ms), label: locale === 'de' ? r.label.replace(' d', ' T') : r.label }))}
             onChange={(v) => setRange(Number(v))}
-          />
-          <Segmented<TimeAxis>
-            value={axis}
-            options={[
-              { value: 'uptime', label: t('chart.uptime') },
-              { value: 'calendar', label: t('chart.calendar') },
-            ]}
-            onChange={(value) => setPreferences({ axis: value })}
           />
         </div>
         <div className="flex min-w-0 flex-wrap gap-x-4 gap-y-1">
@@ -151,7 +143,7 @@ export function ZoneChart({ devices }: { devices: FluxDevice[] }) {
                   key={`gen:${z.zone}`}
                   dataKey={`gen:${z.zone}`}
                   stackId="flow"
-                  type="stepAfter"
+                  type="monotone"
                   stroke={z.color}
                   fill={z.color}
                   fillOpacity={0.45}
@@ -162,7 +154,7 @@ export function ZoneChart({ devices }: { devices: FluxDevice[] }) {
                   key={`con:${z.zone}`}
                   dataKey={`con:${z.zone}`}
                   stackId="flow"
-                  type="stepAfter"
+                  type="monotone"
                   stroke={z.color}
                   fill={z.color}
                   fillOpacity={0.25}
