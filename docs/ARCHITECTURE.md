@@ -10,9 +10,12 @@ overseer/
 ├── core/                    Plain Java 17. No Minecraft.
 │   ├── provider/            DataProvider contract, snapshots, metrics, access policy
 │   ├── time/                Timestamp, UptimeClock (wall clock + server uptime)
-│   ├── pipeline/            collector scheduler (budgets, throttling), bounded queue, latest state
+│   ├── pipeline/            collector scheduler (budgets, throttling), bounded queue, latest state,
+│   │                        InventoryState (newest inventory scan, job lines, live detail tables)
 │   ├── storage/             SQLite: migrations, sessions, single writer, deadband/heartbeat,
-│   │                        time-weighted rollups + retention, history queries
+│   │                        time-weighted rollups + retention, history queries; inventory changes
+│   │                        (per minute), watchlist, icons, registrations, shares, access requests,
+│   │                        notifications, profiler settings
 │   ├── auth/                link codes, console login tokens, sessions, device tokens, roles, rate limits
 │   ├── access/              AccessService: admin bypass + provider policies + shares, default deny
 │   ├── http/                Netty server, router, SSE hub, static UI, origin check, proxy handling
@@ -26,19 +29,22 @@ overseer/
 │   ├── OverseerConfig       overseer-server.toml (bind, port, proxies, public URL)
 │   ├── ForgeOperatorCheck   op lookup on the server thread, cached for HTTP threads
 │   ├── command/             /ov commands (also console and RCON)
-│   ├── integration/         Integrations (provider list) + one package per mod: server, flux, (M2) ae2
+│   ├── integration/         Integrations (provider list) + one package per source: server, profiler,
+│   │                        flux, ae2 (Reader -> Model -> Mapping -> Provider), teams (FTB Teams)
+│   ├── icons/               icon network channel (optional on both sides), mod jar texture fallback
+│   ├── client/              client-only: /ovicons export renders item and fluid icons
+│   ├── mixin/               one mixin: completes Forge 1.20.1's block entity timer (ADR-0014)
 │   └── src/gametest/        Forge GameTests (own source set, not shipped)
 ├── web/                     Vite + React + shadcn/ui, built into the jar at /overseer-web
 │   ├── src/api/             generated schema, typed client, query hooks, SSE live updates
 │   ├── src/lib/             i18n (de/en), preferences, formatting (SI, FE/EU), snapshot helpers
-│   ├── src/components/      app shell (sidebar / bottom nav), stats, live badge, shadcn ui/
-│   ├── src/pages/           login, overview, server, energy (Flux list + network), storage (admin), account; routes in
-│   │                        src/router.tsx, all but login/overview lazy-loaded
+│   ├── src/components/      app shell (sidebar / bottom nav), stats, charts, Sankey, AE2 sections
+│   │                        (contents, watchlist, crafting, drives), profiler, McText, shadcn ui/
+│   ├── src/pages/           login, overview, server, energy (Flux list + network), ME networks (list +
+│   │                        grid), storage (admin), account; routes in src/router.tsx
 │   └── e2e/                 Playwright: mocked API with extreme data, layout + flow tests
 └── api/openapi.yaml         HTTP contract; the TS client is generated from it
 ```
-
-`(M1a)` marks packages that do not exist yet.
 
 The mod jar contains the platform classes, the core classes and the built web UI, plus
 `sqlite-jdbc` and `netty-codec-http` embedded via Forge Jar-in-Jar. Adding
@@ -53,8 +59,9 @@ flowchart LR
         T[Tick hook] --> P1[Flux provider]
         T --> P2[Server provider]
         T --> P3[AE2 provider]
+        T --> P4[Profiler provider]
     end
-    P1 & P2 & P3 -->|immutable ProviderSnapshot| Q[(Bounded queue)]
+    P1 & P2 & P3 & P4 -->|immutable ProviderSnapshot| Q[(Bounded queue)]
     Q --> L[Latest-state cache]
     Q --> W[Storage writer thread]
     W --> DB[(SQLite, WAL)]
@@ -70,8 +77,9 @@ flowchart LR
 2. **Hand off.** Snapshots go into a bounded queue. If it is full, the oldest entry is
    dropped and counted. The tick never blocks ([ADR-0004](adr/0004-threading-and-snapshots.md)).
 3. **Latest state.** The newest snapshot per provider is kept in memory for live views
-   and SSE. Inventory scans (only some snapshots carry one) are kept per resource in
-   `InventoryState`.
+   and SSE. Inventory scans (only some snapshots carry one), the lines of running crafting
+   jobs and other live tables (the profiler's top list) are kept in `InventoryState`; they are
+   served on request and never pushed over SSE.
 4. **Store** (single writer thread). Events are stored always; metrics only when they
    leave the deadband or the heartbeat interval passed; inventory scans as per-minute
    changes of the keys that changed. Rollup and retention jobs run
@@ -89,6 +97,10 @@ flowchart LR
 | Storage writer | all SQLite writes, rollups, retention | touch world state |
 | Netty event loop | HTTP parsing, SSE writes | run DB queries (hand off to workers) |
 | HTTP workers | DB reads, response building | touch world state |
+| Icon writer | stores icons sent by a client (`/ovicons export`) | touch world state |
+
+A client with Overseer installed (optional) only ever renders icons on its own render thread
+and sends them over the `overseer:icons` network channel; nothing else runs on clients.
 
 ## Time
 

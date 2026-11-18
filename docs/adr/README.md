@@ -16,10 +16,10 @@ other. Small clarifications are fine.
 | [0008](0008-permissions.md) | Permissions: global roles plus mod-native rules, default deny | Accepted |
 | [0009](0009-frontend-stack.md) | Frontend stack and layout testing | Accepted |
 | [0010](0010-contract-first-api.md) | Contract-first OpenAPI with generated TypeScript client | Accepted |
-| [0011](0011-ae2-discovery-and-access.md) | AE2 grid discovery and access | Accepted (M2) |
-| [0012](0012-item-icons.md) | Item icons in the browser | Accepted (M2) |
+| [0011](0011-ae2-discovery-and-access.md) | AE2 grid discovery and access | Accepted |
+| [0012](0012-item-icons.md) | Item icons in the browser | Accepted |
 | [0013](0013-versioning-and-releases.md) | Versioning, branching and releases | Accepted |
-| [0014](0014-tick-profiler.md) | Tick profiler with Forge's timers and one mixin | Accepted (M2.5) |
+| [0014](0014-tick-profiler.md) | Tick profiler with Forge's timers and one mixin | Accepted |
 
 ## Template
 

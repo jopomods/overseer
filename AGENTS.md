@@ -8,7 +8,8 @@ Milestones and the backlog are in [docs/ROADMAP.md](docs/ROADMAP.md).
 ## What this is
 
 Overseer is a server-side Minecraft mod with an embedded web dashboard. It collects
-live data from the server and from other mods (Flux Networks first, then AE2),
+live data from the server and from other mods (Flux Networks and AE2 today; GTCEu and Tom's
+Storage planned, one milestone each),
 stores history in SQLite, and serves a React UI that works on phones. Players only
 see what the mods' own permission rules let them see.
 

@@ -23,6 +23,14 @@ Priority order:
 Icons are addressed by item id + NBT hash and served with immutable caching headers.
 The third-party `.ae2wi-icons` format is not read.
 
+## Notes
+
+- 2026-11-18 (M2k): implemented differently in detail: the client command is `/ovicons export`
+  (a client command; `/ov` stays the server's), icons are single 32x32 PNGs per item and fluid,
+  sent in batches below 32 KiB over an optional Forge network channel instead of an HTTP atlas
+  upload (the client is already authenticated as a player; operators only), and stored per stack
+  key in SQLite. See docs/modules/ae2.md and ADR-0011 notes.
+
 ## Consequences
 
 - The client part is an optional companion; every feature works without it, with
