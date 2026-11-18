@@ -1,6 +1,7 @@
 package io.github.jopojp.overseer.core.api;
 
 import io.github.jopojp.overseer.core.access.AccessService;
+import io.github.jopojp.overseer.core.action.ActionRequest;
 import io.github.jopojp.overseer.core.auth.AuthService;
 import io.github.jopojp.overseer.core.auth.LinkCodes;
 import io.github.jopojp.overseer.core.auth.Principal;
@@ -19,6 +20,7 @@ import io.github.jopojp.overseer.core.provider.ProviderDescriptor;
 import io.github.jopojp.overseer.core.provider.ProviderSnapshot;
 import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.storage.AccessRequestStore;
+import io.github.jopojp.overseer.core.storage.ActionLogStore;
 import io.github.jopojp.overseer.core.storage.Database;
 import io.github.jopojp.overseer.core.storage.EventQuery;
 import io.github.jopojp.overseer.core.storage.HistoryQuery;
@@ -69,11 +71,14 @@ public final class ApiRoutes {
     private final io.github.jopojp.overseer.core.storage.IconStore icons;
     private final io.github.jopojp.overseer.core.storage.ProfilerStore profiler;
     private final StorageWriter writer;
+    private final io.github.jopojp.overseer.core.action.ActionService actions;
+    private final io.github.jopojp.overseer.core.storage.ActionLogStore actionLog;
 
     private final RateLimiter linkCreate = RateLimiter.perMinute(10);
     private final RateLimiter linkPoll = RateLimiter.perMinute(90);
     private final RateLimiter tokenLogin = RateLimiter.perMinute(20);
     private final RateLimiter requestLimit = RateLimiter.perMinute(10);
+    private final RateLimiter actionLimit = RateLimiter.perMinute(60);
 
     public ApiRoutes(
             String version,
@@ -95,7 +100,9 @@ public final class ApiRoutes {
             io.github.jopojp.overseer.core.storage.WatchStore watches,
             io.github.jopojp.overseer.core.storage.IconStore icons,
             io.github.jopojp.overseer.core.storage.ProfilerStore profiler,
-            StorageWriter writer) {
+            StorageWriter writer,
+            io.github.jopojp.overseer.core.action.ActionService actions,
+            io.github.jopojp.overseer.core.storage.ActionLogStore actionLog) {
         this.version = version;
         this.auth = auth;
         this.access = access;
@@ -116,6 +123,8 @@ public final class ApiRoutes {
         this.icons = icons;
         this.profiler = profiler;
         this.writer = writer;
+        this.actions = actions;
+        this.actionLog = actionLog;
     }
 
     public Router register(Router router) {
@@ -151,6 +160,9 @@ public final class ApiRoutes {
                 .get("/api/v1/shares", this::listShares)
                 .post("/api/v1/shares", this::addShare)
                 .delete("/api/v1/shares", this::removeShare)
+                .post("/api/v1/actions", this::runAction)
+                .get("/api/v1/actions", this::listActions)
+                .get("/api/v1/actions/allowed", this::allowedActions)
                 .get("/api/v1/access/requestable", this::listRequestable)
                 .get("/api/v1/access/requests", this::listRequests)
                 .post("/api/v1/access/requests", this::createRequest)
@@ -569,6 +581,47 @@ public final class ApiRoutes {
         }
         overrides.set(ref, body.key(), value, p.player().uuid().toString(), clock.instant());
         return Response.noContent();
+    }
+
+    // --- world actions (ADR-0016) ----------------------------------------------------------
+
+    private Response runAction(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        if (!actionLimit.tryAcquire(p.player().uuid().toString())) throw HttpError.rateLimited();
+        var body = Json.parse(r.bodyText(), Dtos.RunAction.class);
+        if (body.type() == null || body.resource() == null) throw HttpError.badRequest("type and resource are required.");
+        ResourceRef ref = parseRef(body.resource());
+        var result = actions.perform(p, new ActionRequest(body.type(), ref, body.params()));
+        int status = switch (result.status()) {
+            case OK -> 200;
+            case INVALID -> 400;
+            case DENIED -> 403;
+            case NOT_FOUND -> throw HttpError.notFound();
+            case UNAVAILABLE -> 409;
+            case BUSY -> 503;
+            case FAILED -> 500;
+        };
+        return Response.json(status, Dtos.actionResult(result));
+    }
+
+    private Response listActions(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        ResourceRef ref = r.queryParam("resource").map(ApiRoutes::parseRef).orElse(null);
+        if (ref == null && !p.isAdmin()) throw HttpError.badRequest("resource is required.");
+        if (ref != null && !access.canView(p, ref)) throw HttpError.notFound();
+        long before = longParam(r, "before", 0);
+        int limit = (int) Math.max(1, Math.min(longParam(r, "limit", 50), ActionLogStore.MAX_LIMIT));
+        return Response.json(actionLog.list(ref, before > 0 ? before : null, limit).stream()
+                .filter(e -> access.canView(p, e.target()))
+                .map(Dtos::actionLogEntry)
+                .toList());
+    }
+
+    private Response allowedActions(Request r) throws SQLException {
+        Principal p = principal(r);
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        return Response.json(new Dtos.AllowedActionsDto(ref.key(), List.copyOf(actions.allowed(p, ref))));
     }
 
     /** The resource of a share request; the caller must be allowed to manage its shares. */

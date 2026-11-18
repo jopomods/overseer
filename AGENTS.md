@@ -63,7 +63,8 @@ Toolchain: JDK 17 (Minecraft 1.20.1 requirement), Node 24, Gradle via wrapper.
 
 ## Hard rules
 
-1. **World access only on the server thread**, only inside `DataProvider.collect()`.
+1. **World access only on the server thread**, only inside `DataProvider.collect()` and
+   `ActionHandler.perform()` (world actions, [ADR-0016](docs/adr/0016-world-actions.md)).
    Everything else reads immutable snapshots ([ADR-0004](docs/adr/0004-threading-and-snapshots.md)).
 2. **core stays Minecraft-free** ([ADR-0002](docs/adr/0002-module-structure.md)).
 3. **Optional mods are optional.** An integration whose mod is absent must never be

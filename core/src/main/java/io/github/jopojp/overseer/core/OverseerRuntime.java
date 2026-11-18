@@ -89,6 +89,12 @@ public final class OverseerRuntime implements AutoCloseable {
     private java.util.function.Function<String, byte[]> iconFallback;
     private OverrideStore overrides;
     private Clock wall;
+    private io.github.jopojp.overseer.core.action.ActionQueue actionQueue;
+
+    /** Time the server thread may spend on world actions per tick (ADR-0016). */
+    static final long ACTION_BUDGET_NANOS = 5_000_000;
+    /** How long a dashboard request waits for the server thread to run its action. */
+    static final Duration ACTION_TIMEOUT = Duration.ofSeconds(10);
 
     private OperatorCheck operators = OperatorCheck.NONE;
 
@@ -163,17 +169,25 @@ public final class OverseerRuntime implements AutoCloseable {
         resources.push(profiler);
         this.overrides = overrides;
         this.wall = wall;
+        var actionLog = new io.github.jopojp.overseer.core.storage.ActionLogStore(db.openControlWriter());
+        resources.push(actionLog);
+        actionQueue = new io.github.jopojp.overseer.core.action.ActionQueue(64);
+        var actions = new io.github.jopojp.overseer.core.action.ActionService(providers, access, actionQueue, actionLog,
+                wall, ACTION_TIMEOUT);
 
         var sse = new SseHub(access, auth, latest);
         resources.push(sse);
 
         var router = new ApiRoutes(config.version(), auth, access, latest, inventories, queue, descriptors, scheduler::status, wall,
-                db, clock::uptimeMillis, overrides, shares, requests, notifications, registrations, watches, icons, profiler, writer)
+                db, clock::uptimeMillis, overrides, shares, requests, notifications, registrations, watches, icons, profiler, writer,
+                actions, actionLog)
                 .register(new Router());
         http = new HttpServer(config.http(), router,
                 new StaticFiles(config.webRoot(), OverseerRuntime.class.getClassLoader()), sse);
         http.start();
         resources.push(http);
+        // Closed before the web server, so waiting requests get an answer instead of hanging.
+        resources.push(actionQueue);
 
         LOG.info("Overseer {} started (session {}, {} providers)", config.version(), session.session(),
                 providers.size());
@@ -182,6 +196,7 @@ public final class OverseerRuntime implements AutoCloseable {
     /** Collects due providers. Call once per server tick, on the server thread. */
     public void tick() {
         scheduler.tick();
+        actionQueue.drain(ACTION_BUDGET_NANOS, System::nanoTime);
     }
 
     /** For {@code /ov link}, {@code ov login}, {@code ov admin}. */

@@ -84,6 +84,33 @@ public final class Dtos {
 
     public record AddShare(String resource, String name) {}
 
+    /** A world action as sent by the client (ADR-0016). */
+    public record RunAction(String type, String resource, com.google.gson.JsonObject params) {}
+
+    public record ChangeDto(String resource, String field, String before, String after) {}
+
+    public record ActionResultDto(String status, String message, List<ChangeDto> changes) {}
+
+    public record ActionLogEntryDto(long id, String at, String actor, String actorName, boolean operator,
+            String action, String resource, String status, String message, List<ChangeDto> changes) {}
+
+    public record AllowedActionsDto(String resource, List<String> types) {}
+
+    static List<ChangeDto> changes(List<io.github.jopojp.overseer.core.action.ActionResult.Change> changes) {
+        return changes.stream().map(c -> new ChangeDto(c.resource().key(), c.field(), c.before(), c.after())).toList();
+    }
+
+    public static ActionResultDto actionResult(io.github.jopojp.overseer.core.action.ActionResult r) {
+        return new ActionResultDto(r.status().name().toLowerCase(java.util.Locale.ROOT), r.message(), changes(r.changes()));
+    }
+
+    /** Parameters are left out: they may hold secrets, and the changes say what happened. */
+    public static ActionLogEntryDto actionLogEntry(io.github.jopojp.overseer.core.storage.ActionLogStore.Entry e) {
+        return new ActionLogEntryDto(e.id(), e.at().toString(), e.actor().toString(), e.actorName(), e.operator(),
+                e.action(), e.target().key(), e.status().name().toLowerCase(java.util.Locale.ROOT), e.message(),
+                changes(e.changes()));
+    }
+
     /** A resource the caller cannot see but may ask for. No id: ids contain positions. */
     public record RequestableDto(String provider, String handle, String name, String ownerName, String request) {}
 

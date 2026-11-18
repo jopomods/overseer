@@ -93,10 +93,10 @@ flowchart LR
 
 | Thread | Does | Must not |
 |---|---|---|
-| Server thread | `DataProvider.collect()`, `/ov` commands | block on IO, DB or network (exception: the rare `/ov` auth commands do a few millisecond SQLite writes so their replies reach RCON) |
+| Server thread | `DataProvider.collect()`, world actions (`ActionQueue`, ADR-0016), `/ov` commands | block on IO, DB or network (exception: the rare `/ov` auth commands do a few millisecond SQLite writes so their replies reach RCON) |
 | Storage writer | all SQLite writes, rollups, retention | touch world state |
 | Netty event loop | HTTP parsing, SSE writes | run DB queries (hand off to workers) |
-| HTTP workers | DB reads, response building | touch world state |
+| HTTP workers | DB reads, response building, queueing world actions and waiting for them | touch world state |
 | Icon writer | stores icons sent by a client (`/ovicons export`) | touch world state |
 
 A client with Overseer installed (optional) only ever renders icons on its own render thread
@@ -108,6 +108,14 @@ Every value carries a `Timestamp`: wall clock (UTC), accumulated server uptime i
 milliseconds, and the uptime session number. Charts default to **server uptime** (offline
 time collapsed to a marker) and can switch to **calendar time**. See
 [ADR-0005](adr/0005-data-model.md).
+
+## World actions
+
+Changes to the game (renaming a Flux device, ...) go through one endpoint,
+`POST /api/v1/actions`. Core checks who may act (operators, or what the mod allows), hands the
+action to the server thread through `ActionQueue`, waits for the result and logs it in
+`action_log`. The provider's `ActionHandler` checks permissions again against live state and
+applies the change. See [ADR-0016](adr/0016-world-actions.md).
 
 ## Security model (summary)
 

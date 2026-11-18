@@ -9,6 +9,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.github.jopojp.overseer.core.OverseerRuntime;
+import io.github.jopojp.overseer.core.action.ActionHandler;
+import io.github.jopojp.overseer.core.action.ActionRequest;
+import io.github.jopojp.overseer.core.action.ActionResult;
+import io.github.jopojp.overseer.core.action.Actor;
 import io.github.jopojp.overseer.core.auth.PlayerRef;
 import io.github.jopojp.overseer.core.http.HttpConfig;
 import io.github.jopojp.overseer.core.provider.Capability;
@@ -689,5 +693,140 @@ class ApiIntegrationTest {
         var snapshot = JsonParser.parseString(json).getAsJsonObject();
         assertEquals("flux", snapshot.get("provider").getAsString());
         assertEquals(1, snapshot.getAsJsonArray("resources").size(), "only Alex's network");
+    }
+
+    // --- world actions (ADR-0016) ---------------------------------------------------------
+
+    private final List<String> performedOn = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /** Lets Alex rename his own network; a real provider checks again on the server thread. */
+    private void enableRenameAction() throws Exception {
+        flux.actions(new ActionHandler() {
+            @Override
+            public Set<String> types() {
+                return Set.of("flux.network.rename");
+            }
+
+            @Override
+            public boolean canPerform(UUID player, ResourceRef target, String type) {
+                return player.equals(ALEX.uuid()) && target.equals(ALEX_NET);
+            }
+
+            @Override
+            public ActionResult perform(Actor actor, ActionRequest request) {
+                performedOn.add(Thread.currentThread().getName());
+                var params = request.params();
+                if (!params.has("name")) return ActionResult.error(ActionResult.Status.INVALID, "name is required.");
+                return ActionResult.ok(List.of(new ActionResult.Change(request.target(), "name", "Old",
+                        params.get("name").getAsString())));
+            }
+        });
+        // Providers are read at start.
+        runtime.close();
+        var config = new OverseerRuntime.Config(dir, HttpConfig.DEFAULTS.withPort(0), StorageSettings.DEFAULTS,
+                Duration.ofDays(30), 64, "0.0.0-test", "test-web");
+        runtime = OverseerRuntime.start(config, List.of(flux), operators::contains);
+        base = "http://127.0.0.1:" + runtime.httpPort();
+        collect();
+    }
+
+    private static String action(String resource, String params) {
+        return "{\"type\":\"flux.network.rename\",\"resource\":\"" + resource + "\""
+                + (params == null ? "" : ",\"params\":" + params) + "}";
+    }
+
+    /** Sends an action while this thread plays the server thread, ticking until it is answered. */
+    private HttpResponse<String> runAction(Browser browser, String body) {
+        var pending = CompletableFuture.supplyAsync(() -> {
+            try {
+                return browser.post("/api/v1/actions", body);
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
+        });
+        while (!pending.isDone()) {
+            runtime.tick();
+            try {
+                Thread.sleep(5);
+            } catch (InterruptedException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        return pending.join();
+    }
+
+    private static List<String> statuses(JsonArray log) {
+        return log.asList().stream().map(e -> e.getAsJsonObject().get("status").getAsString()).toList();
+    }
+
+    @Test
+    void worldActionsRunOnTheServerThreadAndAreLogged() throws Exception {
+        enableRenameAction();
+        var alex = new Browser().loginAs(ALEX);
+
+        var allowed = json(alex.get("/api/v1/actions/allowed?resource=flux/network/1"));
+        assertEquals("flux.network.rename", allowed.getAsJsonArray("types").get(0).getAsString());
+
+        var ok = runAction(alex, action("flux/network/1", "{\"name\":\"New\",\"password\":\"hunter2\"}"));
+        assertEquals(200, ok.statusCode(), ok.body());
+        assertEquals("ok", json(ok).get("status").getAsString());
+        assertEquals(List.of(Thread.currentThread().getName()), performedOn, "ran on the ticking thread");
+
+        assertEquals(400, runAction(alex, action("flux/network/1", null)).statusCode());
+        assertEquals(400, runAction(alex, "{\"type\":\"nope\",\"resource\":\"flux/network/1\"}").statusCode());
+
+        var log = JsonParser.parseString(alex.get("/api/v1/actions?resource=flux/network/1").body()).getAsJsonArray();
+        assertEquals(List.of("invalid", "ok"), statuses(log), "unknown action types are not logged");
+        var entry = log.get(1).getAsJsonObject();
+        assertEquals("Alex", entry.get("actorName").getAsString());
+        assertEquals("New", entry.getAsJsonArray("changes").get(0).getAsJsonObject().get("after").getAsString());
+        assertFalse(log.toString().contains("hunter2"), "secrets never leave the server");
+    }
+
+    @Test
+    void onlyModRulesAndOperatorsAllowWorldActions() throws Exception {
+        enableRenameAction();
+        String rename = action("flux/network/2", "{\"name\":\"X\"}");
+        var alex = new Browser().loginAs(ALEX);
+        var steve = new Browser().loginAs(STEVE);
+
+        // Steve sees his network but the mod does not let him edit it; Alex does not see it.
+        assertEquals(403, runAction(steve, rename).statusCode());
+        assertEquals(404, runAction(alex, rename).statusCode());
+
+        // A dashboard admin sees everything but changes nothing in the world.
+        runtime.auth().grantAdmin(ALEX, "test");
+        assertEquals(403, runAction(alex, rename).statusCode());
+        assertTrue(json(alex.get("/api/v1/actions/allowed?resource=flux/network/2")).getAsJsonArray("types").isEmpty());
+
+        // An operator may.
+        operators.add(ALEX.uuid());
+        assertEquals(200, runAction(alex, rename).statusCode());
+        var log = JsonParser.parseString(alex.get("/api/v1/actions?resource=flux/network/2").body()).getAsJsonArray();
+        assertEquals(List.of("ok", "denied", "denied"), statuses(log));
+        assertTrue(log.get(0).getAsJsonObject().get("operator").getAsBoolean());
+        assertEquals(List.of(Thread.currentThread().getName()), performedOn, "refused actions never run");
+
+        // Steve cannot read Alex's log, and needs a resource to read any.
+        assertEquals(404, steve.get("/api/v1/actions?resource=flux/network/1").statusCode());
+        assertEquals(400, steve.get("/api/v1/actions").statusCode());
+    }
+
+    @Test
+    void worldActionsNeedAHumanOnTheSameOrigin() throws Exception {
+        enableRenameAction();
+        var alex = new Browser().loginAs(ALEX);
+        String body = action("flux/network/1", "{\"name\":\"X\"}");
+
+        String token = json(alex.post("/api/v1/me/device-tokens", "{\"name\":\"Tablet\"}")).get("token").getAsString();
+        var bearer = HttpRequest.newBuilder(URI.create(base + "/api/v1/actions"))
+                .header("Authorization", "Bearer " + token)
+                .POST(HttpRequest.BodyPublishers.ofString(body)).build();
+        assertEquals(403, client.send(bearer, HttpResponse.BodyHandlers.ofString()).statusCode());
+
+        var foreign = alex.send("POST", "/api/v1/actions", body,
+                Map.of("Content-Type", "application/json", "Origin", "https://evil.example"));
+        assertEquals(403, foreign.statusCode());
+        assertTrue(performedOn.isEmpty());
     }
 }
