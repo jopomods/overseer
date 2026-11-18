@@ -97,6 +97,18 @@ export function fluxSnapshot() {
       metrics: { transfer: type === 'point' ? -9.2e18 / (i + 1) : 9.2e18 / (i + 1), buffer: 5e15 },
     }
   })
+  // Two plugs with the same zone and name: grouped as "Twin ×2" in the device flow.
+  for (const n of [0, 1]) {
+    const id = `minecraft:overworld@-5${n},70,5`
+    devices.push({
+      ref: { provider: 'flux', type: 'device', id, key: `flux/device/${id}` },
+      attributes: {
+        network: '0', type: 'plug', name: 'Power plant: Twin', dimension: 'minecraft:overworld',
+        pos: `-5${n},70,5`, priority: '0', limit: '0', loaded: 'true', surge: 'false',
+      },
+      metrics: { transfer: 4e18, buffer: 0 },
+    })
+  }
   const members = ['owner', 'admin', 'user', 'blocked'].map((access, i) => ({
     ref: { provider: 'flux', type: 'member', id: `0:uuid-${i}`, key: `flux/member/0:uuid-${i}` },
     attributes: { network: '0', player: `uuid-${i}`, name: i === 0 ? LONG : `Member${i}`, access },
