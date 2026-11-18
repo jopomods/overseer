@@ -81,6 +81,7 @@ export function NetworkPage() {
           resource={network.resource.ref.key}
           energy={network.energy}
           capacity={capacityOf(deviceList)}
+          hasStorage={deviceList.some((d) => d.type === 'storage')}
         />
       </div>
 
@@ -143,7 +144,17 @@ function capacityOf(devices: FluxDevice[]): number | undefined {
   return storages.reduce((s, d) => s + (d.capacity ?? 0), 0)
 }
 
-function StoredStat({ resource, energy, capacity }: { resource: string; energy: number; capacity?: number }) {
+function StoredStat({
+  resource,
+  energy,
+  capacity,
+  hasStorage,
+}: {
+  resource: string
+  energy: number
+  capacity?: number
+  hasStorage: boolean
+}) {
   const t = useT()
   const { locale, energyUnit } = usePreferences()
   const uptime = useSessions().data?.uptimeMillis
@@ -166,7 +177,13 @@ function StoredStat({ resource, energy, capacity }: { resource: string; energy: 
     <Stat
       label={t('energy.stored')}
       value={formatEnergy(energy, energyUnit, locale)}
-      hint={share !== undefined ? `${formatNumber(share, locale, 0)} % · ${hint ?? ''}` : hint}
+      hint={
+        !hasStorage
+          ? t('energy.noStorage')
+          : share !== undefined
+            ? `${formatNumber(share, locale, 0)} % · ${hint ?? ''}`
+            : hint
+      }
       progress={share}
       tone={forecast.kind === 'emptying' && forecast.msUntilEmpty < 3_600_000 ? 'warn' : undefined}
     />
