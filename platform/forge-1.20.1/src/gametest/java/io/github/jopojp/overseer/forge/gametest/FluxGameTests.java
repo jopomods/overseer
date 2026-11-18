@@ -16,7 +16,6 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraftforge.common.util.FakePlayerFactory;
-import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.registries.ForgeRegistries;
 import sonar.fluxnetworks.api.network.SecurityLevel;
@@ -28,7 +27,6 @@ import sonar.fluxnetworks.common.device.TileFluxDevice;
  * Runs the providers against a real Forge server with real Flux Networks blocks.
  * {@code ./gradlew :platform:forge-1.20.1:runGameTestServer}
  */
-@GameTestHolder(Overseer.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class FluxGameTests {
     private static final UUID OWNER = UUID.fromString("0e1a5ee7-0000-4000-8000-0000000000a1");
@@ -37,7 +35,7 @@ public final class FluxGameTests {
 
     private FluxGameTests() {}
 
-    @GameTest(template = "empty", timeoutTicks = 200)
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
     public static void fluxNetworkDevicesAndAccessAreCollected(GameTestHelper helper) {
         var owner = FakePlayerFactory.get(helper.getLevel(), new GameProfile(OWNER, "OverseerOwner"));
         FluxNetwork network = FluxNetworkData.getInstance()

@@ -13,21 +13,19 @@ import java.util.stream.Collectors;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraftforge.fml.ModList;
-import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 /**
  * Tests that need no optional mod. They also run with {@code -PbareMods=true}, where Flux
  * Networks and AE2 are absent (AGENTS.md rule 3).
  */
-@GameTestHolder(Overseer.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class ServerGameTests {
     private static final Timestamp AT = new Timestamp(Instant.EPOCH, 0, 1);
 
     private ServerGameTests() {}
 
-    @GameTest(template = "empty")
+    @GameTest(template = "empty", templateNamespace = "overseer")
     public static void serverProviderReportsTpsAndDimensions(GameTestHelper helper) {
         var snapshot = new ServerProvider(helper.getLevel().getServer()).collect(AT);
         helper.assertTrue(snapshot.resources().containsKey(new ResourceRef("server", "server", "main")), "server");
@@ -38,19 +36,21 @@ public final class ServerGameTests {
     }
 
     /** Integrations exist exactly for the loaded mods, and every one of them collects. */
-    @GameTest(template = "empty")
+    @GameTest(template = "empty", templateNamespace = "overseer")
     public static void integrationsFollowLoadedMods(GameTestHelper helper) {
-        boolean bare = Boolean.getBoolean("overseer.bareMods");
+        Set<String> mods = GameTestSuites.mods(System.getProperty("overseer.gametestSuite", "all"));
         boolean flux = ModList.get().isLoaded("fluxnetworks");
         boolean ae2 = ModList.get().isLoaded("ae2");
         boolean ftb = ModList.get().isLoaded("ftbteams");
-        helper.assertTrue(flux == !bare && ae2 == !bare && ftb == !bare, "expected optional mods "
-                + (bare ? "absent" : "present") + ": flux=" + flux + ", ae2=" + ae2 + ", ftbteams=" + ftb);
-        helper.assertTrue((Teams.detect() == Teams.NONE) == bare, "team support must follow FTB Teams");
+        helper.assertTrue(flux == mods.contains("flux") && ae2 == mods.contains("ae2") && ftb == mods.contains("teams"),
+                "suite mods " + mods + " but loaded: flux=" + flux + ", ae2=" + ae2 + ", ftbteams=" + ftb);
+        helper.assertTrue((Teams.detect() == Teams.NONE) == !ftb, "team support must follow FTB Teams");
 
         var providers = Integrations.providers(helper.getLevel().getServer());
         Set<String> ids = providers.stream().map(p -> p.descriptor().id()).collect(Collectors.toSet());
-        Set<String> expected = bare ? Set.of("server", "profiler") : Set.of("server", "profiler", "flux", "ae2");
+        Set<String> expected = new java.util.HashSet<>(Set.of("server", "profiler"));
+        if (flux) expected.add("flux");
+        if (ae2) expected.add("ae2");
         helper.assertTrue(ids.equals(expected), "providers " + ids + ", expected " + expected);
         for (DataProvider provider : providers) provider.collect(AT);
         helper.succeed();

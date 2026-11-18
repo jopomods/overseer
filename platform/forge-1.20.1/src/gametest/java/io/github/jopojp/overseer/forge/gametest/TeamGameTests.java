@@ -12,16 +12,14 @@ import java.util.UUID;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraftforge.common.util.FakePlayerFactory;
-import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 /** Team lookup against real FTB Teams. Uses FTB internals to build a party (test only). */
-@GameTestHolder(Overseer.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class TeamGameTests {
     private TeamGameTests() {}
 
-    @GameTest(template = "empty")
+    @GameTest(template = "empty", templateNamespace = "overseer")
     public static void ftbPartyMembersAreTeammates(GameTestHelper helper) throws Exception {
         // Fresh ids per run: the GameTest world may keep FTB data between runs.
         UUID owner = UUID.randomUUID();

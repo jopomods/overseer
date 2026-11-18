@@ -28,7 +28,8 @@ Package root: `io.github.jopojp.overseer` (`.core`, `.forge`).
 Per-integration docs: [docs/modules/](docs/modules/). New integration pattern: a `*Reader`
 that alone touches the mod API and copies into plain records, a pure `*Mapping` that
 builds resources and access rules (unit-tested), a thin `*Provider`, a factory entry in
-`Integrations` behind `ModList.isLoaded`, and a GameTest.
+`Integrations` behind `ModList.isLoaded`, and a GameTest class registered in a suite of its own in
+`GameTestSuites` and `build.gradle.kts` (both tables), plus a suite for each integration it depends on.
 
 ## Commands
 
@@ -37,8 +38,10 @@ builds resources and access rules (unit-tested), a thin `*Provider`, a factory e
 ./gradlew build -PskipWeb=true           # fast Java-only build
 ./gradlew :core:test                     # core unit tests
 ./gradlew :platform:forge-1.20.1:runServer   # Forge dev server (run dir: platform/forge-1.20.1/run)
-./gradlew :platform:forge-1.20.1:runGameTestServer   # in-game tests (Flux etc.), exits non-zero on failure
-./gradlew :platform:forge-1.20.1:runGameTestServer -PbareMods=true   # same without Flux/AE2 (rule 3)
+./gradlew gameTestAll                    # every GameTest suite, each in its own server and world (before pushing)
+./gradlew :platform:forge-1.20.1:runGameTestServer -PgametestSuite=ae2   # one suite: base, profiler, flux, ae2, teams, ae2-teams
+./gradlew :platform:forge-1.20.1:runGameTestServer   # all tests in one server with all mods (exits non-zero on failure)
+./gradlew :platform:forge-1.20.1:runGameTestServer -PbareMods=true   # without Flux/AE2/FTB Teams (rule 3)
 ./gradlew :platform:forge-1.20.1:test        # platform unit tests (pure mapping code)
 ./gradlew :core:runSimulator                 # Overseer without Minecraft, replaying fixtures/recordings
 ./gradlew :core:exportRecording --args="<db> <out.jsonl>"   # anonymized recording (docs/guides/recordings.md)
