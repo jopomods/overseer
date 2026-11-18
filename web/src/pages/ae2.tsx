@@ -1,6 +1,8 @@
 import { Link } from '@tanstack/react-router'
 import { Cpu, Lock, Package } from 'lucide-react'
-import { useAccessRequests, useOverrides, useRequestAccess, useRequestable, useSnapshot } from '@/api/hooks'
+import { useAccessRequests, useOverrides, useRegistration, useRequestAccess, useRequestable, useSnapshot } from '@/api/hooks'
+import { Input } from '@/components/ui/input'
+import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { GridStateBadge } from '@/components/grid-state-badge'
@@ -9,8 +11,8 @@ import { useSession } from '@/components/session'
 import { PageHeader, Section } from '@/components/stat'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatAe, formatAeRate, formatPos, grids, type Ae2Grid } from '@/lib/ae2'
-import { formatSi } from '@/lib/format'
+import { formatAe, formatAeRate, formatPos, grids, shortDimension, type Ae2Grid } from '@/lib/ae2'
+import { formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { usePreferences } from '@/lib/preferences'
 
@@ -20,7 +22,9 @@ export function Ae2Page() {
   const { live } = useSession()
   const snapshot = useSnapshot('ae2', { pollMs: live === 'live' ? false : 5000 })
   const overrides = useOverrides('ae2').data
-  const list = grids(snapshot.data, overrides)
+  const all = grids(snapshot.data, overrides)
+  const list = all.filter((g) => g.kind !== 'hidden')
+  const hidden = all.filter((g) => g.kind === 'hidden')
   const pending = useAccessRequests().data ?? []
 
   return (
@@ -35,7 +39,7 @@ export function Ae2Page() {
           ))}
         </div>
       ) : list.length === 0 ? (
-        <p className="text-muted-foreground max-w-prose text-sm">{t('ae2.empty')}</p>
+        <p className="text-muted-foreground max-w-prose text-sm">{t('ae2.empty')} {t('ae2.registerHint')}</p>
       ) : (
         <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="grid-list">
           {list.map((g) => (
@@ -43,8 +47,65 @@ export function Ae2Page() {
           ))}
         </div>
       )}
+      {list.length > 0 && <p className="text-muted-foreground mt-3 max-w-prose text-xs">{t('ae2.registerHint')}</p>}
       <OtherGrids />
+      {hidden.length > 0 && <HiddenGrids grids={hidden} />}
     </>
+  )
+}
+
+/** Admins: grids without controller and registration, with "adopt" (ADR-0011). */
+function HiddenGrids({ grids: list }: { grids: Ae2Grid[] }) {
+  const t = useT()
+  const { locale } = usePreferences()
+  const { adopt } = useRegistration('ae2')
+  const [adopting, setAdopting] = useState<string | null>(null)
+  const [name, setName] = useState('')
+  const submit = (event: FormEvent, g: Ae2Grid) => {
+    event.preventDefault()
+    adopt.mutate({ resource: g.resource.ref.key, name: name.trim() || undefined }, { onSuccess: () => setAdopting(null) })
+  }
+  return (
+    <Section title={t('ae2.hidden')}>
+      <p className="text-muted-foreground mb-3 max-w-prose text-sm">{t('ae2.hiddenHint')}</p>
+      <Card className="min-w-0 py-1">
+        <ul className="divide-border divide-y" data-testid="hidden-grids">
+          {list.map((g) => (
+            <li key={g.id} className="min-w-0 px-4 py-2.5">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{t('ae2.unnamed', { pos: formatPos(g.pos) })}</p>
+                  <p className="text-muted-foreground truncate text-xs">
+                    {shortDimension(g.dimension)} · {t('ae2.nodesCount', { count: formatNumber(g.nodes, locale) })}
+                  </p>
+                </div>
+                {adopting !== g.id && (
+                  <Button size="sm" variant="outline" className="shrink-0" onClick={() => { setAdopting(g.id); setName('') }}>
+                    {t('ae2.adopt')}
+                  </Button>
+                )}
+              </div>
+              {adopting === g.id && (
+                <form onSubmit={(e) => submit(e, g)} className="mt-2 flex min-w-0 flex-wrap gap-2">
+                  <Input
+                    autoFocus
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t('ae2.namePlaceholder')}
+                    maxLength={48}
+                    className="min-w-0 flex-1 basis-48"
+                    aria-label={t('ae2.name')}
+                  />
+                  <Button type="submit" size="sm" className="shrink-0" disabled={adopt.isPending}>
+                    {t('ae2.adopt')}
+                  </Button>
+                </form>
+              )}
+            </li>
+          ))}
+        </ul>
+      </Card>
+    </Section>
   )
 }
 

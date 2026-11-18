@@ -612,6 +612,61 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/registrations:
+    post:
+      tags: [data]
+      operationId: registerResource
+      summary: Adopt a hidden resource (admins)
+      description: |
+        Registers a resource the mod does not identify by itself, e.g. an AE2 grid without
+        controller (`kind: hidden`). The admin becomes its owner; `name` sets the name override.
+        Players register in game with `/ov ae2 register <name>`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resource]
+              properties:
+                resource:
+                  type: string
+                name:
+                  type: string
+                  maxLength: 48
+      responses:
+        "204":
+          description: Registered.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [data]
+      operationId: unregisterResource
+      summary: Remove a registration (owner or admin)
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed; the resource is hidden again.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/admin/collectors:
     get:
       tags: [admin]

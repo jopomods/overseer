@@ -1,7 +1,18 @@
-import { Link, useParams } from '@tanstack/react-router'
+import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { ArrowLeft, Check, Pencil, UserPlus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { ApiError, useAccessRequests, useAddShare, useDecideAccess, useOverrides, useRemoveShare, useSetOverride, useShares, useSnapshot } from '@/api/hooks'
+import {
+  ApiError,
+  useAccessRequests,
+  useAddShare,
+  useDecideAccess,
+  useOverrides,
+  useRegistration,
+  useRemoveShare,
+  useSetOverride,
+  useShares,
+  useSnapshot,
+} from '@/api/hooks'
 import { GridStateBadge } from '@/components/grid-state-badge'
 import { HistoryChart } from '@/components/history-chart'
 import { LiveBadge } from '@/components/live-badge'
@@ -24,7 +35,7 @@ export function GridPage() {
   const { gridId } = useParams({ from: '/app/ae2/$gridId' })
   const snapshot = useSnapshot('ae2', { pollMs: live === 'live' ? false : 5000 })
   const overrides = useOverrides('ae2').data
-  const grid = grids(snapshot.data, overrides).find((g) => g.id === gridId)
+  const grid = grids(snapshot.data, overrides).find((g) => g.id === gridId && g.kind !== 'hidden')
   const [renaming, setRenaming] = useState(false)
 
   if (snapshot.isPending) return <Skeleton className="h-64" />
@@ -114,6 +125,7 @@ export function GridPage() {
       </Section>
 
       {grid.canEdit && <AccessSection resource={key} />}
+      {grid.canEdit && grid.kind === 'registered' && <UnregisterButton resource={key} />}
 
       <Section title={t('ae2.details')}>
         <Card className="min-w-0 py-1">
@@ -212,6 +224,26 @@ function AccessSection({ resource }: { resource: string }) {
         </form>
       </Card>
     </Section>
+  )
+}
+
+/** Registered grids (no controller) can be turned back into hidden ones. */
+function UnregisterButton({ resource }: { resource: string }) {
+  const t = useT()
+  const navigate = useNavigate()
+  const { remove } = useRegistration('ae2')
+  return (
+    <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
+      <p className="text-muted-foreground min-w-0 text-xs">{t('ae2.registered')}</p>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={remove.isPending}
+        onClick={() => remove.mutate(resource, { onSuccess: () => navigate({ to: '/ae2' }) })}
+      >
+        {t('ae2.unregister')}
+      </Button>
+    </div>
   )
 }
 

@@ -217,6 +217,25 @@ export function useDecideAccess() {
   })
 }
 
+/** Admins adopt a hidden resource, owners and admins remove a registration. */
+export function useRegistration(provider: string) {
+  const client = useQueryClient()
+  const refresh = () => {
+    client.invalidateQueries({ queryKey: keys.snapshot(provider) })
+    client.invalidateQueries({ queryKey: keys.overrides(provider) })
+  }
+  return {
+    adopt: useMutation({
+      mutationFn: (body: { resource: string; name?: string }) => unwrap(api.POST('/api/v1/registrations', { body })),
+      onSuccess: refresh,
+    }),
+    remove: useMutation({
+      mutationFn: (resource: string) => unwrap(api.DELETE('/api/v1/registrations', { params: { query: { resource } } })),
+      onSuccess: refresh,
+    }),
+  }
+}
+
 export function useCredentials() {
   return useQuery({ queryKey: keys.credentials, queryFn: () => unwrap(api.GET('/api/v1/me/credentials')), retry })
 }
