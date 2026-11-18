@@ -24,8 +24,9 @@ owner counts as operator.
 | `web.trustedProxies` | `["127.0.0.1", "::1"]` | Proxies whose `X-Forwarded-For/-Proto/-Host` are believed. |
 | `web.forceSecureCookies` | `false` | Mark cookies `Secure` even without `X-Forwarded-Proto: https`. |
 | `web.publicUrl` | `""` | Address players open, e.g. `https://dash.example.org`. Used in links printed by `/ov`. Empty: `http://<bindAddress>:<port>`. |
+| `access.ae2PlacerAccess` | `false` | AE2: players who placed any block or part of an ME network may view it (not edit). Applies without restart. |
 
-Changes take effect on the next server start.
+`web.*` changes take effect on the next server start.
 
 ## Commands
 

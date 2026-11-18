@@ -49,6 +49,10 @@ AE2 grids have no names. The name is an Overseer override (`PUT /api/v1/override
   to the dashboard once can be found. The owner removes a share; a player can also remove
   their own. AE2 declares `Capability.SHARING`; Flux does not (Flux has its own members).
 - Dashboard admins see and edit everything.
+- **Placer access** (server setting `access.ae2PlacerAccess`, default off): every player who
+  placed any block or part of a grid views it (never edits). AE2 records the placer per node;
+  Overseer walks the nodes with each inventory scan (every 10 s), so it applies within 10 s.
+  Off by default because a player could place one cable on a neighbour's network to watch it.
 
 - **Access requests**: below their own networks, players see the other grids with an owner
   (Overseer name or "Network of <owner>", never positions) and can ask for access. The
