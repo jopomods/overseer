@@ -14,7 +14,7 @@ base {
 }
 version = "${project.version}+forge-$mcVersion"
 
-// -PbareMods=true: dev runs without the optional mods (Flux Networks, AE2). CI uses it to
+// -PbareMods=true: dev runs without the optional mods (Flux Networks, AE2, FTB Teams). CI uses it to
 // prove Overseer starts without them (AGENTS.md rule 3). Their GameTests are left out.
 val bareMods = providers.gradleProperty("bareMods").map { it.toBoolean() }.getOrElse(false)
 
@@ -22,7 +22,7 @@ val bareMods = providers.gradleProperty("bareMods").map { it.toBoolean() }.getOr
 val gametest: SourceSet = sourceSets.create("gametest") {
     compileClasspath += sourceSets.main.get().output
     runtimeClasspath += sourceSets.main.get().output
-    if (bareMods) java.exclude("**/FluxGameTests.java", "**/Ae2GameTests.java")
+    if (bareMods) java.exclude("**/FluxGameTests.java", "**/Ae2GameTests.java", "**/TeamGameTests.java")
 }
 configurations[gametest.compileClasspathConfigurationName].extendsFrom(configurations.compileClasspath.get())
 configurations[gametest.runtimeClasspathConfigurationName].extendsFrom(configurations.runtimeClasspath.get())
@@ -34,6 +34,12 @@ repositories {
     }
     maven("https://modmaven.dev") {
         content { includeGroup("appeng") }
+    }
+    maven("https://maven.ftb.dev/releases") {
+        content { includeGroup("dev.ftb.mods") }
+    }
+    maven("https://maven.architectury.dev") {
+        content { includeGroup("dev.architectury") }
     }
 }
 
@@ -83,7 +89,11 @@ dependencies {
     // They are present in dev runs so integrations can be exercised.
     "modCompileOnly"(libs.flux.networks)
     "modCompileOnly"(libs.ae2)
+    "modCompileOnly"(libs.ftb.teams)
     if (!bareMods) {
+        "modRuntimeOnly"(libs.ftb.teams)
+        "modRuntimeOnly"(libs.ftb.library)
+        "modRuntimeOnly"(libs.architectury)
         "modRuntimeOnly"(libs.flux.networks)
         "modRuntimeOnly"(libs.ae2)
         "modRuntimeOnly"(libs.guideme)

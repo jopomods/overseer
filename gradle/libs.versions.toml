@@ -25,6 +25,10 @@ flux-networks = "5234697"
 ae2 = "15.4.12"
 # AE2 15.4.12 needs GuideME at runtime (dev runs only; the modpack ships its own).
 guideme = "20.1.15"
+# FTB Teams (team access for AE2 grids) and its runtime dependencies for dev runs.
+ftb-teams = "2001.3.2"
+ftb-library = "2001.2.13"
+architectury = "9.2.14"
 
 junit = "5.11.4"
 
@@ -37,6 +41,9 @@ sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 flux-networks = { module = "curse.maven:flux-networks-248020", version.ref = "flux-networks" }
 ae2 = { module = "appeng:appliedenergistics2-forge", version.ref = "ae2" }
 guideme = { module = "org.appliedenergistics:guideme", version.ref = "guideme" }
+ftb-teams = { module = "dev.ftb.mods:ftb-teams-forge", version.ref = "ftb-teams" }
+ftb-library = { module = "dev.ftb.mods:ftb-library-forge", version.ref = "ftb-library" }
+architectury = { module = "dev.architectury:architectury-forge", version.ref = "architectury" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }

@@ -30,6 +30,8 @@ Overseer mandatory on every client, because blocks are synced to clients.
 - 2026-11-18 (M2a): "lowest position" means ordered by dimension, then x, y, z. Names are
   the generic `name` override (OverrideStore), editable by the owner. Only owner access is
   implemented so far; the other access paths follow in later M2 slices.
+- 2026-11-18 (M2b): "the owner's FTB team" means an FTB Teams *party* team; team members
+  may view, only the owner edits. Server teams do not count.
 
 ## Consequences
 

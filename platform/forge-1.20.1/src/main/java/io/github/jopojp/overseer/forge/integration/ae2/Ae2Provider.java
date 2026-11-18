@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import io.github.jopojp.overseer.forge.integration.teams.Teams;
 import net.minecraft.server.MinecraftServer;
 
 /**
@@ -24,10 +25,12 @@ public final class Ae2Provider implements DataProvider {
             Ae2Mapping.METRICS, 20, TimeUnit.MILLISECONDS.toNanos(2));
 
     private final MinecraftServer server;
+    private final Teams teams;
     private volatile Ae2Mapping.AccessIndex access = Ae2Mapping.AccessIndex.EMPTY;
 
-    public Ae2Provider(MinecraftServer server) {
+    public Ae2Provider(MinecraftServer server, Teams teams) {
         this.server = server;
+        this.teams = teams;
     }
 
     @Override
@@ -38,7 +41,7 @@ public final class Ae2Provider implements DataProvider {
     @Override
     public ProviderSnapshot collect(Timestamp at) {
         List<Ae2Model.Grid> grids = Ae2Reader.readAll(server);
-        access = Ae2Mapping.AccessIndex.of(grids);
+        access = Ae2Mapping.AccessIndex.of(grids, teams::teammates);
         return Ae2Mapping.snapshot(at, grids);
     }
 

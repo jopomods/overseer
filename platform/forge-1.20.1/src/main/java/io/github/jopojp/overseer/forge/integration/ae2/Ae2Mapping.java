@@ -13,7 +13,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * Turns {@link Ae2Model} into Overseer resources and answers access questions from the last
@@ -86,38 +88,52 @@ public final class Ae2Mapping {
     }
 
     /**
-     * Who may see and edit which grid. For now only the owner (dashboard admins are handled
-     * by the access service). FTB teams and shares follow (ADR-0011).
+     * Who may see and edit which grid (ADR-0011). The owner sees and edits; members of the
+     * owner's team see. Dashboard admins are handled by the access service. Shares follow.
      */
     public static final class AccessIndex {
-        public static final AccessIndex EMPTY = new AccessIndex(Map.of());
+        public static final AccessIndex EMPTY = new AccessIndex(Map.of(), Map.of());
 
         private final Map<String, UUID> owners;
+        private final Map<String, Set<UUID>> teams;
 
-        private AccessIndex(Map<String, UUID> owners) {
+        private AccessIndex(Map<String, UUID> owners, Map<String, Set<UUID>> teams) {
             this.owners = owners;
+            this.teams = teams;
         }
 
         public static AccessIndex of(List<Grid> grids) {
+            return of(grids, owner -> Set.of());
+        }
+
+        /** @param teammates the other team members of an owner */
+        public static AccessIndex of(List<Grid> grids, Function<UUID, Set<UUID>> teammates) {
             var owners = new HashMap<String, UUID>();
+            var teams = new HashMap<String, Set<UUID>>();
+            var cache = new HashMap<UUID, Set<UUID>>();
             for (Grid g : grids) {
-                if (g.owner() != null) owners.put(g.id(), g.owner());
+                if (g.owner() == null) continue;
+                owners.put(g.id(), g.owner());
+                Set<UUID> team = cache.computeIfAbsent(g.owner(), teammates);
+                if (!team.isEmpty()) teams.put(g.id(), Set.copyOf(team));
             }
-            return new AccessIndex(Map.copyOf(owners));
+            return new AccessIndex(Map.copyOf(owners), Map.copyOf(teams));
         }
 
         public boolean canView(UUID player, ResourceRef ref) {
-            return isOwner(player, ref);
+            String grid = gridId(player, ref);
+            return grid != null && (player.equals(owners.get(grid)) || teams.getOrDefault(grid, Set.of()).contains(player));
         }
 
         /** Owners may name their grid. */
         public boolean canEdit(UUID player, ResourceRef ref) {
-            return isOwner(player, ref);
+            String grid = gridId(player, ref);
+            return grid != null && player.equals(owners.get(grid));
         }
 
-        private boolean isOwner(UUID player, ResourceRef ref) {
-            if (player == null || !ref.provider().equals(PROVIDER) || !ref.type().equals("grid")) return false;
-            return player.equals(owners.get(ref.id()));
+        private static String gridId(UUID player, ResourceRef ref) {
+            if (player == null || !ref.provider().equals(PROVIDER) || !ref.type().equals("grid")) return null;
+            return ref.id();
         }
     }
 }

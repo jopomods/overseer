@@ -2,6 +2,7 @@ package io.github.jopojp.overseer.forge.integration;
 
 import io.github.jopojp.overseer.core.provider.DataProvider;
 import io.github.jopojp.overseer.forge.integration.server.ServerProvider;
+import io.github.jopojp.overseer.forge.integration.teams.Teams;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -22,9 +23,10 @@ public final class Integrations {
 
     public static List<DataProvider> providers(MinecraftServer server) {
         var providers = new ArrayList<DataProvider>();
+        Teams teams = Teams.detect();
         providers.add(new ServerProvider(server));
         optional(providers, "fluxnetworks", () -> new io.github.jopojp.overseer.forge.integration.flux.FluxProvider());
-        optional(providers, "ae2", () -> new io.github.jopojp.overseer.forge.integration.ae2.Ae2Provider(server));
+        optional(providers, "ae2", () -> new io.github.jopojp.overseer.forge.integration.ae2.Ae2Provider(server, teams));
         return providers;
     }
 

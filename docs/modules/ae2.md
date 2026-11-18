@@ -29,9 +29,14 @@ AE2 grids have no names. The name is an Overseer override (`PUT /api/v1/override
 
 ## Access
 
-For now: the player who placed the identifying controller (AE2 records the owner of each
-node) sees the grid and may rename it; dashboard admins see and edit everything. FTB team
-members, explicit shares and access requests follow (ADR-0011).
+- The player who placed the identifying controller (AE2 records the owner of each node)
+  sees the grid and may rename it.
+- Members of the owner's **FTB Teams** party see it (not rename). Recomputed every second:
+  leaving the party removes access within a second. Personal and server teams add nobody.
+  Without FTB Teams installed this rule does nothing (`Teams.detect()`).
+- Dashboard admins see and edit everything.
+
+Explicit shares and access requests follow (ADR-0011).
 
 ## Data
 
