@@ -8,6 +8,9 @@ import { metric, ofType } from './snapshot'
  */
 export type GridState = 'online' | 'conflict' | 'unpowered' | 'booting'
 
+/** controller: found by its controller; registered: by a registered block; hidden: neither (admins). */
+export type GridKind = 'controller' | 'registered' | 'hidden'
+
 export interface Ae2Grid {
   resource: Resource
   id: string
@@ -18,6 +21,7 @@ export interface Ae2Grid {
   owner: string
   ownerName: string
   state: GridState
+  kind: GridKind
   canEdit: boolean
   /** AE (AE2's own unit). */
   powerStored: number
@@ -58,6 +62,7 @@ export function grids(snapshot: Snapshot | undefined, overrides: Override[] = []
         owner: a.owner ?? '',
         ownerName: a.ownerName ?? '',
         state,
+        kind: a.kind === 'hidden' || a.kind === 'registered' ? a.kind : 'controller',
         canEdit: r.canEdit ?? false,
         powerStored: metric(r, 'power_stored') ?? 0,
         powerMax: metric(r, 'power_max') ?? 0,

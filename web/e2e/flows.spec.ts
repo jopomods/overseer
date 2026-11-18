@@ -213,12 +213,31 @@ test.describe('flows', () => {
     await expect(page.getByTestId('grid-access')).toContainText('Steve')
   })
 
+  test('admins adopt hidden ME networks; players do not see them', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/ae2')
+    const hidden = page.getByTestId('hidden-grids')
+    await expect(hidden.getByRole('listitem')).toHaveCount(2)
+    await hidden.getByRole('listitem').first().getByRole('button', { name: 'Adopt' }).click()
+    await hidden.getByLabel('Name').fill('Sorting system')
+    await hidden.locator('form').getByRole('button', { name: 'Adopt' }).click()
+    await expect(page.getByTestId('grid-list')).toContainText('Sorting system')
+    await expect(page.getByTestId('hidden-grids').getByRole('listitem')).toHaveCount(1)
+
+    await page.getByTestId('grid-list').getByRole('link').filter({ hasText: 'Sorting system' }).click()
+    await page.getByRole('button', { name: 'Remove registration' }).click()
+    await expect(page).toHaveURL(/\/ae2$/)
+    await expect(page.getByTestId('hidden-grids').getByRole('listitem')).toHaveCount(2)
+  })
+
   test('players cannot rename ME networks', async ({ page }) => {
     await mockApi(page, { role: 'player', realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Main base')
     await expect(page.getByRole('button', { name: 'Rename' })).toHaveCount(0)
     await expect(page.getByTestId('grid-access')).toHaveCount(0)
+    await page.goto('/ae2')
+    await expect(page.getByTestId('hidden-grids')).toHaveCount(0)
   })
 
   test('storage page: admins only, size warning, purge needs confirmation', async ({ page }) => {

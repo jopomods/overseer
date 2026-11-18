@@ -22,6 +22,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.fml.ModList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +37,7 @@ import org.slf4j.LoggerFactory;
  *   <li>{@code /ov login <player>}: one-time login link, the recovery path (level 4 / console)</li>
  *   <li>{@code /ov admin add|remove <player>}: dashboard admins (ops)</li>
  *   <li>{@code /ov sessions revoke <player>}: log a player out everywhere (ops)</li>
+ *   <li>{@code /ov ae2 register <name>}: register the ME network without controller you look at (AE2 only)</li>
  * </ul>
  */
 public final class OverseerCommands {
@@ -70,6 +72,11 @@ public final class OverseerCommands {
                         .then(Commands.literal("revoke")
                                 .then(Commands.argument("player", GameProfileArgument.gameProfile())
                                         .executes(OverseerCommands::revokeSessions)))));
+        // Behind the mod check: the AE2 command class touches AE2 (AGENTS.md rule 3).
+        if (ModList.get().isLoaded("ae2")) {
+            dispatcher.register(Commands.literal("ov")
+                    .then(io.github.jopojp.overseer.forge.integration.ae2.Ae2Commands.node()));
+        }
     }
 
     private static int link(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {

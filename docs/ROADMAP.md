@@ -72,7 +72,7 @@ Delivered in slices (docs/modules/ae2.md):
 - [x] M2d: access requests (opaque handles, no positions), in-game chat notifications,
   allow/decline on the grid page, 24 h cool-down after a decline
 - [ ] Optional "placed a block in the grid" access (server setting, default off)
-- [ ] Ad-hoc grids hidden, adoptable by admins; `/ov ae2 register`
+- [x] M2e: grids without controller: hidden for admins, adoptable in the UI, `/ov ae2 register`
 - [ ] Inventory scan every 10 s (cost measured, spread over ticks only if needed), stored
   as deltas; watchlist every second
 - [ ] Changes view, deficit view with forecast

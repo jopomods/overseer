@@ -1,11 +1,15 @@
 package io.github.jopojp.overseer.forge.integration;
 
 import io.github.jopojp.overseer.core.provider.DataProvider;
+import io.github.jopojp.overseer.forge.ServerLifecycle;
 import io.github.jopojp.overseer.forge.integration.server.ServerProvider;
 import io.github.jopojp.overseer.forge.integration.teams.Teams;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.fml.ModList;
 import org.slf4j.Logger;
@@ -26,8 +30,17 @@ public final class Integrations {
         Teams teams = Teams.detect();
         providers.add(new ServerProvider(server));
         optional(providers, "fluxnetworks", () -> new io.github.jopojp.overseer.forge.integration.flux.FluxProvider());
-        optional(providers, "ae2", () -> new io.github.jopojp.overseer.forge.integration.ae2.Ae2Provider(server, teams));
+        optional(providers, "ae2", () -> new io.github.jopojp.overseer.forge.integration.ae2.Ae2Provider(server, teams,
+                () -> registrations("ae2")));
         return providers;
+    }
+
+    /** Registered resources of a provider as id to owner; empty while Overseer is not running. */
+    private static Map<String, UUID> registrations(String provider) {
+        return ServerLifecycle.runtime()
+                .map(r -> r.registrations().list(provider).stream()
+                        .collect(Collectors.toMap(reg -> reg.resource().id(), reg -> reg.owner(), (a, b) -> a)))
+                .orElse(Map.of());
     }
 
     private static void optional(List<DataProvider> providers, String modId, Supplier<DataProvider> factory) {

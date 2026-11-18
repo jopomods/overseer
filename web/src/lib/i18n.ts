@@ -228,6 +228,13 @@ const en = {
   'ae2.asks': 'asks for access',
   'ae2.deny': 'Decline',
   'ae2.pendingCount': '{count} request(s)',
+  'ae2.hidden': 'Hidden networks (no controller)',
+  'ae2.hiddenHint': 'Only admins see these. Adopt one to make it a normal network you own, or ask its owner to look at a block of it and run /ov ae2 register <name>.',
+  'ae2.adopt': 'Adopt',
+  'ae2.nodesCount': '{count} nodes',
+  'ae2.unregister': 'Remove registration',
+  'ae2.registered': 'Registered (no controller)',
+  'ae2.registerHint': 'Network without controller? Look at one of its blocks in game and run /ov ae2 register <name>.',
 } as const
 
 export type MessageKey = keyof typeof en
@@ -456,6 +463,13 @@ const de: Record<MessageKey, string> = {
   'ae2.asks': 'möchte Zugriff',
   'ae2.deny': 'Ablehnen',
   'ae2.pendingCount': '{count} Anfrage(n)',
+  'ae2.hidden': 'Versteckte Netzwerke (ohne Controller)',
+  'ae2.hiddenHint': 'Nur Admins sehen diese. Übernimm eines, um es als normales Netzwerk zu besitzen, oder bitte den Besitzer, auf einen Block davon zu schauen und /ov ae2 register <Name> auszuführen.',
+  'ae2.adopt': 'Übernehmen',
+  'ae2.nodesCount': '{count} Knoten',
+  'ae2.unregister': 'Registrierung entfernen',
+  'ae2.registered': 'Registriert (ohne Controller)',
+  'ae2.registerHint': 'Netzwerk ohne Controller? Schau ingame auf einen seiner Blöcke und führe /ov ae2 register <Name> aus.',
 }
 
 const messages: Record<Locale, Record<MessageKey, string>> = { en, de }

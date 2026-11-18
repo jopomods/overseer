@@ -15,10 +15,12 @@ import io.github.jopojp.overseer.core.pipeline.LatestState;
 import io.github.jopojp.overseer.core.pipeline.SnapshotQueue;
 import io.github.jopojp.overseer.core.provider.DataProvider;
 import io.github.jopojp.overseer.core.provider.ProviderDescriptor;
+import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.storage.AccessRequestStore;
 import io.github.jopojp.overseer.core.storage.Database;
 import io.github.jopojp.overseer.core.storage.NotificationStore;
 import io.github.jopojp.overseer.core.storage.OverrideStore;
+import io.github.jopojp.overseer.core.storage.RegistrationStore;
 import io.github.jopojp.overseer.core.storage.ShareStore;
 import io.github.jopojp.overseer.core.storage.StorageAdmin;
 import io.github.jopojp.overseer.core.storage.StorageSettings;
@@ -31,6 +33,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,6 +82,9 @@ public final class OverseerRuntime implements AutoCloseable {
     private AuthService auth;
     private HttpServer http;
     private NotificationStore notifications;
+    private RegistrationStore registrations;
+    private OverrideStore overrides;
+    private Clock wall;
 
     private OperatorCheck operators = OperatorCheck.NONE;
 
@@ -131,12 +137,16 @@ public final class OverseerRuntime implements AutoCloseable {
         resources.push(requests);
         notifications = new NotificationStore(db.openControlWriter());
         resources.push(notifications);
+        registrations = new RegistrationStore(db.openControlWriter());
+        resources.push(registrations);
+        this.overrides = overrides;
+        this.wall = wall;
 
         var sse = new SseHub(access, auth, latest);
         resources.push(sse);
 
         var router = new ApiRoutes(config.version(), auth, access, latest, queue, descriptors, scheduler::status, wall,
-                db, clock::uptimeMillis, overrides, shares, requests, notifications, writer)
+                db, clock::uptimeMillis, overrides, shares, requests, notifications, registrations, writer)
                 .register(new Router());
         http = new HttpServer(config.http(), router,
                 new StaticFiles(config.webRoot(), OverseerRuntime.class.getClassLoader()), sse);
@@ -160,6 +170,20 @@ public final class OverseerRuntime implements AutoCloseable {
     /** In-game messages for players; the platform delivers them while players are online. */
     public NotificationStore notifications() {
         return notifications;
+    }
+
+    /** Resources registered in Overseer (e.g. AE2 grids without a controller). */
+    public RegistrationStore registrations() {
+        return registrations;
+    }
+
+    /**
+     * Registers a resource for {@code owner} and names it. Used by {@code /ov ae2 register}
+     * and by admins adopting a hidden grid. Not on the server thread (database write).
+     */
+    public void register(ResourceRef ref, UUID owner, String name) throws java.sql.SQLException {
+        registrations.put(ref, owner, wall.instant());
+        if (name != null && !name.isBlank()) overrides.set(ref, "name", name.strip(), owner.toString(), wall.instant());
     }
 
     public int httpPort() {

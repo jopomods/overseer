@@ -126,6 +126,7 @@ interface MockGrid {
   owner: string
   ownerName: string
   state?: string
+  kind?: string
   powered?: boolean
   booting?: boolean
   nodes: number
@@ -152,13 +153,14 @@ function gridResource(g: MockGrid) {
       cpuStorage: String(g.cpus * 65_536),
       coProcessors: String(g.cpus * 2),
       idlePower: '42.5',
+      kind: g.kind ?? 'controller',
     },
     metrics: g.metrics,
   }
 }
 
 /** AE2 grids. Extreme: 9 grids, huge numbers, every state; realistic: a typical base. */
-export function ae2Snapshot(realistic = false) {
+export function ae2Snapshot(realistic = false, adopted: Map<string, string> = new Map()) {
   const grids: MockGrid[] = realistic
     ? [
         {
@@ -187,10 +189,19 @@ export function ae2Snapshot(realistic = false) {
           item_types: 987_654, items: 9.2e18, fluid_types: 12_345, fluids: 9.2e18, channels: 32_768 * (i + 1), cpus_busy: i === 5 ? 0 : 63,
         },
       }))
+  // Grids without controller: hidden (admins) until adopted or registered in game.
+  const hidden: MockGrid[] = (realistic ? [0, 1] : [0, 1, 2, 3]).map((i) => ({
+    id: i === 1 && !realistic ? `${LONG}:dimension@-${i}0,-64,1${i}` : `minecraft:overworld@${300 + i},62,${-80 - i}`,
+    owner: '', ownerName: '', kind: 'hidden', nodes: 7 + i * 1234, controllers: 0, cpus: 0, metrics: {},
+  }))
+  for (const g of hidden) {
+    const owner = adopted.get(`ae2/grid/${g.id}`)
+    if (owner) Object.assign(g, { kind: 'registered', owner, ownerName: realistic ? 'Developer' : LONG })
+  }
   return {
     provider: 'ae2',
     at: { wall: now(), uptimeMillis: 123_456_789, session: 3 },
-    resources: grids.map(gridResource),
+    resources: [...grids, ...hidden].map(gridResource),
   }
 }
 
@@ -268,6 +279,7 @@ export function createMockBackend(options: MockOptions = {}) {
     ? [{ resource: 'ae2/grid/minecraft:overworld@120,64,-340', key: 'name', value: 'Main base' }]
     : [{ resource: 'ae2/grid/minecraft:overworld@0,64,-0', key: 'name', value: LONG.slice(0, 48) }]
   const editable = role !== 'player'
+  const adopted = new Map<string, string>()
   // Players who logged in to the dashboard once (share targets).
   const knownPlayers = new Map([['steve', { uuid: '00000000-0000-0000-0000-0000000057e7', name: 'Steve' }], ['alex', { uuid: '00000000-0000-0000-0000-00000000a1e7', name: 'Alex' }]])
   const requestable = options.realistic
@@ -293,7 +305,7 @@ export function createMockBackend(options: MockOptions = {}) {
         ? realSnapshot('server')
         : serverSnapshot()
       : provider === 'ae2'
-        ? withEdit(ae2Snapshot(options.realistic))
+        ? withEdit(ae2Snapshot(options.realistic, adopted))
         : withEdit(options.realistic ? realSnapshot('flux') : fluxSnapshot())
 
   function handle({ method, url, body }: MockRequest): MockResponse {
@@ -387,6 +399,17 @@ export function createMockBackend(options: MockOptions = {}) {
         if (i < 0) return json({ error: { code: 'not_found', message: 'no' } }, 404)
         const [request] = accessRequests.splice(i, 1)
         if (d.approve) shares.push({ resource: d.resource, player: d.player, name: request.name, grantedAt: now() })
+        return { status: 204 }
+      }
+      case '/api/v1/registrations': {
+        if (!editable) return json({ error: { code: 'forbidden', message: 'no' } }, 403)
+        if (method === 'POST') {
+          const b = body as { resource: string; name?: string }
+          adopted.set(b.resource, '00000000-0000-0000-0000-000000000001')
+          if (b.name) overrides.push({ resource: b.resource, key: 'name', value: b.name })
+          return { status: 204 }
+        }
+        adopted.delete(url.searchParams.get('resource') ?? '')
         return { status: 204 }
       }
       case '/api/v1/admin/storage':

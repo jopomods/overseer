@@ -50,7 +50,7 @@ public final class Ae2GameTests {
         }
 
         helper.runAfterDelay(40, () -> {
-            var provider = new Ae2Provider(helper.getLevel().getServer(), Teams.detect());
+            var provider = new Ae2Provider(helper.getLevel().getServer(), Teams.detect(), java.util.Map::of);
             var snapshot = provider.collect(AT);
             BlockPos id = helper.absolutePos(first);
             String dimension = helper.getLevel().dimension().location().toString();
@@ -68,16 +68,54 @@ public final class Ae2GameTests {
 
             long nearby = snapshot.resources().keySet().stream()
                     .filter(r -> r.id().startsWith(dimension + "@"))
+                    .filter(r -> !"hidden".equals(snapshot.resources().get(r).get("kind")))
                     .filter(r -> {
                         String[] p = r.id().substring(r.id().indexOf('@') + 1).split(",");
                         return Math.abs(Integer.parseInt(p[0]) - id.getX()) < 16
                                 && Math.abs(Integer.parseInt(p[2]) - id.getZ()) < 16;
                     })
                     .count();
-            helper.assertTrue(nearby == 1, "grids without controller must be skipped, got " + nearby);
+            helper.assertTrue(nearby == 1, "small grids without controller must be skipped, got " + nearby);
 
             helper.assertTrue(provider.access().canView(OWNER, ref), "owner must see the grid");
             helper.assertFalse(provider.access().canView(STRANGER, ref), "stranger must not see the grid");
+            helper.succeed();
+        });
+    }
+
+    /** Five energy cells form a grid without controller: hidden until registered. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void gridWithoutControllerIsHiddenUntilRegistered(GameTestHelper helper) {
+        for (int x = 0; x < 5; x++) place(helper, new BlockPos(x, 1, 3), "energy_cell");
+        BlockPos lowest = helper.absolutePos(new BlockPos(0, 1, 3));
+        BlockPos registeredAt = helper.absolutePos(new BlockPos(2, 1, 3));
+        String dimension = helper.getLevel().dimension().location().toString();
+        String hiddenId = dimension + "@" + lowest.getX() + "," + lowest.getY() + "," + lowest.getZ();
+        String registeredId = dimension + "@" + registeredAt.getX() + "," + registeredAt.getY() + "," + registeredAt.getZ();
+
+        helper.runAfterDelay(40, () -> {
+            var server = helper.getLevel().getServer();
+            var hidden = new Ae2Provider(server, Teams.detect(), java.util.Map::of);
+            var snapshot = hidden.collect(AT);
+            ResourceRef hiddenRef = Ae2Mapping.grid(hiddenId);
+            var attrs = snapshot.resources().get(hiddenRef);
+            helper.assertTrue(attrs != null, "hidden grid missing; got " + snapshot.resources().keySet());
+            helper.assertTrue("hidden".equals(attrs.get("kind")), "kind: " + attrs.get("kind"));
+            helper.assertTrue("5".equals(attrs.get("nodes")), "nodes: " + attrs.get("nodes"));
+            helper.assertTrue(snapshot.samples().stream().noneMatch(s -> s.resource().equals(hiddenRef)),
+                    "hidden grids have no history");
+            helper.assertFalse(hidden.access().canView(OWNER, hiddenRef), "hidden grids are for admins only");
+
+            var registered = new Ae2Provider(server, Teams.detect(), () -> java.util.Map.of(registeredId, OWNER));
+            snapshot = registered.collect(AT);
+            ResourceRef ref = Ae2Mapping.grid(registeredId);
+            attrs = snapshot.resources().get(ref);
+            helper.assertTrue(attrs != null, "registered grid missing; got " + snapshot.resources().keySet());
+            helper.assertTrue("registered".equals(attrs.get("kind")), "kind: " + attrs.get("kind"));
+            helper.assertTrue(OWNER.toString().equals(attrs.get("owner")), "owner: " + attrs.get("owner"));
+            helper.assertFalse(snapshot.resources().containsKey(hiddenRef), "a registered grid is not also hidden");
+            helper.assertTrue(snapshot.samples().stream().anyMatch(s -> s.resource().equals(ref)), "history samples");
+            helper.assertTrue(registered.access().canView(OWNER, ref), "the registering player owns it");
             helper.succeed();
         });
     }

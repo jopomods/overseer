@@ -417,6 +417,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt a hidden resource (admins)
+         * @description Registers a resource the mod does not identify by itself, e.g. an AE2 grid without
+         *     controller (`kind: hidden`). The admin becomes its owner; `name` sets the name override.
+         *     Players register in game with `/ov ae2 register <name>`.
+         */
+        post: operations["registerResource"];
+        /** Remove a registration (owner or admin) */
+        delete: operations["unregisterResource"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/collectors": {
         parameters: {
             query?: never;
@@ -1441,6 +1464,59 @@ export interface operations {
         };
         responses: {
             /** @description Decided. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    registerResource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    resource: string;
+                    name?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Registered. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    unregisterResource: {
+        parameters: {
+            query: {
+                resource: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed; the resource is hidden again. */
             204: {
                 headers: {
                     [name: string]: unknown;

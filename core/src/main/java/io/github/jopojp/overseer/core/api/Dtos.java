@@ -65,6 +65,8 @@ public final class Dtos {
 
     public record Decision(String resource, String player, Boolean approve) {}
 
+    public record Register(String resource, String name) {}
+
     public static ShareDto share(ShareStore.Share s) {
         return new ShareDto(s.player().toString(), s.name(), s.grantedBy() == null ? null : s.grantedBy().toString(),
                 s.grantedAt().toString());

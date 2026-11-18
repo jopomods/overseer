@@ -120,7 +120,7 @@ function FluxTile({ poll }: { poll: number | false }) {
 function Ae2Tile({ poll }: { poll: number | false }) {
   const t = useT()
   const { locale } = usePreferences()
-  const list = ofType(useSnapshot('ae2', { pollMs: poll }).data, 'grid')
+  const list = ofType(useSnapshot('ae2', { pollMs: poll }).data, 'grid').filter((g) => g.attributes.kind !== 'hidden')
   const usage = list.reduce((sum, g) => sum + (metric(g, 'power_usage') ?? 0), 0)
   const items = list.reduce((sum, g) => sum + (metric(g, 'items') ?? 0), 0)
   return (
