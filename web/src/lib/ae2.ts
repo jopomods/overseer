@@ -109,3 +109,116 @@ export function formatBuckets(mB: number, locale: Locale): string {
   const [number, prefix] = siParts(mB / 1000, locale)
   return prefix ? `${number} ${prefix}` : number
 }
+
+export interface Ae2Job {
+  key: string
+  kind: string
+  name: string
+  amount: number
+  /** Items the whole job crafts (all steps) and how many of them are done. */
+  total: number
+  progress: number
+  /** Seconds since the job started (AE2 counts across restarts). */
+  elapsed: number
+}
+
+export interface Ae2Cpu {
+  resource: Resource
+  id: string
+  /** Custom name from an anvil, else null. */
+  name: string | null
+  /** Bytes. */
+  storage: number
+  coProcessors: number
+  mode: string
+  job: Ae2Job | null
+}
+
+/** Crafting CPUs of one grid: busy first, then by name and position. */
+export function cpus(snapshot: Snapshot | undefined, gridId: string): Ae2Cpu[] {
+  return ofType(snapshot, 'cpu')
+    .filter((r) => r.attributes.grid === gridId)
+    .map((r): Ae2Cpu => {
+      const a = r.attributes
+      return {
+        resource: r,
+        id: r.ref.id,
+        name: a.name || null,
+        storage: num(a.storage),
+        coProcessors: num(a.coProcessors),
+        mode: a.mode ?? 'any',
+        job: a.job
+          ? {
+              key: a.job,
+              kind: a.jobKind ?? 'item',
+              name: a.jobName || a.job,
+              amount: num(a.jobAmount),
+              total: metric(r, 'job_total') ?? 0,
+              progress: metric(r, 'job_progress') ?? 0,
+              elapsed: metric(r, 'job_elapsed') ?? 0,
+            }
+          : null,
+      }
+    })
+    .sort(
+      (a, b) =>
+        Number(b.job !== null) - Number(a.job !== null) ||
+        (a.name ?? '￿' + a.id).localeCompare(b.name ?? '￿' + b.id, undefined, { numeric: true }),
+    )
+}
+
+/** Position part of an id: "minecraft:overworld@1,2,3" -> "1, 2, 3". */
+export function idPos(id: string): string {
+  return formatPos(id.slice(id.lastIndexOf('@') + 1))
+}
+
+/** Seconds as "1:02:03" or "2:03". */
+export function formatClock(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return h > 0 ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`
+}
+
+/** Remaining seconds at the average pace so far; undefined when there is no pace yet. */
+export function jobEta(job: Ae2Job): number | undefined {
+  if (job.progress <= 0 || job.elapsed <= 0 || job.total <= job.progress) return undefined
+  return ((job.total - job.progress) * job.elapsed) / job.progress
+}
+
+export interface PastJob {
+  name: string
+  amount: number
+  /** Wall time ISO strings; ended undefined while running. */
+  started: string
+  ended?: string
+  startedUptime: number
+  endedUptime?: number
+}
+
+/** Rebuilds jobs from the CPU's attribute events (newest first, as the API returns them). */
+export function pastJobs(events: { at: { wall: string; uptimeMillis: number }; kind: string; attribute?: string; value?: string }[]): PastJob[] {
+  const byTime = new Map<number, { wall: string; values: Record<string, string> }>()
+  for (const e of [...events].reverse()) {
+    if (e.kind !== 'attribute' || !e.attribute) continue
+    const at = byTime.get(e.at.uptimeMillis) ?? { wall: e.at.wall, values: {} }
+    at.values[e.attribute] = e.value ?? ''
+    byTime.set(e.at.uptimeMillis, at)
+  }
+  const jobs: PastJob[] = []
+  let name = ''
+  let amount = 0
+  for (const [uptime, change] of [...byTime.entries()].sort((a, b) => a[0] - b[0])) {
+    if (change.values.jobName !== undefined) name = change.values.jobName
+    if (change.values.jobAmount !== undefined) amount = num(change.values.jobAmount)
+    if (change.values.job === undefined) continue
+    const running = jobs.at(-1)
+    if (running && running.endedUptime === undefined) {
+      running.ended = change.wall
+      running.endedUptime = uptime
+    }
+    if (change.values.job) jobs.push({ name: name || change.values.job, amount, started: change.wall, startedUptime: uptime })
+  }
+  return jobs.reverse()
+}

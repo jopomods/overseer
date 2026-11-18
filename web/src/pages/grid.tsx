@@ -14,6 +14,7 @@ import {
   useSnapshot,
 } from '@/api/hooks'
 import { GridStateBadge } from '@/components/grid-state-badge'
+import { CraftingSection } from '@/components/crafting-cpus'
 import { HistoryChart } from '@/components/history-chart'
 import { InventorySection } from '@/components/inventory-list'
 import { LiveBadge } from '@/components/live-badge'
@@ -23,7 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatAe, formatAeRate, formatBuckets, formatPos, grids, shortDimension, type Ae2Grid } from '@/lib/ae2'
+import { cpus, formatAe, formatAeRate, formatBuckets, formatPos, grids, shortDimension, type Ae2Grid } from '@/lib/ae2'
 import { formatBytes, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { usePreferences } from '@/lib/preferences'
@@ -95,6 +96,8 @@ export function GridPage() {
           hint={t('ae2.cpusBusy', { busy: grid.cpusBusy, count: grid.cpus })}
         />
       </div>
+
+      <CraftingSection cpus={cpus(snapshot.data, grid.id)} />
 
       <Section title={t('chart.history')}>
         <div className="grid min-w-0 gap-3 xl:grid-cols-2">

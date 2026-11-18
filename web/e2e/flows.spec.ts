@@ -190,6 +190,21 @@ test.describe('flows', () => {
     await expect(list).not.toContainText('Alex')
   })
 
+  test('crafting CPUs show running jobs and expand to recent jobs', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/ae2/minecraft:overworld@120,64,-340')
+    const cards = page.getByTestId('cpu-list').getByRole('listitem')
+    await expect(cards).toHaveCount(3)
+    await expect(page.getByText('2 of 3 busy')).toBeVisible()
+    await expect(cards.first()).toContainText('Good Electronic Circuit')
+    await expect(cards.last()).toContainText('Idle')
+    await cards.first().getByRole('button').click()
+    const recent = cards.first().getByTestId('cpu-recent').getByRole('listitem')
+    await expect(recent).toHaveCount(3)
+    await expect(recent.first()).toContainText('Steel Ingot ×512')
+    await expect(cards.first().getByTestId('cpu-details')).toContainText('Players and machines')
+  })
+
   test('ME network contents are searchable and sortable', async ({ page }) => {
     await mockApi(page, { realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')
