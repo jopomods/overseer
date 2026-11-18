@@ -9,11 +9,14 @@ export type Locale = 'de' | 'en'
 export type EnergyUnit = 'fe' | 'eu'
 /** Chart time axis (ADR-0005): server uptime (offline time collapsed) or calendar time. */
 export type TimeAxis = 'uptime' | 'calendar'
+/** Energy flow diagram: zones only, or devices and zones. */
+export type FlowDetail = 'zones' | 'devices'
 
 export interface Preferences {
   locale: Locale
   energyUnit: EnergyUnit
   axis: TimeAxis
+  flowDetail: FlowDetail
 }
 
 const KEY = 'overseer.preferences'
@@ -24,7 +27,7 @@ function detectLocale(): Locale {
 }
 
 function load(): Preferences {
-  const defaults: Preferences = { locale: detectLocale(), energyUnit: 'fe', axis: 'uptime' }
+  const defaults: Preferences = { locale: detectLocale(), energyUnit: 'fe', axis: 'uptime', flowDetail: 'zones' }
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return defaults
@@ -33,6 +36,7 @@ function load(): Preferences {
       locale: parsed.locale === 'de' || parsed.locale === 'en' ? parsed.locale : defaults.locale,
       energyUnit: parsed.energyUnit === 'eu' ? 'eu' : 'fe',
       axis: parsed.axis === 'calendar' ? 'calendar' : 'uptime',
+      flowDetail: parsed.flowDetail === 'devices' ? 'devices' : 'zones',
     }
   } catch {
     return defaults
