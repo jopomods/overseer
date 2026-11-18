@@ -123,6 +123,8 @@ public final class Ae2Model {
      * @param nodes      number of grid nodes (cables, machines, parts)
      * @param channels   channels in use
      * @param inventory  full contents when scanned this time (every 10 s), otherwise {@code null}
+     * @param drives     drives and ME chests
+     * @param watched    current amount of each watched stack key that AE2 knows (every second)
      */
     public record Grid(
             String dimension,
@@ -141,11 +143,20 @@ public final class Ae2Model {
             Crafting crafting,
             Kind kind,
             List<Stack> inventory,
-            List<Drive> drives) {
+            List<Drive> drives,
+            java.util.Map<String, Long> watched) {
 
         public Grid {
             if (inventory != null) inventory = List.copyOf(inventory);
             drives = drives == null ? List.of() : List.copyOf(drives);
+            watched = watched == null ? java.util.Map.of() : java.util.Map.copyOf(watched);
+        }
+
+        public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,
+                ControllerState state, boolean booting, int channels, Energy energy, Storage storage,
+                Crafting crafting, Kind kind, List<Stack> inventory, List<Drive> drives) {
+            this(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy, storage,
+                    crafting, kind, inventory, drives, java.util.Map.of());
         }
 
         public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,

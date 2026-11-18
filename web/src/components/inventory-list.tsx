@@ -1,14 +1,15 @@
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useInventory, type InventoryItem, type InventoryQuery } from '@/api/hooks'
+import { useInventory, useWatches, type InventoryItem, type InventoryQuery } from '@/api/hooks'
+import { WatchToggle } from '@/components/watchlist'
 import { Segmented } from '@/components/history-chart'
 import { Section } from '@/components/stat'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatBuckets } from '@/lib/ae2'
-import { formatNumber, formatSi } from '@/lib/format'
+import { emptyInHours, formatBuckets } from '@/lib/ae2'
+import { formatDuration, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { usePreferences, type Locale } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
@@ -20,7 +21,7 @@ type Kind = 'all' | NonNullable<InventoryQuery['kind']>
  * Contents of an inventory (AE2 network) with net changes over the last hour and day.
  * Scanned every 10 s on the server; refreshed at the same pace.
  */
-export function InventorySection({ resource }: { resource: string }) {
+export function InventorySection({ resource, canEdit = false }: { resource: string; canEdit?: boolean }) {
   const t = useT()
   const { locale } = usePreferences()
   const [search, setSearch] = useState('')
@@ -38,6 +39,7 @@ export function InventorySection({ resource }: { resource: string }) {
   }, [search])
 
   const inventory = useInventory(resource, { q, sort, kind: kind === 'all' ? undefined : kind, limit })
+  const watched = new Set((useWatches(resource).data ?? []).map((w) => w.item))
   const data = inventory.data
   const scannedAt = data?.scannedAt ? new Date(data.scannedAt.wall).toLocaleTimeString(locale) : undefined
 
@@ -110,7 +112,7 @@ export function InventorySection({ resource }: { resource: string }) {
             </div>
             <ul className="divide-border min-w-0 divide-y" data-testid="inventory-list">
               {data.items.map((item) => (
-                <Row key={item.key} item={item} locale={locale} />
+                <Row key={item.key} item={item} locale={locale} grid={resource} canEdit={canEdit} watched={watched.has(item.key)} />
               ))}
             </ul>
             <div className="text-muted-foreground flex min-w-0 flex-wrap items-center justify-between gap-2 border-t px-4 py-2 text-xs">
@@ -128,15 +130,34 @@ export function InventorySection({ resource }: { resource: string }) {
   )
 }
 
-function Row({ item, locale }: { item: InventoryItem; locale: Locale }) {
+function Row({
+  item,
+  locale,
+  grid,
+  canEdit,
+  watched,
+}: {
+  item: InventoryItem
+  locale: Locale
+  grid: string
+  canEdit: boolean
+  watched: boolean
+}) {
   const t = useT()
+  const emptyIn = emptyInHours(item.amount, item.change1h, item.change24h)
+  const hint = emptyIn === undefined ? '' : t('watch.emptyIn', { time: formatDuration(emptyIn * 3_600_000, locale) })
   const amount = item.kind === 'fluid' ? `${formatBuckets(item.amount, locale)} ${t('ae2.buckets')}` : formatSi(item.amount, locale)
   const exact = item.kind === 'fluid' ? `${formatNumber(item.amount, locale)} mB` : formatNumber(item.amount, locale)
   return (
     <li className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-2 sm:grid-cols-[minmax(0,1fr)_7rem_6rem_6rem]">
-      <div className="min-w-0">
-        <p className={cn('truncate text-sm font-medium', item.amount === 0 && 'text-muted-foreground')}>{item.name}</p>
-        <p className="text-muted-foreground truncate text-xs">{item.key}</p>
+      <div className="flex min-w-0 items-center gap-1">
+        {canEdit && <WatchToggle grid={grid} item={item.key} watched={watched} name={item.name} />}
+        <div className="min-w-0">
+          <p className={cn('truncate text-sm font-medium', item.amount === 0 && 'text-muted-foreground')}>{item.name}</p>
+          <p className="text-muted-foreground truncate text-xs">
+            {hint ? <span className="text-destructive">{hint}</span> : item.key}
+          </p>
+        </div>
       </div>
       <span className="tabular text-right text-sm font-semibold" title={exact}>
         {amount}

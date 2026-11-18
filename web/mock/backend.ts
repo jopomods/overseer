@@ -221,7 +221,7 @@ export function ae2Snapshot(realistic = false, adopted: Map<string, string> = ne
         {
           id: 'minecraft:overworld@120,64,-340', owner: '00000000-0000-0000-0000-000000000001', ownerName: 'Developer',
           nodes: 412, controllers: 6, cpus: 3,
-          metrics: { power_stored: 1.6e6, power_max: 2.4e6, power_usage: 186.5, power_injection: 210, item_types: 2843, items: 18_532_118, fluid_types: 37, fluids: 4_210_000, channels: 214, cpus_busy: 1 },
+          metrics: { power_stored: 1.6e6, power_max: 2.4e6, power_usage: 186.5, power_injection: 210, item_types: 2843, items: 18_532_118, fluid_types: 37, fluids: 4_210_000, channels: 214, cpus_busy: 1, 'stock:item:gtceu:good_electronic_circuit': 37, 'stock:item:minecraft:iron_ingot': 212_034, 'stock:fluid:gtceu:oxygen': 512_000 },
         },
         {
           id: 'minecraft:the_nether@8,40,16', owner: '00000000-0000-0000-0000-000000000001', ownerName: 'Developer',
@@ -437,6 +437,15 @@ export function createMockBackend(options: MockOptions = {}) {
   const accessRequests = options.realistic
     ? [{ resource: 'ae2/grid/minecraft:overworld@120,64,-340', resourceName: 'Main base', player: '00000000-0000-0000-0000-0000000057e7', name: 'Steve', requestedAt: now() }]
     : [{ resource: 'ae2/grid/minecraft:overworld@0,64,-0', resourceName: null, player: 'uuid-req', name: LONG.slice(0, 16), requestedAt: now() }]
+  const grid = 'ae2/grid/minecraft:overworld@120,64,-340'
+  const watches: Array<{ resource: string; item: string; name: string; kind: string; target?: number; createdAt: string; change1h: number; change24h: number }> =
+    options.realistic
+      ? [
+          { resource: grid, item: 'item:gtceu:good_electronic_circuit', name: 'Good Electronic Circuit', kind: 'item', target: 128, createdAt: now(), change1h: 4, change24h: 16 },
+          { resource: grid, item: 'item:minecraft:iron_ingot', name: 'Iron Ingot', kind: 'item', target: 100_000, createdAt: now(), change1h: -3_512, change24h: -20_410 },
+          { resource: grid, item: 'fluid:gtceu:oxygen', name: 'Oxygen', kind: 'fluid', createdAt: now(), change1h: 16_000, change24h: 64_000 },
+        ]
+      : []
   const shares: Array<{ resource: string; player: string; name: string; grantedAt: string }> = options.realistic
     ? [{ resource: 'ae2/grid/minecraft:overworld@120,64,-340', player: '00000000-0000-0000-0000-00000000a1e7', name: 'Alex', grantedAt: now() }]
     : Array.from({ length: 6 }, (_, i) => ({ resource: 'ae2/grid/minecraft:overworld@0,64,-0', player: `uuid-share-${i}`, name: i === 0 ? LONG.slice(0, 16) : `Friend${i}`, grantedAt: now() }))
@@ -587,6 +596,27 @@ export function createMockBackend(options: MockOptions = {}) {
           | undefined
         if (!cpu?.attributes.job) return json({ error: { code: 'not_found', message: 'idle' } }, 404)
         return json({ resource, at: { wall: now(), uptimeMillis: 123_456_789, session: 3 }, lines: jobLines(options.realistic === true) })
+      }
+      case '/api/v1/watches': {
+        const resource = method === 'POST' ? (body as { resource: string }).resource : url.searchParams.get('resource') ?? ''
+        if (method === 'POST') {
+          if (!editable) return json({ error: { code: 'forbidden', message: 'no' } }, 403)
+          const b = body as { item: string; target?: number }
+          const stack = inventoryStacks(true).find((s) => s.key === b.item)
+          const existing = watches.find((w) => w.resource === resource && w.item === b.item)
+          if (existing) existing.target = b.target
+          else if (stack) watches.push({ resource, item: b.item, name: stack.name, kind: stack.kind, target: b.target, createdAt: now(), change1h: stack.change1h, change24h: stack.change24h })
+          else return json({ error: { code: 'bad_request', message: 'unknown item' } }, 400)
+          return { status: 204 }
+        }
+        if (method === 'DELETE') {
+          if (!editable) return json({ error: { code: 'forbidden', message: 'no' } }, 403)
+          const i = watches.findIndex((w) => w.resource === resource && w.item === url.searchParams.get('item'))
+          if (i < 0) return json({ error: { code: 'not_found', message: 'no' } }, 404)
+          watches.splice(i, 1)
+          return { status: 204 }
+        }
+        return json(watches.filter((w) => w.resource === resource).map(({ resource: _r, ...w }) => w))
       }
       case '/api/v1/events':
         return json(eventsBody(url))

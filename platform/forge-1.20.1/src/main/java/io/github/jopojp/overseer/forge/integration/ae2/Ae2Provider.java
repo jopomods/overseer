@@ -30,6 +30,7 @@ public final class Ae2Provider implements DataProvider {
     private final MinecraftServer server;
     private final Teams teams;
     private final Supplier<Map<String, UUID>> registrations;
+    private final Supplier<Map<String, Set<String>>> watches;
     private volatile Ae2Mapping.AccessIndex access = Ae2Mapping.AccessIndex.EMPTY;
     private final Ae2Reader.StackCache stacks = new Ae2Reader.StackCache();
     private long collections;
@@ -39,9 +40,18 @@ public final class Ae2Provider implements DataProvider {
      *                      collection; must be cheap
      */
     public Ae2Provider(MinecraftServer server, Teams teams, Supplier<Map<String, UUID>> registrations) {
+        this(server, teams, registrations, Map::of);
+    }
+
+    /**
+     * @param watches watched stack keys per grid id, read every collection; must be cheap
+     */
+    public Ae2Provider(MinecraftServer server, Teams teams, Supplier<Map<String, UUID>> registrations,
+            Supplier<Map<String, Set<String>>> watches) {
         this.server = server;
         this.teams = teams;
         this.registrations = registrations;
+        this.watches = watches;
     }
 
     /** Full inventory scan every 10th collection: every 10 s (ADR-0011). */
@@ -55,7 +65,7 @@ public final class Ae2Provider implements DataProvider {
     @Override
     public ProviderSnapshot collect(Timestamp at) {
         boolean scan = collections++ % SCAN_EVERY == 0;
-        List<Ae2Model.Grid> grids = Ae2Reader.readAll(server, registrations.get(), stacks, scan);
+        List<Ae2Model.Grid> grids = Ae2Reader.readAll(server, registrations.get(), watches.get(), stacks, scan);
         access = Ae2Mapping.AccessIndex.of(grids, teams::teammates);
         return Ae2Mapping.snapshot(at, grids);
     }

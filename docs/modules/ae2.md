@@ -110,6 +110,21 @@ crafting status screen: per key `stored` (in the CPU), `active` (sent to machine
 `ProviderSnapshot.jobs`, are kept in memory only and served by `GET /api/v1/jobs?resource=…`
 (404 while idle). Nothing of it is stored.
 
+## Watchlist and deficits
+
+Owners star items in the contents list (at most 50 per grid, table `watch`, `V009`). Watched
+items are read every second straight from AE2's cached inventory (one lookup per item) and
+recorded as metrics `stock:<stack key>` of the grid, so they get history, rollups and live SSE
+updates like any metric. A watched item can have a target (minimum stock).
+
+The forecast is linear: the net change of the last day (else the last hour) from the inventory
+scans, as a rate per hour. It shows "empty in ~X" while an item shrinks and "target in ~X" while
+it is below target and grows; nothing beyond two weeks. The watchlist sorts deficits first
+(largest share missing), then items that run out soonest. The contents list shows "empty in ~X"
+for any shrinking item.
+
+`GET/POST/DELETE /api/v1/watches`: viewers read, owners (edit rights) change.
+
 ## Drives and cells
 
 Every drive and ME chest of a grid (anything implementing AE2's `IChestOrDrive`, add-on drives

@@ -48,6 +48,9 @@ public final class Ae2Mapping {
     /** Per drive, and summed per grid: storage cells (AE2 basic cells; add-on cells only by state). */
     static final List<MetricDescriptor> CELL_METRICS = List.of(BYTES_USED, BYTES_TOTAL, TYPES_USED, TYPES_TOTAL);
 
+    /** Prefix of the per-item metrics of watched items: {@code stock:<stack key>}. */
+    public static final String STOCK = "stock:";
+
     /** Per crafting CPU, only while it has a job. */
     static final List<MetricDescriptor> CPU_METRICS = List.of(JOB_PROGRESS, JOB_TOTAL, JOB_ELAPSED);
 
@@ -111,6 +114,7 @@ public final class Ae2Mapping {
                 samples.add(new Sample(ref, FLUID_TYPES.key(), g.storage().fluidTypes()));
                 samples.add(new Sample(ref, FLUIDS.key(), g.storage().fluids()));
                 if (g.inventory() != null) inventories.put(ref, g.inventory());
+                g.watched().forEach((key, amount) -> samples.add(new Sample(ref, STOCK + key, amount)));
             }
             samples.add(new Sample(ref, CHANNELS.key(), g.channels()));
             samples.add(new Sample(ref, CPUS_BUSY.key(), g.crafting().busy()));

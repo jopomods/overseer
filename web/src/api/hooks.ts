@@ -17,6 +17,7 @@ export type AccessRequest = components['schemas']['AccessRequest']
 export type Inventory = components['schemas']['Inventory']
 export type ResourceEvent = components['schemas']['Event']
 export type JobLine = components['schemas']['JobLine']
+export type Watch = components['schemas']['Watch']
 export type InventoryItem = components['schemas']['InventoryItem']
 
 export interface InventoryQuery {
@@ -72,6 +73,7 @@ export const keys = {
   requestable: (provider: string) => ['requestable', provider] as const,
   accessRequests: ['access-requests'] as const,
   job: (resource: string) => ['job', resource] as const,
+  watches: (resource: string) => ['watches', resource] as const,
   events: (resource: string, attributes: string[]) => ['events', resource, attributes.join(',')] as const,
   inventory: (resource: string, q: InventoryQuery) => ['inventory', resource, q.q, q.sort, q.kind ?? '', q.limit] as const,
   history: (resources: string[], metrics: string[], rangeMs: number) =>
@@ -228,6 +230,34 @@ export function useRemoveShare(resource: string) {
   return useMutation({
     mutationFn: (player: string) => unwrap(api.DELETE('/api/v1/shares', { params: { query: { resource, player } } })),
     onSuccess: () => client.invalidateQueries({ queryKey: keys.shares(resource) }),
+  })
+}
+
+/** Watched items of a resource with their changes; amounts come live with the snapshot. */
+export function useWatches(resource: string) {
+  return useQuery({
+    queryKey: keys.watches(resource),
+    queryFn: () => unwrap(api.GET('/api/v1/watches', { params: { query: { resource } } })),
+    refetchInterval: 60_000,
+    retry,
+  })
+}
+
+/** Watch an item, or change its target (null = just watch). */
+export function useSetWatch(resource: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ item, target }: { item: string; target?: number | null }) =>
+      unwrap(api.POST('/api/v1/watches', { body: { resource, item, target: target ?? undefined } })),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.watches(resource) }),
+  })
+}
+
+export function useRemoveWatch(resource: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (item: string) => unwrap(api.DELETE('/api/v1/watches', { params: { query: { resource, item } } })),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.watches(resource) }),
   })
 }
 

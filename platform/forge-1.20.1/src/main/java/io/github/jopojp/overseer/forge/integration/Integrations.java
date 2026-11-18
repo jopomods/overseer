@@ -31,7 +31,7 @@ public final class Integrations {
         providers.add(new ServerProvider(server));
         optional(providers, "fluxnetworks", () -> new io.github.jopojp.overseer.forge.integration.flux.FluxProvider());
         optional(providers, "ae2", () -> new io.github.jopojp.overseer.forge.integration.ae2.Ae2Provider(server, teams,
-                () -> registrations("ae2")));
+                () -> registrations("ae2"), () -> watches("ae2")));
         return providers;
     }
 
@@ -41,6 +41,11 @@ public final class Integrations {
                 .map(r -> r.registrations().list(provider).stream()
                         .collect(Collectors.toMap(reg -> reg.resource().id(), reg -> reg.owner(), (a, b) -> a)))
                 .orElse(Map.of());
+    }
+
+    /** Watched stack keys per resource id; empty while Overseer is not running. */
+    private static Map<String, java.util.Set<String>> watches(String provider) {
+        return ServerLifecycle.runtime().map(r -> r.watches().keysByResource(provider)).orElse(Map.of());
     }
 
     private static void optional(List<DataProvider> providers, String modId, Supplier<DataProvider> factory) {

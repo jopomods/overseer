@@ -366,6 +366,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/watches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Watched items of a resource
+         * @description Items read every second (AE2: per ME network). Their live amounts arrive as metrics
+         *     `stock:<item>` of the resource in the snapshot; their history via `/history`.
+         */
+        get: operations["listWatches"];
+        put?: never;
+        /**
+         * Watch an item or change its target
+         * @description Owners (edit rights) only. The item must be in the newest inventory scan (or already
+         *     watched). At most 50 watched items per resource. Without `target` the item is only watched.
+         */
+        post: operations["addWatch"];
+        /** Stop watching an item */
+        delete: operations["removeWatch"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/overrides": {
         parameters: {
             query?: never;
@@ -710,6 +737,30 @@ export interface components {
             uptimeMillis: number;
             /** @description Uptime session number. */
             session: number;
+        };
+        Watch: {
+            /** @description Stack key. */
+            item: string;
+            name: string;
+            /** @enum {string} */
+            kind: "item" | "fluid" | "other";
+            /**
+             * Format: int64
+             * @description Minimum stock; absent when only watched.
+             */
+            target?: number;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: int64
+             * @description Net change over the last hour (from the inventory scans).
+             */
+            change1h: number;
+            /**
+             * Format: int64
+             * @description Net change over the last day; basis of the forecast.
+             */
+            change24h: number;
         };
         Job: {
             resource: string;
@@ -1435,6 +1486,88 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listWatches: {
+        parameters: {
+            query: {
+                resource: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Watched items, oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Watch"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addWatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    resource: string;
+                    item: string;
+                    /**
+                     * Format: int64
+                     * @description Minimum stock for the deficit view.
+                     */
+                    target?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    removeWatch: {
+        parameters: {
+            query: {
+                resource: string;
+                item: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };

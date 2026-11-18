@@ -22,6 +22,7 @@
 | **Stack key** | Stable id of a thing in an inventory: `item:<id>`, `fluid:<id>`, plus `#<hash>` of its NBT. Names are display only. |
 | **Crafting CPU** | AE2 multiblock that runs one crafting job at a time. Resource `ae2/cpu/<dimension>@x,y,z` (lowest corner); visible like its ME network. |
 | **Drive** (*Laufwerk*) | AE2 drive or ME chest holding storage cells. Resource `ae2/drive/<dimension>@x,y,z`, visible like its ME network. |
+| **Watchlist** | Items of an ME network read every second (`stock:<key>` metrics), optionally with a target (minimum stock). Below target = deficit (*Fehlmenge*). |
 | **Job** (*Auftrag*) | What a crafting CPU crafts: output, amount, progress. Starts and ends are events of the CPU. |
 | **Share** (*Freigabe*) | An owner lets one more player view a resource in Overseer. Only for providers with `SHARING` (AE2); never grants editing. |
 | **Zone** (*Bereich*) | Grouping of Flux devices. Taken from the device name prefix before the first `:` (`Power plant: Diesel 1` is zone `Power plant`), overridable in the UI. |

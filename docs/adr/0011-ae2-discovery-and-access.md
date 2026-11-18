@@ -62,6 +62,11 @@ Overseer mandatory on every client, because blocks are synced to clients.
 - 2026-11-18 (M2i): drives are resources like CPUs (parent = grid). Cell states are one
   attribute so that "a cell got full" is an event; bytes and types are metrics, summed per grid
   for the history chart.
+- 2026-11-18 (M2j): watched items are plain metrics (`stock:<key>`) of the grid rather than a
+  separate store: history, rollups, retention and SSE work unchanged. The forecast uses the net
+  changes from the inventory scans (daily average) instead of a regression over raw samples; it
+  is cheap and stable, and good enough for "when does this run out". Hourly inventory rollups are
+  not needed for that and stay open.
 
 ## Consequences
 

@@ -83,6 +83,7 @@ public final class OverseerRuntime implements AutoCloseable {
     private HttpServer http;
     private NotificationStore notifications;
     private RegistrationStore registrations;
+    private io.github.jopojp.overseer.core.storage.WatchStore watches;
     private OverrideStore overrides;
     private Clock wall;
 
@@ -141,6 +142,8 @@ public final class OverseerRuntime implements AutoCloseable {
         resources.push(notifications);
         registrations = new RegistrationStore(db.openControlWriter());
         resources.push(registrations);
+        watches = new io.github.jopojp.overseer.core.storage.WatchStore(db.openControlWriter());
+        resources.push(watches);
         this.overrides = overrides;
         this.wall = wall;
 
@@ -148,7 +151,7 @@ public final class OverseerRuntime implements AutoCloseable {
         resources.push(sse);
 
         var router = new ApiRoutes(config.version(), auth, access, latest, inventories, queue, descriptors, scheduler::status, wall,
-                db, clock::uptimeMillis, overrides, shares, requests, notifications, registrations, writer)
+                db, clock::uptimeMillis, overrides, shares, requests, notifications, registrations, watches, writer)
                 .register(new Router());
         http = new HttpServer(config.http(), router,
                 new StaticFiles(config.webRoot(), OverseerRuntime.class.getClassLoader()), sse);
@@ -177,6 +180,11 @@ public final class OverseerRuntime implements AutoCloseable {
     /** Resources registered in Overseer (e.g. AE2 grids without a controller). */
     public RegistrationStore registrations() {
         return registrations;
+    }
+
+    /** Watched items per resource; providers read them every collection. */
+    public io.github.jopojp.overseer.core.storage.WatchStore watches() {
+        return watches;
     }
 
     /**

@@ -75,9 +75,9 @@ Delivered in slices (docs/modules/ae2.md):
 - [x] M2e: grids without controller: hidden for admins, adoptable in the UI, `/ov ae2 register`
 - [x] M2f: inventory scan every 10 s, stored as per-minute changes; contents list with search
   and 1 h / 24 h changes
-- [ ] Watchlist every second; measure the scan cost on a real server (spread over ticks only
-  if needed)
-- [ ] Changes view, deficit view with forecast
+- [x] M2j: watchlist read every second, targets, deficit view with a linear forecast; "empty
+  in" hints in the contents list
+- [ ] Measure the scan cost on a real server (spread over ticks only if needed)
 - [x] M2g: crafting CPUs live (busy first), jobs with progress, elapsed time, estimate and
   history; cards expand to details and recent jobs
 - [x] M2h: job lines in expanded CPU cards (crafting, planned, stored), live

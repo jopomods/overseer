@@ -133,6 +133,17 @@ class Ae2MappingTest {
     }
 
     @Test
+    void watchedItemsBecomeStockMetrics() {
+        Grid g = grid(OWNER, 10);
+        var watched = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(),
+                g.controllers(), g.state(), false, g.channels(), g.energy(), g.storage(), g.crafting(),
+                Ae2Model.Kind.CONTROLLER, null, List.of(), java.util.Map.of("item:minecraft:iron_ingot", 42L));
+        var snapshot = Ae2Mapping.snapshot(AT, List.of(watched));
+        assertTrue(snapshot.samples().stream().anyMatch(s -> s.metric().equals("stock:item:minecraft:iron_ingot")
+                && s.value() == 42));
+    }
+
+    @Test
     void hiddenGridsHaveNoHistoryAndNoOwner() {
         Grid g = grid(null, 10);
         var hidden = new Grid(g.dimension(), g.x(), g.y(), g.z(), null, null, g.nodes(), 0, g.state(), false,
