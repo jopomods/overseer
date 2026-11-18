@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.4.0](https://github.com/Jopo-JP/overseer/compare/v0.3.0...v0.4.0) (2026-11-18)
+
+
+### Features
+
+* access requests for ME networks with in-game notifications ([#29](https://github.com/Jopo-JP/overseer/issues/29)) ([30aa0b3](https://github.com/Jopo-JP/overseer/commit/30aa0b3e427f65f1102f6d8c23dac9b799ec8811))
+* **ae2:** drives and cells with fill, states and history ([#34](https://github.com/Jopo-JP/overseer/issues/34)) ([c8fa1b0](https://github.com/Jopo-JP/overseer/commit/c8fa1b02abb9a96179bc1b5a3d8ffa625d8b03bb))
+* **ae2:** FTB Teams party members see the owner's ME networks ([#27](https://github.com/Jopo-JP/overseer/issues/27)) ([3f055e0](https://github.com/Jopo-JP/overseer/commit/3f055e0355b1a97423dd18f06162769f84f88010))
+* **ae2:** inventory scan every 10 s with contents list and changes ([#31](https://github.com/Jopo-JP/overseer/issues/31)) ([4ceb585](https://github.com/Jopo-JP/overseer/commit/4ceb5854d50e55d6e2590ad8a4620247a6d99724))
+* **ae2:** live crafting CPUs with jobs, progress and history ([#32](https://github.com/Jopo-JP/overseer/issues/32)) ([e62be87](https://github.com/Jopo-JP/overseer/commit/e62be8717c4d7ce1d4446eb0137f24898d35800a))
+* **ae2:** live job lines in crafting CPU cards ([#33](https://github.com/Jopo-JP/overseer/issues/33)) ([078404e](https://github.com/Jopo-JP/overseer/commit/078404ecbb72907bc1a14e741e761f3fbe8bc793))
+* **ae2:** ME network discovery, power and inventory overview (M2a) ([#23](https://github.com/Jopo-JP/overseer/issues/23)) ([438fec9](https://github.com/Jopo-JP/overseer/commit/438fec9dd49d2ea2a3ff1030f4eb254b9f793f16))
+* **ae2:** ME networks without controller: hidden, adoptable, /ov ae2 register ([#30](https://github.com/Jopo-JP/overseer/issues/30)) ([d0c60c2](https://github.com/Jopo-JP/overseer/commit/d0c60c23390bf6778a136651830ac7c98e541fba))
+* **ae2:** optional view access for players who placed part of a grid ([#37](https://github.com/Jopo-JP/overseer/issues/37)) ([7750cd8](https://github.com/Jopo-JP/overseer/commit/7750cd80c9a60c99bff25bf55f4052e88f49d31f))
+* **ae2:** watchlist with targets, deficits and forecast ([#35](https://github.com/Jopo-JP/overseer/issues/35)) ([ce4d4ea](https://github.com/Jopo-JP/overseer/commit/ce4d4eac56d656279c594fc32a21f02d150ab091))
+* item icons with client exporter and mod texture fallback ([#36](https://github.com/Jopo-JP/overseer/issues/36)) ([d50ca6e](https://github.com/Jopo-JP/overseer/commit/d50ca6eff2acc47cc6e6b8ef21f786a0caa83534))
+* share ME networks with single players (view only) ([#28](https://github.com/Jopo-JP/overseer/issues/28)) ([d231f04](https://github.com/Jopo-JP/overseer/commit/d231f047742a882bfe4d698af70d7f614633473e))
+
+
+### Bug Fixes
+
+* **ae2:** ignore empty inventory while a grid boots; distinct short-range axis labels ([#26](https://github.com/Jopo-JP/overseer/issues/26)) ([6ac9d6c](https://github.com/Jopo-JP/overseer/commit/6ac9d6cea4a925b90f820fff8ac67ec2ab814c12))
+
 ## [0.3.0](https://github.com/Jopo-JP/overseer/compare/v0.2.0...v0.3.0) (2026-11-18)
 
 
