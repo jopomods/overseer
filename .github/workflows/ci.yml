@@ -1,6 +1,6 @@
 # Runs on every push to main and every PR (ADR-0013, ADR-0015).
 #
-#   changes ─┬─ web ──────────────────────────┐
+#   changes ─┬─ web × 3 shards (parallel) ────┐
 #            ├─ build ────────────────────────┼── ci-ok   (the one status to look at)
 #            └─ gametest × suites (parallel) ─┤
 #   pr-title ────────────────────────────────┘
@@ -202,11 +202,17 @@ jobs:
           key: ${{ steps.passed.outputs.cache-primary-key }}
 
   web:
-    name: Web lint, types and layout tests
+    name: Web (${{ matrix.shard }}/3)
     needs: changes
     if: needs.changes.outputs.all == 'true' || needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The browser tests are CPU-bound (rendering pages with 200 devices) and the runner has few
+    # cores: three parallel shards. Lint, types and the API check run in the first one.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     # Playwright's image has the browser's system libraries; installing them with apt took 4-7 min.
     # Keep the tag at the @playwright/test version in web/package-lock.json.
     container:
@@ -223,7 +229,7 @@ jobs:
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .ci-passed
-          key: passed-web-${{ env.PASS_CACHE }}-${{ hashFiles('.github/**', 'web/**', 'api/openapi.yaml', 'fixtures/recordings/**') }}
+          key: passed-web-${{ env.PASS_CACHE }}-${{ matrix.shard }}-${{ hashFiles('.github/**', 'web/**', 'api/openapi.yaml', 'fixtures/recordings/**') }}
           lookup-only: true
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         if: steps.passed.outputs.cache-hit != 'true'
@@ -236,15 +242,15 @@ jobs:
         if: steps.passed.outputs.cache-hit != 'true'
 
       - name: Lint
-        if: steps.passed.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.cache-hit != 'true' && matrix.shard == 1
         run: npm run lint
 
       - name: Typecheck
-        if: steps.passed.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.cache-hit != 'true' && matrix.shard == 1
         run: npm run typecheck
 
       - name: API client is up to date with api/openapi.yaml
-        if: steps.passed.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.cache-hit != 'true' && matrix.shard == 1
         run: |
           cp src/api/schema.gen.ts "$RUNNER_TEMP/schema.gen.ts"
           npm run gen:api
@@ -259,15 +265,15 @@ jobs:
         if: steps.passed.outputs.cache-hit != 'true'
         run: npx playwright install --only-shell chromium
 
-      - name: Layout and flow tests (360-1920 px)
+      - name: Layout and flow tests (360-1920 px), shard ${{ matrix.shard }}/3
         if: steps.passed.outputs.cache-hit != 'true'
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
 
       - name: Upload Playwright report
         if: steps.passed.outputs.cache-hit != 'true' && (failure())
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: web/playwright-report
           retention-days: 7
 
