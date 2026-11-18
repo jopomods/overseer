@@ -86,7 +86,7 @@ class Ae2MappingTest {
                 120);
         var job = new Ae2Model.Job("item:gtceu:good_electronic_circuit", "item", "Good Electronic Circuit", 64, 1_200,
                 300, 90_000_000_000L, List.of(line));
-        var cpus = List.of(new Ae2Model.Cpu("minecraft:overworld@1,2,3", "Circuits", 65_536, 4, "any", job),
+        var cpus = List.of(new Ae2Model.Cpu("minecraft:overworld@1,2,3", "Circuits", 65_536, 4, "any", job, 8),
                 new Ae2Model.Cpu("minecraft:overworld@5,2,3", null, 1_024, 0, "any", null));
         var withCpus = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(),
                 g.controllers(), g.state(), false, g.channels(), g.energy(), g.storage(),
@@ -97,6 +97,7 @@ class Ae2MappingTest {
         var attrs = snapshot.resources().get(busy);
         assertEquals("minecraft:overworld@10,64,0", attrs.get("grid"));
         assertEquals("Circuits", attrs.get("name"));
+        assertEquals("8", attrs.get("number"), "AE2's own CPU number");
         assertEquals("item:gtceu:good_electronic_circuit", attrs.get("job"));
         assertEquals("64", attrs.get("jobAmount"));
         assertEquals("", snapshot.resources().get(idle).get("job"));

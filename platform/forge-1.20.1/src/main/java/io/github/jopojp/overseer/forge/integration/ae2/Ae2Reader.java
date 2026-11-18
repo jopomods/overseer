@@ -258,7 +258,7 @@ final class Ae2Reader {
                     known.clear();
                     byId.clear();
                 }
-                template = new Stack(id(key), kind(key), key.getDisplayName().getString(), 0);
+                template = new Stack(id(key), kind(key), Ae2Names.plain(key.getDisplayName().getString()), 0);
                 known.put(key, template);
                 byId.put(template.key(), key);
             }
@@ -308,8 +308,8 @@ final class Ae2Reader {
             job = new Ae2Model.Job(what.key(), what.kind(), what.name(), what.amount(), status.totalItems(),
                     status.progress(), status.elapsedTimeNanos(), lines);
         }
-        return new Ae2Model.Cpu(id, name == null ? null : name.getString(), cpu.getAvailableStorage(),
-                cpu.getCoProcessors(), cpu.getSelectionMode().name().toLowerCase(java.util.Locale.ROOT), job);
+        return new Ae2Model.Cpu(id, name == null ? null : Ae2Names.plain(name.getString()), cpu.getAvailableStorage(),
+                cpu.getCoProcessors(), cpu.getSelectionMode().name().toLowerCase(java.util.Locale.ROOT), job, index + 1);
     }
 
     /** Every player who placed a node of the grid (AE2 records it per node). */

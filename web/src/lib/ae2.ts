@@ -127,6 +127,8 @@ export interface Ae2Cpu {
   id: string
   /** Custom name from an anvil, else null. */
   name: string | null
+  /** AE2's own number ("CPU #3"); 0 when the server is older than 0.4.2. */
+  number: number
   /** Bytes. */
   storage: number
   coProcessors: number
@@ -144,6 +146,7 @@ export function cpus(snapshot: Snapshot | undefined, gridId: string): Ae2Cpu[] {
         resource: r,
         id: r.ref.id,
         name: a.name || null,
+        number: num(a.number),
         storage: num(a.storage),
         coProcessors: num(a.coProcessors),
         mode: a.mode ?? 'any',
