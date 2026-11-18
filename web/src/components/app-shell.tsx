@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useRouterState } from '@tanstack/react-router'
-import { Database, LayoutDashboard, LogOut, Server, UserRound, Zap, type LucideIcon } from 'lucide-react'
+import { Boxes, Database, LayoutDashboard, LogOut, Server, UserRound, Zap, type LucideIcon } from 'lucide-react'
 import { ApiError, useLogout, useMe, useProviders, type Me } from '@/api/hooks'
 import { useLiveUpdates } from '@/api/live'
 import { SessionContext } from '@/components/session'
@@ -17,7 +17,7 @@ import { useT, type MessageKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
-  to: '/' | '/server' | '/energy' | '/admin/storage' | '/account'
+  to: '/' | '/server' | '/energy' | '/ae2' | '/admin/storage' | '/account'
   /** Only for dashboard admins and operators. */
   admin?: boolean
   /** Shown only when this provider is active on the server. */
@@ -29,6 +29,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { to: '/', label: 'nav.overview', icon: LayoutDashboard },
   { to: '/energy', label: 'nav.energy', icon: Zap, provider: 'flux' },
+  { to: '/ae2', label: 'nav.ae2', icon: Boxes, provider: 'ae2' },
   { to: '/server', label: 'nav.server', icon: Server },
   { to: '/admin/storage', label: 'nav.storage', icon: Database, admin: true },
   { to: '/account', label: 'nav.account', icon: UserRound },

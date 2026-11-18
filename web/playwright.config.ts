@@ -21,6 +21,9 @@ export default defineConfig({
   workers: process.env.CI ? 4 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // /energy/0 loads history for 200+ devices; with 4 workers on a 2-core runner rendering
+  // the charts can take longer than the default 5 s.
+  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: 'http://127.0.0.1:4391',

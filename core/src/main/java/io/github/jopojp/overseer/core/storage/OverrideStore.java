@@ -12,8 +12,11 @@ import java.util.List;
  * Low-volume control writes on their own connection (ADR-0006). Thread-safe.
  */
 public final class OverrideStore implements AutoCloseable {
-    /** Keys that may be set through the API. */
-    public static final List<String> KEYS = List.of("zone");
+    /**
+     * Keys that may be set through the API: {@code zone} (Flux devices) and {@code name} (for
+     * resources the mod gives no name, e.g. AE2 grids; names the mod has are edited in the mod).
+     */
+    public static final List<String> KEYS = List.of("zone", "name");
 
     public record Entry(ResourceRef resource, String key, String value) {}
 

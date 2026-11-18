@@ -25,6 +25,12 @@ Overseer mandatory on every client, because blocks are synced to clients.
   access" (grid name and owner visible, content not). The owner is notified in the UI
   and by in-game chat (immediately if online, otherwise on next login).
 
+## Notes
+
+- 2026-11-18 (M2a): "lowest position" means ordered by dimension, then x, y, z. Names are
+  the generic `name` override (OverrideStore), editable by the owner. Only owner access is
+  implemented so far; the other access paths follow in later M2 slices.
+
 ## Consequences
 
 - Overseer stays server-only.

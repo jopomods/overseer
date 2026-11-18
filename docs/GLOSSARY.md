@@ -17,6 +17,7 @@
 | **Server uptime** (*Serverlaufzeit*) | Accumulated real time during which the server was ticking. Offline time and singleplayer pauses do not count. Default chart axis. |
 | **Calendar time** (*Kalenderzeit*) | Wall-clock time including offline periods. |
 | **Uptime session** | One continuous run of the server, from start to stop. Numbered from 1. |
+| **ME network** (*ME-Netzwerk*), **grid** | An AE2 network. In code and API `grid` (AE2's term), in the UI "ME network". Identified by its lowest controller (ADR-0011). |
 | **Zone** (*Bereich*) | Grouping of Flux devices. Taken from the device name prefix before the first `:` (`Power plant: Diesel 1` is zone `Power plant`), overridable in the UI. |
 | **Link code** | One-time, short-lived code shown on the login page and confirmed in-game with `/ov link <code>`. |
 | **Device token** | Long-lived read-only bearer token for kiosks and API clients; revocable. |

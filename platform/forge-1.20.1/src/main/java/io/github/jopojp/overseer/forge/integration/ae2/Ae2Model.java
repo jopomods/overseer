@@ -1,0 +1,58 @@
+package io.github.jopojp.overseer.forge.integration.ae2;
+
+import java.util.UUID;
+
+/**
+ * Plain copies of Applied Energistics 2 grid state, read on the server thread by
+ * {@link Ae2Reader}. Free of AE2 and Minecraft types so mapping and access rules can be
+ * unit-tested.
+ */
+public final class Ae2Model {
+    private Ae2Model() {}
+
+    /** AE2 controller states, mirrored by name. */
+    public enum ControllerState { NO_CONTROLLER, CONTROLLER_ONLINE, CONTROLLER_CONFLICT }
+
+    /** Power in AE (AE2's own unit, 1 AE = 2 FE); rates in AE per tick. */
+    public record Energy(double stored, double max, double usage, double injection, double idle, boolean powered) {}
+
+    /**
+     * Cached network inventory by key type. Fluid amounts in mB.
+     *
+     * @param otherTypes keys of other types (e.g. chemicals from add-ons)
+     */
+    public record Storage(int itemTypes, long items, int fluidTypes, long fluids, int otherTypes) {}
+
+    public record Crafting(int cpus, int busy, long storage, int coProcessors) {}
+
+    /**
+     * A grid with at least one controller, identified by its controller (ADR-0011).
+     *
+     * @param dimension  dimension of the identifying controller block
+     * @param owner      player who placed the identifying controller, {@code null} if unknown
+     * @param ownerName  last known name of the owner, may be {@code null}
+     * @param nodes      number of grid nodes (cables, machines, parts)
+     * @param channels   channels in use
+     */
+    public record Grid(
+            String dimension,
+            int x,
+            int y,
+            int z,
+            UUID owner,
+            String ownerName,
+            int nodes,
+            int controllers,
+            ControllerState state,
+            boolean booting,
+            int channels,
+            Energy energy,
+            Storage storage,
+            Crafting crafting) {
+
+        /** Stable id: dimension and position of the identifying controller (ADR-0005, ADR-0011). */
+        public String id() {
+            return dimension + "@" + x + "," + y + "," + z;
+        }
+    }
+}

@@ -57,22 +57,25 @@ complete M1a ships as 0.2.0. Delivered as several small PRs: pipeline + storage,
 - [x] Admin storage page: sizes, retention per resolution (including unlimited), size
   warning, purge, VACUUM, backup download
 
-## M2: Applied Energistics 2
-
-- Automatic grid discovery via controller; ad-hoc grids hidden, adoptable by admins;
-  `/ov ae2 register`
-- Access: controller owner, FTB team, explicit shares, optional "placed a block in the
-  grid"; access requests with in-game chat notification
-- Inventory scan every 10 s (cost measured, spread over ticks only if needed), stored
-  as deltas; watchlist every second
-- Changes view, deficit view with forecast
-- Crafting CPUs (named first), jobs with progress and history, power, drive and cell usage
-- Item icons: optional client exporter (atlas upload) + jar texture fallback, cached by
-  item id + NBT hash
-
 Verified with 87 minutes of real server data (0.2.0 database migrated to schema 4, rollup of
 87 min in 86 ms, history queries < 10 ms). Charts got a min-max band after the real data
 showed TPS dips to ~7-10 every few minutes that averages hid.
+
+## M2: Applied Energistics 2
+
+Delivered in slices (docs/modules/ae2.md):
+
+- [x] M2a: grid discovery via controller (id = lowest controller), owner access, names in
+  the UI; power, inventory totals, channels and CPU usage with history; list and detail pages
+- [ ] Access: FTB team, explicit shares, optional "placed a block in the grid"; access
+  requests with in-game chat notification
+- [ ] Ad-hoc grids hidden, adoptable by admins; `/ov ae2 register`
+- [ ] Inventory scan every 10 s (cost measured, spread over ticks only if needed), stored
+  as deltas; watchlist every second
+- [ ] Changes view, deficit view with forecast
+- [ ] Crafting CPUs (named first), jobs with progress and history; drive and cell usage
+- [ ] Item icons: optional client exporter (atlas upload) + jar texture fallback, cached by
+  item id + NBT hash
 
 ## M3+
 

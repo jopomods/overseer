@@ -21,6 +21,10 @@ sqlite-jdbc = "3.54.1.0"
 # Optional mod integrations (compile only). CurseMaven: curse.maven:<slug>-<projectId>:<fileId>
 # Flux Networks 7.2.1.15 for 1.20.1 = file 5234697.
 flux-networks = "5234697"
+# Applied Energistics 2 for 1.20.1 (modmaven). Only its public API and a few stable internals are used.
+ae2 = "15.4.12"
+# AE2 15.4.12 needs GuideME at runtime (dev runs only; the modpack ships its own).
+guideme = "20.1.15"
 
 junit = "5.11.4"
 
@@ -31,6 +35,8 @@ slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 flux-networks = { module = "curse.maven:flux-networks-248020", version.ref = "flux-networks" }
+ae2 = { module = "appeng:appliedenergistics2-forge", version.ref = "ae2" }
+guideme = { module = "org.appliedenergistics:guideme", version.ref = "guideme" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }

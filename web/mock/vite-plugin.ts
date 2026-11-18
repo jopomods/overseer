@@ -31,7 +31,7 @@ export function mockApiPlugin(options: MockOptions): Plugin {
   function stream(req: IncomingMessage, res: ServerResponse) {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' })
     const push = () => {
-      for (const provider of ['server', 'flux'] as const) {
+      for (const provider of ['server', 'flux', 'ae2'] as const) {
         res.write(`event: snapshot\ndata: ${JSON.stringify(jitter(backend.snapshot(provider)))}\n\n`)
       }
     }

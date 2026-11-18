@@ -886,7 +886,8 @@ components:
           description: Resource key, e.g. `flux/device/minecraft:overworld@1,64,2`.
         key:
           type: string
-          enum: [zone]
+          enum: [zone, name]
+          description: "`zone`: zone of a Flux device. `name`: name of a resource the mod does not name (AE2 grids)."
         value:
           type: [string, "null"]
 
