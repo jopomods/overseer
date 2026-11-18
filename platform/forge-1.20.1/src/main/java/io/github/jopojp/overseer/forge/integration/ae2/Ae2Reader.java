@@ -69,7 +69,7 @@ final class Ae2Reader {
     static final int HIDDEN_MIN_NODES = 5;
 
     static List<Ae2Model.Grid> readAll(MinecraftServer server, Map<String, UUID> registrations) {
-        return readAll(server, registrations, new StackCache(), false);
+        return readAll(server, registrations, Map.of(), new StackCache(), false);
     }
 
     /**
@@ -77,8 +77,8 @@ final class Ae2Reader {
      * @param keys          ids and names of AE2 keys, kept between collections
      * @param scanInventory copy the full inventory of identified grids
      */
-    static List<Ae2Model.Grid> readAll(MinecraftServer server, Map<String, UUID> registrations, StackCache keys,
-            boolean scanInventory) {
+    static List<Ae2Model.Grid> readAll(MinecraftServer server, Map<String, UUID> registrations,
+            Map<String, java.util.Set<String>> watches, StackCache keys, boolean scanInventory) {
         StackCache scan = scanInventory ? keys : null;
         var registered = registeredGrids(server, registrations);
         var result = new ArrayList<Ae2Model.Grid>();
@@ -91,19 +91,19 @@ final class Ae2Reader {
                     .orElse(null);
             if (id != null) {
                 IGridNode node = id.getMainNode().getNode();
-                result.add(read(server, grid, dimension(id.getLevel()), id.getBlockPos(),
+                result.add(read(server, grid, dimension(id.getLevel()), id.getBlockPos(), watches,
                         node == null ? null : node.getOwningPlayerProfileId(), controllers.size(), Kind.CONTROLLER,
                         scan, keys));
                 continue;
             }
             var registration = registered.get(grid);
             if (registration != null) {
-                result.add(read(server, grid, registration.dimension(), registration.pos(), registration.owner(), 0,
+                result.add(read(server, grid, registration.dimension(), registration.pos(), watches, registration.owner(), 0,
                         Kind.REGISTERED, scan, keys));
             } else if (grid.size() >= HIDDEN_MIN_NODES) {
                 var lowest = lowestNode(grid);
                 if (lowest != null) {
-                    result.add(read(server, grid, lowest.dimension(), lowest.pos(), null, 0, Kind.HIDDEN, null, keys));
+                    result.add(read(server, grid, lowest.dimension(), lowest.pos(), Map.of(), null, 0, Kind.HIDDEN, null, keys));
                 }
             }
         }
@@ -167,7 +167,8 @@ final class Ae2Reader {
         return c != 0 ? c : Integer.compare(a.pos().getZ(), b.pos().getZ());
     }
 
-    private static Ae2Model.Grid read(MinecraftServer server, Grid grid, String dimension, BlockPos pos, UUID owner,
+    private static Ae2Model.Grid read(MinecraftServer server, Grid grid, String dimension, BlockPos pos,
+            Map<String, java.util.Set<String>> watches, UUID owner,
             int controllers, Kind kind, StackCache scan, StackCache keys) {
 
         IEnergyService e = grid.getEnergyService();
@@ -220,7 +221,7 @@ final class Ae2Reader {
                 ownerName(server, owner), grid.size(), controllers,
                 ControllerState.valueOf(pathing.getControllerState().name()), pathing.isNetworkBooting(),
                 pathing.getUsedChannels(), energy, storage, new Crafting(cpus, busy, cpuStorage, coProcessors, cpuList), kind,
-                inventory, drives);
+                inventory, drives, watched(cached, watches.get(gridId), keys));
     }
 
     /**
@@ -230,13 +231,23 @@ final class Ae2Reader {
     static final class StackCache {
         private static final int MAX_KEYS = 100_000;
         private final Map<AEKey, Stack> known = new HashMap<>();
+        private final Map<String, AEKey> byId = new HashMap<>();
+
+        /** The AE2 key of a stack key seen before (in a scan or job), else {@code null}. */
+        AEKey byId(String id) {
+            return byId.get(id);
+        }
 
         Stack stack(AEKey key, long amount) {
             Stack template = known.get(key);
             if (template == null) {
-                if (known.size() >= MAX_KEYS) known.clear();
+                if (known.size() >= MAX_KEYS) {
+                    known.clear();
+                    byId.clear();
+                }
                 template = new Stack(id(key), kind(key), key.getDisplayName().getString(), 0);
                 known.put(key, template);
+                byId.put(template.key(), key);
             }
             return new Stack(template.key(), template.kind(), template.name(), amount);
         }
@@ -286,6 +297,18 @@ final class Ae2Reader {
         }
         return new Ae2Model.Cpu(id, name == null ? null : name.getString(), cpu.getAvailableStorage(),
                 cpu.getCoProcessors(), cpu.getSelectionMode().name().toLowerCase(java.util.Locale.ROOT), job);
+    }
+
+    /** Amounts of the watched keys, straight from AE2's cached inventory: cheap, every second. */
+    private static Map<String, Long> watched(appeng.api.stacks.KeyCounter cached, java.util.Set<String> keysOfGrid,
+            StackCache keys) {
+        if (keysOfGrid == null || keysOfGrid.isEmpty()) return Map.of();
+        var amounts = new HashMap<String, Long>();
+        for (String key : keysOfGrid) {
+            AEKey ae = keys.byId(key);
+            if (ae != null) amounts.put(key, cached.get(ae));
+        }
+        return amounts;
     }
 
     /** Drives and ME chests, add-on drives included (anything implementing {@code IChestOrDrive}). */

@@ -149,11 +149,13 @@ public final class Ae2GameTests {
             helper.assertTrue(plain == 100 && shiny == 3, "inserted " + plain + " and " + shiny);
         });
         helper.runAfterDelay(80, () -> {
-            var provider = new Ae2Provider(helper.getLevel().getServer(), Teams.detect(), java.util.Map::of);
-            var snapshot = provider.collect(AT);
             BlockPos id = helper.absolutePos(controller);
             String dimension = helper.getLevel().dimension().location().toString();
-            ResourceRef ref = Ae2Mapping.grid(dimension + "@" + id.getX() + "," + id.getY() + "," + id.getZ());
+            String gridId = dimension + "@" + id.getX() + "," + id.getY() + "," + id.getZ();
+            ResourceRef ref = Ae2Mapping.grid(gridId);
+            var provider = new Ae2Provider(helper.getLevel().getServer(), Teams.detect(), java.util.Map::of,
+                    () -> java.util.Map.of(gridId, java.util.Set.of("item:minecraft:iron_ingot")));
+            var snapshot = provider.collect(AT);
             var stacks = snapshot.inventories().get(ref);
             helper.assertTrue(stacks != null, "first collection scans; got " + snapshot.inventories().keySet());
             var plain = stacks.stream().filter(s -> s.key().equals("item:minecraft:iron_ingot")).findFirst();
@@ -177,7 +179,12 @@ public final class Ae2GameTests {
             helper.assertTrue(total == 1024, "bytes_total: " + total);
             helper.assertTrue(types == 2, "types_used: " + types);
             helper.assertTrue(ref.equals(provider.access().parent(driveRef)), "a drive belongs to its grid");
-            helper.assertTrue(provider.collect(AT).inventories().isEmpty(), "the next nine collections do not scan");
+            var next = provider.collect(AT);
+            helper.assertTrue(next.inventories().isEmpty(), "the next nine collections do not scan");
+            double stock = next.samples().stream()
+                    .filter(s -> s.resource().equals(ref) && s.metric().equals("stock:item:minecraft:iron_ingot"))
+                    .mapToDouble(Sample::value).findFirst().orElse(-1);
+            helper.assertTrue(stock == 100, "watched items are read every collection: " + stock);
             helper.succeed();
         });
     }
