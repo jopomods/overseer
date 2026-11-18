@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.6.0](https://github.com/Jopo-JP/overseer/compare/v0.5.1...v0.6.0) (2026-11-18)
+
+
+### Features
+
+* fill bar and full/empty time for Flux storages and AE2 power ([#52](https://github.com/Jopo-JP/overseer/issues/52)) ([d1cfefd](https://github.com/Jopo-JP/overseer/commit/d1cfefd602f1671e67139460fc6a7bcae163b4fc))
+* history for every inventory item ([#50](https://github.com/Jopo-JP/overseer/issues/50)) ([31a12a0](https://github.com/Jopo-JP/overseer/commit/31a12a0149c2dd1acc429ba21ddbd34be6e940c0))
+* storage page lists inventory changes and icons; overview shows deficits and the profiler ([#55](https://github.com/Jopo-JP/overseer/issues/55)) ([d762325](https://github.com/Jopo-JP/overseer/commit/d7623258253d80dc59e6158cbf6936cb536147fd))
+* tick profiler grouped by mod ([#53](https://github.com/Jopo-JP/overseer/issues/53)) ([26b82ad](https://github.com/Jopo-JP/overseer/commit/26b82ad4ce38b5e263390a6a86027443dc1bef09))
+* **web:** live chart ranges of 5 and 15 minutes ([#51](https://github.com/Jopo-JP/overseer/issues/51)) ([3a84e4e](https://github.com/Jopo-JP/overseer/commit/3a84e4e6138704cb724fa8e838216d299a22b808))
+* **web:** named and player CPUs first, automation CPUs folded away ([#49](https://github.com/Jopo-JP/overseer/issues/49)) ([9cfda92](https://github.com/Jopo-JP/overseer/commit/9cfda925e4ab5777fec199e5638739c3bc2431a9))
+
+
+### Bug Fixes
+
+* **core:** reloading an ME network page no longer answers 404 ([#59](https://github.com/Jopo-JP/overseer/issues/59)) ([108c6d5](https://github.com/Jopo-JP/overseer/commit/108c6d5383f81ff8f3ad4bcd37e9046cf03b4894))
+* **flux:** devices in unloaded chunks no longer fail the whole collection ([#48](https://github.com/Jopo-JP/overseer/issues/48)) ([6100ffc](https://github.com/Jopo-JP/overseer/commit/6100ffc0f3cdab4f284554e039ff9613f2c36c96))
+* **web:** correct job progress, also after a restart ([#54](https://github.com/Jopo-JP/overseer/issues/54)) ([6ebe438](https://github.com/Jopo-JP/overseer/commit/6ebe438d1e1cb60ed33258191da3416f237eee2e))
+
 ## [0.5.1](https://github.com/Jopo-JP/overseer/compare/v0.5.0...v0.5.1) (2026-11-18)
 
 
