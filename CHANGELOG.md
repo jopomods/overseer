@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.0](https://github.com/jopomods/overseer/compare/v0.6.0...v0.7.0) (2026-11-18)
+
+
+### Features
+
+* **core:** world actions with server-thread queue, permission checks and action log ([#62](https://github.com/jopomods/overseer/issues/62)) ([084aec7](https://github.com/jopomods/overseer/commit/084aec7d4b1321470f38fe9a4398a3bed49640a8))
+* **flux:** change networks, devices and members from the dashboard ([#63](https://github.com/jopomods/overseer/issues/63)) ([f37bd24](https://github.com/jopomods/overseer/commit/f37bd2480f97c2efb5a7cb85fd0f9df79c4e276c))
+* **web:** edit Flux networks, devices and members in the dashboard ([#64](https://github.com/jopomods/overseer/issues/64)) ([475dbde](https://github.com/jopomods/overseer/commit/475dbde0736af4066514899adcdc50cc8b69492c))
+* **web:** voltage tiers, naming hints and the priority order for Flux ([#65](https://github.com/jopomods/overseer/issues/65)) ([56d50dd](https://github.com/jopomods/overseer/commit/56d50dd38a5a861ea1b8b2024fae8ab8449ce22f))
+
 ## [0.6.0](https://github.com/Jopo-JP/overseer/compare/v0.5.1...v0.6.0) (2026-11-18)
 
 
