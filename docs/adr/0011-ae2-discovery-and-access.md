@@ -56,6 +56,9 @@ Overseer mandatory on every client, because blocks are synced to clients.
   job that resumes after a restart changes nothing. Progress, total and elapsed time are
   metrics because they change every second. CPUs inherit access from their grid
   (`AccessPolicy.parent`, ADR-0008).
+- 2026-11-18 (M2h): job lines (stored, active, pending per key) are live data in
+  `ProviderSnapshot.jobs`: read every second, never stored, fetched only while a card is open.
+  They change too fast and are too large for events or SSE pushes.
 
 ## Consequences
 
