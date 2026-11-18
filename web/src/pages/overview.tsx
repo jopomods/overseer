@@ -1,6 +1,8 @@
 import { Activity, Boxes, Server, Zap } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
+import { useQueries, useQuery } from '@tanstack/react-query'
+import { api } from '@/api/client'
 import { useCollectors, useProviders, useSnapshot } from '@/api/hooks'
 import { useSession } from '@/components/session'
 import { LiveBadge } from '@/components/live-badge'
@@ -123,6 +125,18 @@ function Ae2Tile({ poll }: { poll: number | false }) {
   const list = ofType(useSnapshot('ae2', { pollMs: poll }).data, 'grid').filter((g) => g.attributes.kind !== 'hidden')
   const usage = list.reduce((sum, g) => sum + (metric(g, 'power_usage') ?? 0), 0)
   const items = list.reduce((sum, g) => sum + (metric(g, 'items') ?? 0), 0)
+  // Watched items below their target, across all networks (amounts are live stock: metrics).
+  const watches = useQueries({
+    queries: list.map((g) => ({
+      queryKey: ['watches', g.ref.key],
+      queryFn: async () => (await api.GET('/api/v1/watches', { params: { query: { resource: g.ref.key } } })).data ?? [],
+      refetchInterval: 60_000,
+    })),
+  })
+  const below = list.reduce((count, g, i) => {
+    const ws = watches[i]?.data ?? []
+    return count + ws.filter((w) => w.target != null && (metric(g, `stock:${w.item}`) ?? 0) < w.target).length
+  }, 0)
   return (
     <Tile icon={<Boxes className="size-4" />} title={t('overview.ae2')} to="/ae2">
       {list.length === 0 ? (
@@ -131,7 +145,10 @@ function Ae2Tile({ poll }: { poll: number | false }) {
         <div className="grid grid-cols-2 gap-3">
           <Figure label={t('ae2.usage')} value={formatAeRate(usage, locale)} />
           <Figure label={t('ae2.items')} value={formatSi(items, locale)} />
-          <p className="text-muted-foreground col-span-2 truncate text-xs">{t('overview.grids', { count: list.length })}</p>
+          <p className="text-muted-foreground col-span-2 truncate text-xs">
+            {t('overview.grids', { count: list.length })}
+            {below > 0 && <span className="text-destructive font-medium"> · {t('watch.below', { count: below })}</span>}
+          </p>
         </div>
       )}
     </Tile>
@@ -142,11 +159,21 @@ function HealthTile() {
   const t = useT()
   const collectors = useCollectors(true).data
   const throttled = collectors?.collectors.filter((c) => c.throttled).length ?? 0
+  const profiler = useQuery({
+    queryKey: ['profiler'],
+    queryFn: async () => (await api.GET('/api/v1/admin/profiler')).data ?? null,
+    refetchInterval: 10_000,
+  })
   return (
     <Tile icon={<Activity className="size-4" />} title={t('overview.health')} to="/server">
       <p className={'text-sm ' + (throttled ? 'text-warning' : 'text-muted-foreground')}>
         {throttled ? t('overview.healthThrottled', { count: throttled }) : t('overview.healthOk')}
       </p>
+      {profiler.data?.active && (
+        <p className="text-warning mt-1 text-xs" data-testid="profiler-running">
+          {t('overview.profilerRunning')}
+        </p>
+      )}
     </Tile>
   )
 }

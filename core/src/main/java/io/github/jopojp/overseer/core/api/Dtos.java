@@ -131,9 +131,10 @@ public final class Dtos {
 
     public record StorageSettingsDto(long rawMillis, long minuteMillis, long hourMillis, long warnBytes) {}
 
-    public record ProviderUsageDto(String provider, long series, long raw, long minute, long hour) {}
+    public record ProviderUsageDto(String provider, long series, long raw, long minute, long hour, long inventoryChanges) {}
 
-    public record StorageDto(long fileBytes, long walBytes, StorageSettingsDto settings, List<ProviderUsageDto> providers) {}
+    public record StorageDto(long fileBytes, long walBytes, StorageSettingsDto settings, List<ProviderUsageDto> providers,
+            long icons, long iconBytes) {}
 
     public record PurgeRequest(String provider, Long olderThanMillis) {}
 
