@@ -67,6 +67,10 @@ Overseer mandatory on every client, because blocks are synced to clients.
   changes from the inventory scans (daily average) instead of a regression over raw samples; it
   is cheap and stable, and good enough for "when does this run out". Hourly inventory rollups are
   not needed for that and stay open.
+- 2026-11-18 (M2k): icons travel from a client with Overseer over an optional Forge network
+  channel, not an HTTP upload: the client is already authenticated as a player (operator check),
+  no token is needed, and requests stay under the HTTP body limit. Exported icons are stored per
+  stack key; the mod jar texture is a cheap fallback that is cached in memory, not stored.
 
 ## Consequences
 

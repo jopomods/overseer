@@ -82,8 +82,8 @@ Delivered in slices (docs/modules/ae2.md):
   history; cards expand to details and recent jobs
 - [x] M2h: job lines in expanded CPU cards (crafting, planned, stored), live
 - [x] M2i: drives and ME chests with cell states, bytes and types; bytes chart per grid
-- [ ] Item icons: optional client exporter (atlas upload) + jar texture fallback, cached by
-  item id + NBT hash
+- [x] M2k: item icons: client exporter (`/ovicons export`, sent over an optional network
+  channel), mod jar texture fallback, letter fallback in the UI
 
 ## M3+
 

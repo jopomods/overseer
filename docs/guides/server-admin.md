@@ -41,6 +41,17 @@ super admin).
 | `/ov admin add <player>` | ops | Grants dashboard admin: sees everything. |
 | `/ov admin remove <player>` | ops | Revokes dashboard admin. |
 | `/ov sessions revoke <player>` | ops | Logs the player out of every browser session. Device tokens stay. |
+| `/ovicons export` | ops, **client** | Only with Overseer also installed on your client: renders every item and fluid icon and sends them to the server. See below. |
+
+### Item icons
+
+A dedicated server cannot render items, and it has no vanilla textures. Without an export the
+dashboard shows mod textures where an item has a plain one, and the first letter otherwise.
+
+For real icons: put the same Overseer jar into your client's `mods` folder (it stays optional;
+other players do not need it), join the server as an operator and run `/ovicons export`. The
+client renders all icons over a few seconds and sends them; the chat shows progress. Run it again
+after adding mods. Icons are stored in `overseer.db` (table `icon`, roughly 1 kB per icon).
 
 ## Roles
 

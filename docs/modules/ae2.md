@@ -110,6 +110,15 @@ crafting status screen: per key `stored` (in the CPU), `active` (sent to machine
 `ProviderSnapshot.jobs`, are kept in memory only and served by `GET /api/v1/jobs?resource=…`
 (404 while idle). Nothing of it is stored.
 
+## Icons
+
+Icons are keyed by stack key (`GET /api/v1/icon?key=…`): exported exact key, then the base key
+without NBT hash, then the item's texture from its mod jar (`assets/<ns>/textures/item|block/<path>.png`).
+`/ovicons export` (client with Overseer, operators) renders every item and source fluid at 32×32 off
+screen and sends the PNGs in batches below 32 KiB over the optional `overseer:icons` channel; the
+server stores them off the server thread (`icon` table, V010). Clients and servers without the
+channel still connect.
+
 ## Watchlist and deficits
 
 Owners star items in the contents list (at most 50 per grid, table `watch`, `V009`). Watched
