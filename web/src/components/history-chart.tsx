@@ -28,7 +28,8 @@ interface Row {
   x: number
   t: number
   wall: number
-  [metric: string]: number | null
+  /** `<metric>` = time-weighted average; `<metric>:range` = [min, max] of the bucket. */
+  [key: string]: number | null | [number, number]
 }
 
 export function HistoryChart({
@@ -149,7 +150,14 @@ export function HistoryChart({
                             <span className="size-2 rounded-sm" style={{ backgroundColor: s.color }} />
                             {s.label}
                           </span>
-                          <span className="font-medium">{row[s.metric] == null ? '–' : format(row[s.metric] as number)}</span>
+                          <span className="text-right">
+                            <span className="font-medium">{row[s.metric] == null ? '–' : format(row[s.metric] as number)}</span>
+                            {Array.isArray(row[`${s.metric}:range`]) && (
+                              <span className="text-muted-foreground block text-[10px]">
+                                {format((row[`${s.metric}:range`] as [number, number])[0])} – {format((row[`${s.metric}:range`] as [number, number])[1])}
+                              </span>
+                            )}
+                          </span>
                         </p>
                       ))}
                     </div>
@@ -157,6 +165,20 @@ export function HistoryChart({
                 }}
               />
               {/* Later series are dashed so identical series (e.g. Flux input = output) stay visible. */}
+              {/* Min-max band per bucket: short spikes (e.g. TPS drops) stay visible at any range. */}
+              {series.map((s) => (
+                <Area
+                  key={`${s.metric}:range`}
+                  dataKey={`${s.metric}:range`}
+                  type="stepAfter"
+                  stroke="none"
+                  fill={s.color}
+                  fillOpacity={0.12}
+                  isAnimationActive={false}
+                  connectNulls={false}
+                  activeDot={false}
+                />
+              ))}
               {series.map((s, i) => (
                 <Area
                   key={s.metric}
@@ -217,6 +239,7 @@ function toRows(history: History | undefined, axis: TimeAxis): Row[] {
       const wall = Date.parse(p.wall)
       const row = byT.get(p.t) ?? { x: axis === 'uptime' ? p.t : wall, t: p.t, wall }
       row[s.metric] = p.avg
+      row[`${s.metric}:range`] = [p.min, p.max]
       byT.set(p.t, row)
     }
   }
@@ -228,7 +251,10 @@ function toRows(history: History | undefined, axis: TimeAxis): Row[] {
     const prev = rows[i - 1]
     if (prev && rows[i].wall - prev.wall > history.bucketMillis * 1.5) {
       const gap: Row = { x: prev.wall + history.bucketMillis, t: prev.t, wall: prev.wall + history.bucketMillis }
-      for (const s of history.series) gap[s.metric] = null
+      for (const s of history.series) {
+        gap[s.metric] = null
+        gap[`${s.metric}:range`] = null
+      }
       result.push(gap)
     }
     result.push(rows[i])
