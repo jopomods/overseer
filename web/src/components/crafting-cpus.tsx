@@ -7,7 +7,7 @@ import { McText } from '@/components/mc-text'
 import { Section } from '@/components/stat'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { formatBuckets, formatClock, idPos, isInfinite, jobEta, jobProgressKnown, pastJobs, type Ae2Cpu } from '@/lib/ae2'
+import { formatBuckets, formatClock, idPos, isInfinite, jobCountsAreItems, jobEta, jobProgressKnown, pastJobs, type Ae2Cpu } from '@/lib/ae2'
 import { formatBytes, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { usePreferences, type Locale } from '@/lib/preferences'
@@ -85,7 +85,8 @@ function CpuCard({ cpu, number }: { cpu: Ae2Cpu; number: number }) {
               <div className="text-muted-foreground flex min-w-0 flex-wrap justify-between gap-x-3 text-xs">
                 {known ? (
                   <span className="tabular">
-                    {formatNumber(share, locale, 0)} % · {formatSi(job.progress, locale)} / {formatSi(job.total, locale)}
+                    {formatNumber(share, locale, 0)} %
+                    {jobCountsAreItems(job) && ` · ${formatSi(job.progress, locale)} / ${formatSi(job.total, locale)}`}
                   </span>
                 ) : (
                   <span title={t('cpu.unknownHint')}>{t('cpu.unknown')}</span>
