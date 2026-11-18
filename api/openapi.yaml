@@ -490,6 +490,51 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/inventory/history:
+    get:
+      tags: [data]
+      operationId: getInventoryHistory
+      summary: How the amount of one item moved
+      description: |
+        Any item, watched or not, at minute resolution from the inventory scans (kept for the raw
+        retention, 48 h by default). `start` is the amount at `from`; each point is
+        `[uptime of the minute, amount at its end]` and the amount stays until the next point.
+        `now` is the amount in the newest scan.
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: item
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: to
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: The steps.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryHistory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/icon:
     get:
       tags: [data]
@@ -1433,6 +1478,36 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/InventoryItem"
+
+    InventoryHistory:
+      type: object
+      required: [resource, item, from, to, start, points]
+      properties:
+        resource:
+          type: string
+        item:
+          type: string
+        from:
+          type: integer
+          format: int64
+        to:
+          type: integer
+          format: int64
+        start:
+          type: integer
+          format: int64
+        now:
+          type: integer
+          format: int64
+        points:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+              format: int64
+            minItems: 2
+            maxItems: 2
 
     InventoryItem:
       type: object

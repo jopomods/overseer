@@ -68,6 +68,10 @@ public final class Dtos {
 
     public record Event(TimestampDto at, String kind, String attribute, String value) {}
 
+    /** points: [uptime of the minute, amount at its end]. */
+    public record InventoryHistory(String resource, String item, long from, long to, long start, Long now,
+            List<long[]> points) {}
+
     public record Inventory(String resource, TimestampDto scannedAt, int total, List<InventoryItem> items) {}
 
     public record Resource(Ref ref, Map<String, String> attributes, Map<String, Double> metrics, boolean canEdit) {}

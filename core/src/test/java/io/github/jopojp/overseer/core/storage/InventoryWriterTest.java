@@ -140,4 +140,20 @@ class InventoryWriterTest {
         assertEquals("Eisenbarren", changesSinceStart().get(IRON_100.key()).name());
         assertEquals(1, rows("inventory_key"));
     }
+
+    @Test
+    void historyStartsAtTheAmountThenAndStepsEachMinute() throws SQLException {
+        scan(1, IRON_100);
+        for (int i = 0; i < 7; i++) scan(10, new Stack(IRON_100.key(), "item", "Iron Ingot", 90));
+        for (int i = 0; i < 7; i++) scan(10, new Stack(IRON_100.key(), "item", "Iron Ingot", 75));
+        long now = clock.uptimeMillis();
+        try (var reader = db.openReader()) {
+            var all = InventoryQuery.history(reader, GRID, IRON_100.key(), 0, now);
+            assertEquals(100, all.start(), "baseline before the first change");
+            assertEquals(75, all.points().get(all.points().size() - 1)[1]);
+            var late = InventoryQuery.history(reader, GRID, IRON_100.key(), now - 1000, now);
+            assertEquals(75, late.start(), "the amount at the start of a later window");
+            assertTrue(InventoryQuery.history(reader, GRID, "item:minecraft:dirt", 0, now).points().isEmpty());
+        }
+    }
 }
