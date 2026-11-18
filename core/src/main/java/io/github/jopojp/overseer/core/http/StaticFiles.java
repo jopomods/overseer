@@ -14,7 +14,9 @@ import java.util.regex.Pattern;
  *
  * <p>Only paths made of safe characters are looked up, and only inside the bundle root,
  * so there is no way to reach other resources. Unknown paths without a file extension
- * fall back to {@code index.html} (client-side routing).
+ * fall back to {@code index.html} (client-side routing); so do client routes with characters
+ * no file has, e.g. {@code /ae2/minecraft:overworld@122,73,-16} (the page then reads its id
+ * from the URL). Nothing is looked up for those paths.
  */
 public final class StaticFiles {
     private static final Pattern SAFE_PATH = Pattern.compile("[A-Za-z0-9._\\-/]*");
@@ -46,7 +48,9 @@ public final class StaticFiles {
     public Optional<Response> serve(String path) {
         String relative = path.startsWith("/") ? path.substring(1) : path;
         if (!SAFE_PATH.matcher(relative).matches() || relative.contains("..") || relative.contains("//")) {
-            return Optional.empty();
+            // Never a file; a client route if it does not look like one.
+            if (relative.startsWith("assets/") || lastSegment(relative).contains(".")) return Optional.empty();
+            return index();
         }
         if (relative.isEmpty() || relative.endsWith("/")) relative = relative + "index.html";
 
@@ -57,13 +61,20 @@ public final class StaticFiles {
             content = load(served);
         }
         if (content.isEmpty()) return Optional.empty();
+        return Optional.of(respond(served, content.get()));
+    }
 
+    private Optional<Response> index() {
+        return load("index.html").map(content -> respond("index.html", content));
+    }
+
+    private Response respond(String served, byte[] content) {
         String ext = extension(served);
-        Response response = Response.bytes(200, TYPES.getOrDefault(ext, "application/octet-stream"), content.get());
+        Response response = Response.bytes(200, TYPES.getOrDefault(ext, "application/octet-stream"), content);
         // Vite emits content-hashed file names under assets/: safe to cache forever.
         response.header("Cache-Control", served.startsWith("assets/") ? "public, max-age=31536000, immutable" : "no-cache");
         if (ext.equals("html")) response.header("Content-Security-Policy", CSP);
-        return Optional.of(response);
+        return response;
     }
 
     private Optional<byte[]> load(String relative) {
