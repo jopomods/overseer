@@ -71,7 +71,9 @@ public final class ServerProvider implements DataProvider {
         resources.put(SERVER, Map.of(
                 "version", server.getServerVersion(),
                 "motd", server.getMotd() == null ? "" : server.getMotd(),
-                "maxPlayers", Integer.toString(server.getMaxPlayers())));
+                "maxPlayers", Integer.toString(server.getMaxPlayers()),
+                // Voltage tier scheme for device names (docs/modules/flux.md); "none" hides tiers.
+                "energyTiers", io.github.jopojp.overseer.forge.OverseerConfig.energyTiers()));
         samples.add(new Sample(SERVER, MSPT.key(), mspt));
         samples.add(new Sample(SERVER, TPS.key(), mspt <= 50 ? 20 : 1000 / mspt));
         samples.add(new Sample(SERVER, PLAYERS.key(), server.getPlayerCount()));

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { tierInName, withTier, type Tier } from '@/lib/tiers'
 import {
   FLUX_ACTIONS,
   FLUX_COLORS,
@@ -13,6 +14,7 @@ import {
   MAX_PASSWORD,
   MAX_PRIORITY,
   MIN_PRIORITY,
+  nameHints,
   namesFromPattern,
   parseHexColor,
   type FluxDevice,
@@ -251,12 +253,21 @@ export function DeviceEditor({
   networkKey,
   devices,
   targets,
+  tiers = [],
+  zoneNames = [],
+  otherNames = [],
   onDone,
 }: {
   networkKey: string
   devices: FluxDevice[]
   /** Networks the viewer may move devices to. */
   targets: FluxNetwork[]
+  /** Voltage tiers the server uses; empty hides the tier field. */
+  tiers?: Tier[]
+  /** Zones already used in the network, offered as name prefixes. */
+  zoneNames?: string[]
+  /** Names of the other devices in the network (duplicate hint). */
+  otherNames?: string[]
   onDone: () => void
 }) {
   const t = useT()
@@ -271,9 +282,20 @@ export function DeviceEditor({
   const [target, setTarget] = useState('')
   const [message, setMessage] = useState<string>()
   const [error, setError] = useState<string>()
+  /** Several devices: 'keep', 'none' or a tier name, applied to the (new) names. */
+  const [tierChoice, setTierChoice] = useState('keep')
   const mixed = devices.length > 1
+  const tierByName = (n: string) => tiers.find((x) => x.name === n) ?? null
 
-  const names = single ? [name] : name === '' ? [] : namesFromPattern(name, devices.map((d) => d.name))
+  const patterned = name === '' ? devices.map((d) => d.name) : namesFromPattern(name, devices.map((d) => d.name))
+  const names = single
+    ? [name]
+    : name === '' && tierChoice === 'keep'
+      ? []
+      : tierChoice === 'keep'
+        ? patterned
+        : patterned.map((n) => withTier(n, tierByName(tierChoice), tiers))
+  const hints = single ? nameHints(name, otherNames) : []
   const tooLong = names.some((n) => n.length > MAX_NAME)
   const priorityValue = priority.trim() === '' ? undefined : Number(priority)
   const priorityBad =
@@ -345,15 +367,45 @@ export function DeviceEditor({
             onChange={(e) => setName(e.target.value)}
             placeholder={single ? t('edit.nameEmpty') : t('edit.namePatternPlaceholder')}
             aria-invalid={tooLong}
+            list={`zones-${networkKey}`}
           />
         </Field>
-        {mixed && name !== '' && (
+        <datalist id={`zones-${networkKey}`}>
+          {zoneNames.map((z) => (
+            <option key={z} value={`${z}: `} />
+          ))}
+        </datalist>
+        <p className="text-muted-foreground text-xs" data-testid="naming-hint">
+          {t(tiers.length ? 'naming.recommendedTier' : 'naming.recommended')}
+          {hints.includes('noZone') && ` · ${t('naming.noZone')}`}
+          {hints.includes('duplicate') && <span className="text-warning"> · {t('naming.duplicate')}</span>}
+        </p>
+        {tiers.length > 0 && (
+          <Field label={t('tier.label')}>
+            <select
+              className={cn(SELECT, 'w-full sm:w-48')}
+              value={single ? (tierInName(name, tiers)?.name ?? 'none') : tierChoice}
+              onChange={(e) =>
+                single ? setName(withTier(name, tierByName(e.target.value), tiers)) : setTierChoice(e.target.value)
+              }
+            >
+              {mixed && <option value="keep">{t('edit.keep')}</option>}
+              <option value="none">{t('tier.none')}</option>
+              {tiers.map((x) => (
+                <option key={x.name} value={x.name}>
+                  {x.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        {mixed && names.length > 0 && (
           <p className="text-muted-foreground truncate text-xs" data-testid="name-preview">
             {t('edit.preview')}: {names.slice(0, 3).map((n) => plainText(n)).join(', ')}
             {names.length > 3 && ', …'}
           </p>
         )}
-        {mixed && name === '' && <p className="text-muted-foreground text-xs">{t('edit.namePatternHint')}</p>}
+        {mixed && names.length === 0 && <p className="text-muted-foreground text-xs">{t('edit.namePatternHint')}</p>}
         {tooLong && <p className="text-destructive text-xs">{t('edit.nameTooLong', { max: MAX_NAME })}</p>}
 
         <div className="grid min-w-0 gap-3 sm:grid-cols-2">

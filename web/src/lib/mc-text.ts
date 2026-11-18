@@ -33,6 +33,11 @@ const COLORS: Record<string, string> = {
   f: '#FFFFFF',
 }
 
+/** CSS colour of a Minecraft colour code ("6" = gold), as the dashboard shows it. */
+export function mcColor(code: string): string {
+  return COLORS[code.toLowerCase()] ?? COLORS.f
+}
+
 /** Text without formatting codes. */
 export function plainText(text: string): string {
   return text.replace(/§[0-9a-fk-orx]/gi, '')

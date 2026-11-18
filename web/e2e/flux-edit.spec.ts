@@ -113,3 +113,62 @@ test.describe('flux editing', () => {
     await expect(page.getByRole('button', { name: 'Add' })).toHaveCount(0)
   })
 })
+
+test.describe('voltage tiers, naming hints and priority order', () => {
+  test('tiers from names: badges, filter and energy by tier', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/energy/0')
+    const rows = page.getByTestId('device-list').getByRole('listitem')
+    const assembler = rows.filter({ hasText: 'Assembler 2' })
+    await expect(assembler.getByTestId('tier-badge')).toHaveText('MV')
+    await page.getByTestId('tier-filter').getByRole('tab', { name: 'MV' }).click()
+    await expect(rows).toHaveCount(2)
+    await expect(page.getByTestId('tiers')).toContainText('ZPM')
+  })
+
+  test('without a tier scheme nothing about tiers is shown', async ({ page }) => {
+    await mockApi(page, { energyTiers: 'none' })
+    await page.goto('/energy/0')
+    await expect(page.getByTestId('device-list')).toBeVisible()
+    await expect(page.getByTestId('tier-badge')).toHaveCount(0)
+    await expect(page.getByTestId('tier-filter')).toHaveCount(0)
+    await expect(page.getByTestId('tiers')).toHaveCount(0)
+    await page.getByRole('checkbox', { name: 'Select Device 4', exact: true }).check()
+    await page.getByTestId('edit-selected').click()
+    await expect(page.getByTestId('device-editor').getByLabel('Voltage tier')).toHaveCount(0)
+  })
+
+  test('the tier field rewrites the end of the name; hints follow the convention', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/energy/0')
+    await page.getByTestId('device-list').getByRole('listitem').filter({ hasText: 'Assembler 2' })
+      .getByRole('button', { name: 'Device settings' }).click()
+    const editor = page.getByTestId('device-editor')
+    await editor.getByLabel('Voltage tier').selectOption('HV')
+    await expect(editor.getByRole('combobox', { name: /^Name/ })).toHaveValue('Factory: Assembler 2 HV')
+    await editor.getByRole('combobox', { name: /^Name/ }).fill('Factory: Assembler MV')
+    await expect(editor.getByTestId('naming-hint')).toContainText('another device has this name')
+    await editor.getByRole('combobox', { name: /^Name/ }).fill('Assembler')
+    await expect(editor.getByTestId('naming-hint')).toContainText('no zone yet')
+  })
+
+  test('several devices get a tier without changing the rest of their names', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/energy/0')
+    await page.getByRole('checkbox', { name: 'Select Device 4', exact: true }).check()
+    await page.getByRole('checkbox', { name: 'Select Device 8', exact: true }).check()
+    await page.getByTestId('edit-selected').click()
+    const editor = page.getByTestId('device-editor')
+    await editor.getByLabel('Voltage tier').selectOption('EV')
+    await expect(editor.getByTestId('name-preview')).toContainText('Power plant: Device 4 EV, Power plant: Device 8 EV')
+  })
+
+  test('priority order: surge first, then from the highest priority', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/energy/0')
+    const receive = page.getByTestId('priority-receive').locator('ol > li')
+    await expect(receive.first()).toContainText('Power surge')
+    await expect(receive.nth(1)).toContainText('Priority 11')
+    await expect(receive.nth(1)).toContainText('Assembler 2')
+  })
+})

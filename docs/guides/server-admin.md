@@ -25,6 +25,7 @@ owner counts as operator.
 | `web.forceSecureCookies` | `false` | Mark cookies `Secure` even without `X-Forwarded-Proto: https`. |
 | `web.publicUrl` | `""` | Address players open, e.g. `https://dash.example.org`. Used in links printed by `/ov`. Empty: `http://<bindAddress>:<port>`. |
 | `access.ae2PlacerAccess` | `false` | AE2: players who placed any block or part of an ME network may view it (not edit). Applies without restart. |
+| `dashboard.energyTiers` | `AUTO` | Voltage tiers at the end of Flux device names (`Factory: Assembler MV`): coloured badges, filter, energy by tier. `AUTO` = GregTech tiers when GregTech CEu (`gtceu`) is installed, `GREGTECH` = always, `OFF` = never. Applies without restart. |
 
 `web.*` changes take effect on the next server start.
 

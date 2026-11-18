@@ -137,3 +137,25 @@ packets and checks the permission again against live state.
 
 Changes report what Flux actually stored (read back after applying). Device ids are
 `<dimension>@x,y,z` as in the resources.
+
+## Naming convention, voltage tiers and priority order
+
+**Recommended names** (never enforced): `Zone: Title`, optionally with a voltage tier as the last
+word, e.g. `Power plant: Diesel 1 HV`, `Factory: Assembler MV`, `Fusion: Reactor ZPM`. The zone is
+the part before the first `:` (see Zones). The device editor offers the zones already used as
+prefixes and hints when a name has no zone or another device has the same name. Everything stays
+within Flux's 24 characters, so names look the same in game.
+
+**Voltage tiers** are optional and only for modpacks that have them. The server reports a tier
+scheme on `server/server/main` (`energyTiers`): `gregtech` when GregTech CEu is installed (config
+`dashboard.energyTiers`, default `AUTO`; `GREGTECH` forces it, `OFF` hides it), otherwise `none`.
+With `gregtech`, the last word of a device name is read as a tier (ULV, LV, MV, HV, EV, IV, LuV,
+ZPM, UV, UHV, UEV, UIV, UXV, OpV, MAX; any case; colour codes ignored) and shown as a badge in
+GregTech's colours (`GTValues.VNF`). The device list filters by tier, a section shows generation
+and consumption per tier, and the device editor's tier field replaces, adds or removes the tier at
+the end of the name (for several devices at once too). The tier lives only in the name: nothing
+extra is stored, and names given in game work the same way (`web/src/lib/tiers.ts`).
+
+**Priority order** shows how Flux serves the network: points and storages that get energy first,
+and plugs and storages whose energy is used first, from power surge down through the priorities.
+Devices with the same priority share.
