@@ -82,8 +82,15 @@ legacyForge {
     }
 }
 
+// One mixin: completes Forge's block entity timer for the tick profiler (ADR-0014).
+mixin {
+    add(sourceSets.main.get(), "overseer.refmap.json")
+    config("overseer.mixins.json")
+}
+
 dependencies {
     implementation(project(":core"))
+    annotationProcessor("org.spongepowered:mixin:0.8.5:processor")
 
     // Optional integrations: compile against them, never require them (AGENTS.md rule 3).
     // They are present in dev runs so integrations can be exercised.
@@ -122,6 +129,7 @@ dependencies {
 // references), so it passes through reobfuscation unchanged.
 tasks.jar {
     from(project(":core").sourceSets.main.get().output)
+    manifest.attributes(mapOf("MixinConfigs" to "overseer.mixins.json"))
 }
 
 // Embed the built web dashboard (web/dist) into the jar under /overseer-web.
