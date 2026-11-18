@@ -47,10 +47,11 @@ complete M1a ships as 0.2.0. Delivered as several small PRs: pipeline + storage,
 
 - [x] History backend: time-weighted minute/hour rollups, retention, `/api/v1/history`, `/api/v1/sessions`
 - [x] Charts (Flux network flow and stored energy, server TPS/MSPT/players) with ranges 1 h-30 d,
-  server uptime / calendar axis and offline markers
+  server uptime / calendar axis (account setting) and offline markers, smooth curves
 - [x] Zones from `Zone: Name` with UI overrides (Flux owners/admins), `canEdit` permission
 - [x] Energy flow: Sankey (zones → network → zones, storages by direction) with Recharts,
-  compact bar list on phones; tested with the real recording
+  compact bar list on phones; tested with the real recording; optional device detail
+  (device → zone → network → zone → device, same-named devices grouped)
 - [x] Mirrored stacked area chart per zone (generation up, consumption down, six largest zones + other)
 - [x] Forecast: "empty in ..." from the last hour ("full in" needs storage capacity)
 - [x] Admin storage page: sizes, retention per resolution (including unlimited), size

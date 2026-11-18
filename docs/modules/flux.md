@@ -60,6 +60,16 @@ discharging storages → network → point zones and charging storages. Storages
 sign as plugs and points (positive = adding energy to the network = discharging); this is an
 assumption until verified with real storage data.
 
+Two detail levels, switchable above the chart and remembered per viewer:
+
+- **Zones** (default): zone → network → zone.
+- **Devices**: device → zone → network → zone → device. Devices on the same side with the
+  same zone and the same name are grouped (`Diesel ×2`). Per zone the seven largest groups
+  are shown and the rest is one `+N more` node, so huge networks stay readable. Storages
+  connect straight to the network.
+
+On phones the list shows each zone with its devices indented below.
+
 ## Zones over time
 
 A mirrored stacked area chart shows generation (plugs, up) and consumption (points, down)

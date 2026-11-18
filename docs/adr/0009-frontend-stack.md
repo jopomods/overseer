@@ -44,15 +44,19 @@ Implementation notes (M1a):
 - Texts live in `src/lib/i18n.ts` with typed keys; a missing translation fails the build.
 - No external resources at runtime (fonts are bundled; no player-skin services, which would
   leak UUIDs to third parties and violate the CSP). Avatars are initials.
-- Charts (`components/history-chart.tsx`): Recharts via shadcn `chart`, step areas (the data
-  is a step function, ADR-0005). Axis preference per viewer: server uptime with dashed restart
-  markers labelled with the real offline time, or calendar time with shaded offline gaps.
+- Charts (`components/history-chart.tsx`): Recharts via shadcn `chart`, smooth (monotone) areas.
+  The stored data is a step function (ADR-0005), but step areas looked jagged at every
+  bucket; monotone curves never overshoot the min-max band, so they stay honest enough.
+  Axis preference per viewer, set on the account page only (default server uptime): server
+  uptime with dashed restart markers labelled with the real offline time, or calendar time
+  with shaded offline gaps.
   Each series also draws its min-max band per bucket, so short spikes (e.g. TPS dips) stay
   visible at long ranges; the tooltip shows the range. Y axis shows number + SI prefix only;
   units are in the tooltip. Later series are dashed so
   identical series stay visible.
 - Energy flow (`components/energy-flow.tsx`): Recharts `Sankey` was sufficient with a custom
-  node renderer; ECharts was not needed. Below 640 px a bar list replaces it.
+  node renderer; ECharts was not needed. Below 640 px a bar list replaces it. Detail per
+  viewer: zones, or devices on both outer columns (see docs/modules/flux.md).
 - PWA: `public/manifest.webmanifest` + `public/sw.js`. The service worker never touches
   `/api/*` (no private data on the device); hashed `/assets/*` are cache-first, page loads are
   network-first with the cached shell as offline fallback. Registered in production builds only.
