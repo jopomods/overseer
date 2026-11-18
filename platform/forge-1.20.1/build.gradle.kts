@@ -178,6 +178,7 @@ tasks.processResources {
 dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
+    testImplementation(libs.gson) // Flux action parameters are JSON (provided by Minecraft in game)
     testRuntimeOnly(libs.junit.launcher)
 }
 
