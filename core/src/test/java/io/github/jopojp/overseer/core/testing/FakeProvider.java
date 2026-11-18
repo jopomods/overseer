@@ -105,6 +105,6 @@ public final class FakeProvider implements DataProvider {
 
     @Override
     public AccessPolicy access() {
-        return (player, resource) -> policy.canView(player, resource);
+        return policy;
     }
 }
