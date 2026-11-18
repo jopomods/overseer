@@ -44,6 +44,44 @@ public final class Ae2Model {
     }
 
     /**
+     * A drive or ME chest (anything AE2 calls {@code IChestOrDrive}, add-on drives included).
+     *
+     * @param id    {@code dimension@x,y,z} of the block
+     * @param block registry id of the block, e.g. {@code ae2:drive}
+     */
+    public record Drive(String id, String block, List<Cell> cells) {
+        public Drive {
+            cells = List.copyOf(cells);
+        }
+
+        public long usedBytes() {
+            return cells.stream().mapToLong(c -> Math.max(0, c.usedBytes())).sum();
+        }
+
+        public long totalBytes() {
+            return cells.stream().mapToLong(c -> Math.max(0, c.totalBytes())).sum();
+        }
+
+        public long usedTypes() {
+            return cells.stream().mapToLong(c -> Math.max(0, c.usedTypes())).sum();
+        }
+
+        public long totalTypes() {
+            return cells.stream().mapToLong(c -> Math.max(0, c.totalTypes())).sum();
+        }
+    }
+
+    /**
+     * A storage cell in a drive slot. Byte and type counts are -1 for cells AE2 does not
+     * describe that way (add-on cells).
+     *
+     * @param item  registry id of the cell item
+     * @param state {@code empty}, {@code not_empty}, {@code types_full} or {@code full}
+     */
+    public record Cell(int slot, String item, String state, long usedBytes, long totalBytes, long usedTypes,
+            long totalTypes) {}
+
+    /**
      * One crafting CPU (ADR-0011).
      *
      * @param id   {@code dimension@x,y,z} of the lowest corner of the multiblock; stable while
@@ -102,10 +140,19 @@ public final class Ae2Model {
             Storage storage,
             Crafting crafting,
             Kind kind,
-            List<Stack> inventory) {
+            List<Stack> inventory,
+            List<Drive> drives) {
 
         public Grid {
             if (inventory != null) inventory = List.copyOf(inventory);
+            drives = drives == null ? List.of() : List.copyOf(drives);
+        }
+
+        public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,
+                ControllerState state, boolean booting, int channels, Energy energy, Storage storage,
+                Crafting crafting, Kind kind, List<Stack> inventory) {
+            this(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy, storage,
+                    crafting, kind, inventory, List.of());
         }
 
         public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,

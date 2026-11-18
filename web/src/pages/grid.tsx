@@ -15,6 +15,7 @@ import {
 } from '@/api/hooks'
 import { GridStateBadge } from '@/components/grid-state-badge'
 import { CraftingSection } from '@/components/crafting-cpus'
+import { DrivesSection } from '@/components/drives-section'
 import { HistoryChart } from '@/components/history-chart'
 import { InventorySection } from '@/components/inventory-list'
 import { LiveBadge } from '@/components/live-badge'
@@ -24,7 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cpus, formatAe, formatAeRate, formatBuckets, formatPos, grids, shortDimension, type Ae2Grid } from '@/lib/ae2'
+import { cpus, drives, formatAe, formatAeRate, formatBuckets, formatPos, grids, shortDimension, type Ae2Grid } from '@/lib/ae2'
 import { formatBytes, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { usePreferences } from '@/lib/preferences'
@@ -125,8 +126,15 @@ export function GridPage() {
             series={[{ metric: 'item_types', label: t('ae2.itemTypes'), color: 'var(--chart-3)' }]}
             format={(v) => formatNumber(v, locale)}
           />
+          <HistoryChart
+            resource={key}
+            series={[{ metric: 'bytes_used', label: t('drive.chart'), color: 'var(--chart-4)' }]}
+            format={(v) => formatBytes(v, locale)}
+          />
         </div>
       </Section>
+
+      <DrivesSection drives={drives(snapshot.data, grid.id)} />
 
       <InventorySection resource={key} />
 

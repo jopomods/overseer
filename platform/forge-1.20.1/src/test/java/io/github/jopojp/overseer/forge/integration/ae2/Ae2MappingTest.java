@@ -112,6 +112,27 @@ class Ae2MappingTest {
     }
 
     @Test
+    void drivesAreResourcesWithCellsAndBytes() {
+        Grid g = grid(OWNER, 10);
+        var drive = new Ae2Model.Drive("minecraft:overworld@4,64,0", "ae2:drive", List.of(
+                new Ae2Model.Cell(0, "ae2:item_storage_cell_64k", "not_empty", 1_000, 65_536, 12, 63),
+                new Ae2Model.Cell(3, "megacells:item_storage_cell_1m", "full", -1, -1, -1, -1)));
+        var withDrive = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(),
+                g.controllers(), g.state(), false, g.channels(), g.energy(), g.storage(), g.crafting(),
+                Ae2Model.Kind.CONTROLLER, null, List.of(drive));
+        var snapshot = Ae2Mapping.snapshot(AT, List.of(withDrive));
+        var ref = Ae2Mapping.drive("minecraft:overworld@4,64,0");
+        assertEquals("0=ae2:item_storage_cell_64k=not_empty;3=megacells:item_storage_cell_1m=full",
+                snapshot.resources().get(ref).get("cells"));
+        assertTrue(snapshot.samples().stream().anyMatch(s -> s.resource().equals(ref)
+                && s.metric().equals("bytes_total") && s.value() == 65_536), "unknown add-on cells add nothing");
+        var gridRef = Ae2Mapping.grid("minecraft:overworld@10,64,0");
+        assertTrue(snapshot.samples().stream().anyMatch(s -> s.resource().equals(gridRef)
+                && s.metric().equals("bytes_used") && s.value() == 1_000));
+        assertEquals(gridRef, Ae2Mapping.AccessIndex.of(List.of(withDrive)).parent(ref));
+    }
+
+    @Test
     void hiddenGridsHaveNoHistoryAndNoOwner() {
         Grid g = grid(null, 10);
         var hidden = new Grid(g.dimension(), g.x(), g.y(), g.z(), null, null, g.nodes(), 0, g.state(), false,

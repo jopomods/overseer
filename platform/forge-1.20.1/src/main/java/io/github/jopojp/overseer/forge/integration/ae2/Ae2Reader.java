@@ -3,6 +3,7 @@ package io.github.jopojp.overseer.forge.integration.ae2;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IInWorldGridNodeHost;
+import appeng.api.implementations.blockentities.IChestOrDrive;
 import appeng.api.networking.crafting.CraftingJobStatus;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.energy.IEnergyService;
@@ -11,6 +12,8 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.cells.CellState;
+import appeng.me.cells.BasicCellInventory;
 import appeng.blockentity.networking.ControllerBlockEntity;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.Grid;
@@ -41,6 +44,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.registries.ForgeRegistries;
 
 /**
  * The only class that reads Applied Energistics 2 objects (AE2 15 for 1.20.1). Server thread
@@ -208,12 +213,14 @@ final class Ae2Reader {
         // Stable order: by id, so the UI does not reshuffle.
         cpuList.sort(Comparator.comparing(Ae2Model.Cpu::id));
 
+        List<Ae2Model.Drive> drives = kind == Kind.HIDDEN ? List.of() : drives(grid);
+
         IPathingService pathing = grid.getPathingService();
         return new Ae2Model.Grid(dimension, pos.getX(), pos.getY(), pos.getZ(), owner,
                 ownerName(server, owner), grid.size(), controllers,
                 ControllerState.valueOf(pathing.getControllerState().name()), pathing.isNetworkBooting(),
                 pathing.getUsedChannels(), energy, storage, new Crafting(cpus, busy, cpuStorage, coProcessors, cpuList), kind,
-                inventory);
+                inventory, drives);
     }
 
     /**
@@ -279,6 +286,39 @@ final class Ae2Reader {
         }
         return new Ae2Model.Cpu(id, name == null ? null : name.getString(), cpu.getAvailableStorage(),
                 cpu.getCoProcessors(), cpu.getSelectionMode().name().toLowerCase(java.util.Locale.ROOT), job);
+    }
+
+    /** Drives and ME chests, add-on drives included (anything implementing {@code IChestOrDrive}). */
+    private static List<Ae2Model.Drive> drives(Grid grid) {
+        var result = new ArrayList<Ae2Model.Drive>();
+        for (Class<?> type : grid.getMachineClasses()) {
+            if (!IChestOrDrive.class.isAssignableFrom(type)) continue;
+            for (Object machine : grid.getMachines(type)) {
+                if (!(machine instanceof IChestOrDrive drive) || !(machine instanceof BlockEntity be)
+                        || be.getLevel() == null || be.isRemoved()) continue;
+                var cells = new ArrayList<Ae2Model.Cell>();
+                for (int slot = 0; slot < drive.getCellCount(); slot++) {
+                    CellState state = drive.getCellStatus(slot);
+                    if (state == null || state == CellState.ABSENT) continue;
+                    var item = drive.getCellItem(slot);
+                    String itemId = item == null ? "" : String.valueOf(ForgeRegistries.ITEMS.getKey(item));
+                    long usedBytes = -1, totalBytes = -1, usedTypes = -1, totalTypes = -1;
+                    if (drive.getOriginalCellInventory(slot) instanceof BasicCellInventory basic) {
+                        usedBytes = basic.getUsedBytes();
+                        totalBytes = basic.getTotalBytes();
+                        usedTypes = basic.getStoredItemTypes();
+                        totalTypes = basic.getTotalItemTypes();
+                    }
+                    cells.add(new Ae2Model.Cell(slot, itemId, state.name().toLowerCase(java.util.Locale.ROOT), usedBytes,
+                            totalBytes, usedTypes, totalTypes));
+                }
+                BlockPos pos = be.getBlockPos();
+                result.add(new Ae2Model.Drive(dimension(be.getLevel()) + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ(),
+                        String.valueOf(ForgeRegistries.BLOCKS.getKey(be.getBlockState().getBlock())), cells));
+            }
+        }
+        result.sort(Comparator.comparing(Ae2Model.Drive::id));
+        return result;
     }
 
     /** Lines shown per job; large jobs keep the most active ones. */

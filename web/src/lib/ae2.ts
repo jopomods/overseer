@@ -222,3 +222,48 @@ export function pastJobs(events: { at: { wall: string; uptimeMillis: number }; k
   }
   return jobs.reverse()
 }
+
+export type CellState = 'empty' | 'not_empty' | 'types_full' | 'full'
+
+export interface Ae2Cell {
+  slot: number
+  item: string
+  state: CellState
+}
+
+export interface Ae2Drive {
+  resource: Resource
+  id: string
+  /** Registry id, e.g. ae2:drive, ae2:chest or an add-on drive. */
+  block: string
+  cells: Ae2Cell[]
+  /** Basic AE2 cells only; add-on cells count by state alone. */
+  usedBytes: number
+  totalBytes: number
+  usedTypes: number
+  totalTypes: number
+}
+
+const CELL_STATES: CellState[] = ['empty', 'not_empty', 'types_full', 'full']
+
+/** Drives and ME chests of one grid. */
+export function drives(snapshot: Snapshot | undefined, gridId: string): Ae2Drive[] {
+  return ofType(snapshot, 'drive')
+    .filter((r) => r.attributes.grid === gridId)
+    .map((r): Ae2Drive => ({
+      resource: r,
+      id: r.ref.id,
+      block: r.attributes.block ?? '',
+      cells: (r.attributes.cells ?? '')
+        .split(';')
+        .filter(Boolean)
+        .map((c) => {
+          const [slot, item, state] = c.split('=')
+          return { slot: Number(slot), item: item ?? '', state: CELL_STATES.includes(state as CellState) ? (state as CellState) : 'not_empty' }
+        }),
+      usedBytes: metric(r, 'bytes_used') ?? 0,
+      totalBytes: metric(r, 'bytes_total') ?? 0,
+      usedTypes: metric(r, 'types_used') ?? 0,
+      totalTypes: metric(r, 'types_total') ?? 0,
+    }))
+}

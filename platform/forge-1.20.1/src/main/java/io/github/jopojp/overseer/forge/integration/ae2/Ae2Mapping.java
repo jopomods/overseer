@@ -41,6 +41,13 @@ public final class Ae2Mapping {
     static final MetricDescriptor JOB_PROGRESS = new MetricDescriptor("job_progress", MetricKind.GAUGE, "", 0.01);
     static final MetricDescriptor JOB_TOTAL = new MetricDescriptor("job_total", MetricKind.GAUGE, "", 0.0);
     static final MetricDescriptor JOB_ELAPSED = new MetricDescriptor("job_elapsed", MetricKind.GAUGE, "s", 0.05);
+    static final MetricDescriptor BYTES_USED = new MetricDescriptor("bytes_used", MetricKind.GAUGE, "B", 0.001);
+    static final MetricDescriptor BYTES_TOTAL = new MetricDescriptor("bytes_total", MetricKind.GAUGE, "B", 0.0);
+    static final MetricDescriptor TYPES_USED = new MetricDescriptor("types_used", MetricKind.GAUGE, "", 0.0);
+    static final MetricDescriptor TYPES_TOTAL = new MetricDescriptor("types_total", MetricKind.GAUGE, "", 0.0);
+    /** Per drive, and summed per grid: storage cells (AE2 basic cells; add-on cells only by state). */
+    static final List<MetricDescriptor> CELL_METRICS = List.of(BYTES_USED, BYTES_TOTAL, TYPES_USED, TYPES_TOTAL);
+
     /** Per crafting CPU, only while it has a job. */
     static final List<MetricDescriptor> CPU_METRICS = List.of(JOB_PROGRESS, JOB_TOTAL, JOB_ELAPSED);
 
@@ -48,8 +55,8 @@ public final class Ae2Mapping {
             ITEM_TYPES, ITEMS, FLUID_TYPES, FLUIDS, CHANNELS, CPUS_BUSY);
 
     /** Grid and CPU metrics: what the provider declares. */
-    static final List<MetricDescriptor> ALL_METRICS = java.util.stream.Stream.concat(METRICS.stream(),
-            CPU_METRICS.stream()).toList();
+    static final List<MetricDescriptor> ALL_METRICS = java.util.stream.Stream.of(METRICS, CPU_METRICS, CELL_METRICS)
+            .flatMap(List::stream).toList();
 
     private Ae2Mapping() {}
 
@@ -59,6 +66,10 @@ public final class Ae2Mapping {
 
     public static ResourceRef cpu(String id) {
         return new ResourceRef(PROVIDER, "cpu", id);
+    }
+
+    public static ResourceRef drive(String id) {
+        return new ResourceRef(PROVIDER, "drive", id);
     }
 
     public static ProviderSnapshot snapshot(Timestamp at, List<Grid> grids) {
@@ -103,6 +114,16 @@ public final class Ae2Mapping {
             }
             samples.add(new Sample(ref, CHANNELS.key(), g.channels()));
             samples.add(new Sample(ref, CPUS_BUSY.key(), g.crafting().busy()));
+            if (!g.drives().isEmpty()) {
+                // Cells keep their contents while unpowered; only booting grids hide them.
+                if (!g.booting()) {
+                    samples.add(new Sample(ref, BYTES_USED.key(), g.drives().stream().mapToLong(Ae2Model.Drive::usedBytes).sum()));
+                    samples.add(new Sample(ref, BYTES_TOTAL.key(), g.drives().stream().mapToLong(Ae2Model.Drive::totalBytes).sum()));
+                    samples.add(new Sample(ref, TYPES_USED.key(), g.drives().stream().mapToLong(Ae2Model.Drive::usedTypes).sum()));
+                    samples.add(new Sample(ref, TYPES_TOTAL.key(), g.drives().stream().mapToLong(Ae2Model.Drive::totalTypes).sum()));
+                }
+                for (Ae2Model.Drive drive : g.drives()) drive(g, drive, resources, samples);
+            }
             for (Ae2Model.Cpu cpu : g.crafting().list()) {
                 cpu(g, cpu, resources, samples);
                 if (cpu.job() != null) jobs.put(cpu(cpu.id()), cpu.job().lines());
@@ -143,17 +164,42 @@ public final class Ae2Mapping {
         }
     }
 
+    /**
+     * A drive or ME chest. The cells and their state are one attribute: it changes when a cell is
+     * inserted, removed or gets full, which makes those moments events. Bytes are metrics.
+     */
+    private static void drive(Grid g, Ae2Model.Drive drive, Map<ResourceRef, Map<String, String>> resources,
+            List<Sample> samples) {
+        ResourceRef ref = drive(drive.id());
+        var attrs = new LinkedHashMap<String, String>();
+        attrs.put("grid", g.id());
+        attrs.put("block", drive.block());
+        var cells = new StringBuilder();
+        for (Ae2Model.Cell cell : drive.cells()) {
+            if (!cells.isEmpty()) cells.append(';');
+            cells.append(cell.slot()).append('=').append(cell.item()).append('=').append(cell.state());
+        }
+        attrs.put("cells", cells.toString());
+        resources.put(ref, attrs);
+        if (g.booting()) return;
+        samples.add(new Sample(ref, BYTES_USED.key(), drive.usedBytes()));
+        samples.add(new Sample(ref, BYTES_TOTAL.key(), drive.totalBytes()));
+        samples.add(new Sample(ref, TYPES_USED.key(), drive.usedTypes()));
+        samples.add(new Sample(ref, TYPES_TOTAL.key(), drive.totalTypes()));
+    }
+
     public static final class AccessIndex {
         public static final AccessIndex EMPTY = new AccessIndex(Map.of(), Map.of(), Map.of());
 
         private final Map<String, UUID> owners;
         private final Map<String, Set<UUID>> teams;
-        private final Map<String, String> cpuGrids;
+        /** Resource key of a part (CPU, drive) to the id of its grid. */
+        private final Map<String, String> partGrids;
 
-        private AccessIndex(Map<String, UUID> owners, Map<String, Set<UUID>> teams, Map<String, String> cpuGrids) {
+        private AccessIndex(Map<String, UUID> owners, Map<String, Set<UUID>> teams, Map<String, String> partGrids) {
             this.owners = owners;
             this.teams = teams;
-            this.cpuGrids = cpuGrids;
+            this.partGrids = partGrids;
         }
 
         public static AccessIndex of(List<Grid> grids) {
@@ -165,21 +211,22 @@ public final class Ae2Mapping {
             var owners = new HashMap<String, UUID>();
             var teams = new HashMap<String, Set<UUID>>();
             var cache = new HashMap<UUID, Set<UUID>>();
-            var cpuGrids = new HashMap<String, String>();
+            var partGrids = new HashMap<String, String>();
             for (Grid g : grids) {
-                for (Ae2Model.Cpu cpu : g.crafting().list()) cpuGrids.put(cpu.id(), g.id());
+                for (Ae2Model.Cpu cpu : g.crafting().list()) partGrids.put(cpu(cpu.id()).key(), g.id());
+                for (Ae2Model.Drive drive : g.drives()) partGrids.put(drive(drive.id()).key(), g.id());
                 if (g.owner() == null) continue;
                 owners.put(g.id(), g.owner());
                 Set<UUID> team = cache.computeIfAbsent(g.owner(), teammates);
                 if (!team.isEmpty()) teams.put(g.id(), Set.copyOf(team));
             }
-            return new AccessIndex(Map.copyOf(owners), Map.copyOf(teams), Map.copyOf(cpuGrids));
+            return new AccessIndex(Map.copyOf(owners), Map.copyOf(teams), Map.copyOf(partGrids));
         }
 
-        /** The grid of a crafting CPU: CPUs are visible exactly like their grid. */
+        /** The grid of a part (crafting CPU, drive): parts are visible exactly like their grid. */
         public ResourceRef parent(ResourceRef ref) {
-            if (!ref.provider().equals(PROVIDER) || !ref.type().equals("cpu")) return null;
-            String grid = cpuGrids.get(ref.id());
+            if (!ref.provider().equals(PROVIDER) || ref.type().equals("grid")) return null;
+            String grid = partGrids.get(ref.key());
             return grid == null ? null : grid(grid);
         }
 
