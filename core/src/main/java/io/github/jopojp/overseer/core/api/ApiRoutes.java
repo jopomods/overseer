@@ -20,6 +20,7 @@ import io.github.jopojp.overseer.core.provider.ProviderSnapshot;
 import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.storage.AccessRequestStore;
 import io.github.jopojp.overseer.core.storage.Database;
+import io.github.jopojp.overseer.core.storage.EventQuery;
 import io.github.jopojp.overseer.core.storage.HistoryQuery;
 import io.github.jopojp.overseer.core.storage.InventoryQuery;
 import io.github.jopojp.overseer.core.storage.NotificationStore;
@@ -126,6 +127,7 @@ public final class ApiRoutes {
                 .get("/api/v1/history", this::history)
                 .get("/api/v1/sessions", this::sessions)
                 .get("/api/v1/inventory", this::inventory)
+                .get("/api/v1/events", this::events)
                 .get("/api/v1/overrides", this::listOverrides)
                 .put("/api/v1/overrides", this::setOverride)
                 .get("/api/v1/shares", this::listShares)
@@ -286,6 +288,24 @@ public final class ApiRoutes {
         principal(r);
         try (var reader = db.openReader()) {
             return Response.json(Dtos.sessions(uptime.getAsLong(), Sessions.list(reader)));
+        }
+    }
+
+    static final int MAX_EVENTS = 500;
+
+    /** Recorded changes of one resource, newest first, e.g. the job history of a crafting CPU. */
+    private Response events(Request r) throws SQLException {
+        Principal p = principal(r);
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        List<String> attributes = r.query().getOrDefault("attribute", List.of());
+        if (attributes.size() > 20) throw HttpError.badRequest("Give at most 20 attribute parameters.");
+        int limit = (int) longParam(r, "limit", 100);
+        if (limit < 1 || limit > MAX_EVENTS) throw HttpError.badRequest("limit must be 1 to " + MAX_EVENTS + ".");
+        try (var reader = db.openReader()) {
+            return Response.json(EventQuery.events(reader, ref, attributes, limit).stream()
+                    .map(e -> new Dtos.Event(Dtos.timestamp(e.at()), e.kind(), e.attribute(), e.value()))
+                    .toList());
         }
     }
 

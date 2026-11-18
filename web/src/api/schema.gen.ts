@@ -323,6 +323,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recorded changes of a resource
+         * @description Added, removed and attribute changes of one resource, newest first. Used for the job
+         *     history of AE2 crafting CPUs (attribute `job`). 404 when the resource is not visible.
+         */
+        get: operations["listEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/overrides": {
         parameters: {
             query?: never;
@@ -667,6 +688,14 @@ export interface components {
             uptimeMillis: number;
             /** @description Uptime session number. */
             session: number;
+        };
+        Event: {
+            at: components["schemas"]["Timestamp"];
+            /** @enum {string} */
+            kind: "added" | "removed" | "attribute";
+            attribute: string | null;
+            /** @description New value; null when the attribute was removed. */
+            value: string | null;
         };
         Inventory: {
             /** @description Resource key. */
@@ -1299,6 +1328,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Inventory"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listEvents: {
+        parameters: {
+            query: {
+                resource: string;
+                /** @description Only changes of these attributes (repeat, at most 20); added/removed always. */
+                attribute?: string[];
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Events, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Event"][];
                 };
             };
             400: components["responses"]["BadRequest"];

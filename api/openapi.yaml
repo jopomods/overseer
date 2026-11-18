@@ -414,6 +414,52 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/events:
+    get:
+      tags: [data]
+      operationId: listEvents
+      summary: Recorded changes of a resource
+      description: |
+        Added, removed and attribute changes of one resource, newest first. Used for the job
+        history of AE2 crafting CPUs (attribute `job`). 404 when the resource is not visible.
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: attribute
+          in: query
+          description: Only changes of these attributes (repeat, at most 20); added/removed always.
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: Events, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/overrides:
     get:
       tags: [data]
@@ -1030,6 +1076,21 @@ components:
         session:
           type: integer
           description: Uptime session number.
+
+    Event:
+      type: object
+      required: [at, kind, attribute, value]
+      properties:
+        at:
+          $ref: "#/components/schemas/Timestamp"
+        kind:
+          type: string
+          enum: [added, removed, attribute]
+        attribute:
+          type: [string, "null"]
+        value:
+          type: [string, "null"]
+          description: New value; null when the attribute was removed.
 
     Inventory:
       type: object

@@ -489,6 +489,27 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void eventsListChangesNewestFirstToViewersOnly() throws Exception {
+        collect();
+        flux.resource(ALEX_NET, Map.of("name", "Alex Main", "owner", ALEX.uuid().toString(), "ownerName", "Alex"));
+        collect();
+        var alex = new Browser().loginAs(ALEX);
+        var steve = new Browser().loginAs(STEVE);
+        assertEquals(404, steve.get("/api/v1/events?resource=flux/network/1").statusCode());
+        com.google.gson.JsonArray events = null;
+        for (int i = 0; i < 50; i++) { // the storage writer is asynchronous
+            events = JsonParser.parseString(alex.get("/api/v1/events?resource=flux/network/1&attribute=name").body())
+                    .getAsJsonArray();
+            if (events.size() == 3) break;
+            Thread.sleep(100);
+        }
+        assertEquals(3, events.size(), "renamed, named, added: " + events);
+        assertEquals("Alex Main", events.get(0).getAsJsonObject().get("value").getAsString());
+        assertEquals("Alex Base", events.get(1).getAsJsonObject().get("value").getAsString());
+        assertEquals("added", events.get(2).getAsJsonObject().get("kind").getAsString());
+    }
+
+    @Test
     void sharingNeedsTheProviderCapability() throws Exception {
         operators.add(ALEX.uuid());
         var alex = new Browser().loginAs(ALEX);
