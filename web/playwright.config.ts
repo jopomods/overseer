@@ -2,9 +2,13 @@ import { defineConfig, devices } from '@playwright/test'
 
 /**
  * Layout tests run every page at every target width (ADR-0009):
- * phone 360/390, tablet 768/1024 landscape, desktop 1280/1920.
+ * phone 360/390, tablet 768/1024 landscape, desktop 1280/1920. Flow tests check behaviour, which
+ * does not change between neighbouring widths: they run on the smallest phone and on desktop.
  * Runs against the production build via `vite preview`; the API is mocked per test.
  */
+/** Widths that run every spec; the others run only the layout tests. */
+const FULL = new Set(['phone-360', 'desktop-1280'])
+
 const viewports = [
   { name: 'phone-360', width: 360, height: 780 },
   { name: 'phone-390', width: 390, height: 844 },
@@ -31,6 +35,7 @@ export default defineConfig({
   },
   projects: viewports.map(({ name, width, height }) => ({
     name,
+    testMatch: FULL.has(name) ? undefined : /layout\.spec\.ts$/,
     use: {
       ...devices['Desktop Chrome'],
       viewport: { width, height },
