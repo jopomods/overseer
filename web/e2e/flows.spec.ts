@@ -268,6 +268,8 @@ test.describe('flows', () => {
     await profiler.getByRole('button', { name: 'Stop' }).click()
     await expect(page.getByTestId('profiler-status')).toHaveText('Off')
     await expect(page.getByTestId('profiler-chart')).toContainText('Large Chemical Reactor')
+    await page.getByTestId('profiler-chart').getByRole('radio', { name: 'By mod' }).click()
+    await expect(page.getByTestId('profiler-chart')).toContainText('GregTech CEu')
     await expect(page.getByTestId('profiler-top').getByRole('listitem').first()).toContainText('1.8 ms')
   })
 

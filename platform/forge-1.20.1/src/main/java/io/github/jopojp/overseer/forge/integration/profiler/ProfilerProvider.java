@@ -71,7 +71,7 @@ public final class ProfilerProvider implements DataProvider {
             TimeTracker.BLOCK_ENTITY_UPDATE.enable(ARM_SECONDS);
             TimeTracker.ENTITY_UPDATE.enable(ARM_SECONDS);
             if (++collections % s.intervalSeconds() == 0) {
-                last = ProfilerMapping.measure(read());
+                last = ProfilerMapping.measure(read(), ProfilerProvider::modName);
                 fresh = true;
                 restart();
             }
@@ -107,6 +107,11 @@ public final class ProfilerProvider implements DataProvider {
                     t.getAverageTimings()));
         }
         return result;
+    }
+
+    private static String modName(String namespace) {
+        return net.minecraftforge.fml.ModList.get().getModContainerById(namespace)
+                .map(c -> c.getModInfo().getDisplayName()).orElse(namespace);
     }
 
     private static String where(Level level, int x, int y, int z) {

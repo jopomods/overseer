@@ -23,6 +23,9 @@ calls `trackStart` but never `trackEnd`, so no block entity is ever recorded. En
   the rest as "other") into metrics `tick_us` and `objects` of resources `profiler/type/<kind>:<id>`
   and `profiler/total/all`. History and the stacked chart come from the normal pipeline. After a
   measurement the timers restart, so each one covers its own interval.
+- Each measurement also sums every type (not only the largest 15) by mod, the namespace of its
+  registry id: resources `profiler/mod/<namespace>` with the mod's display name. The chart switches
+  between "by type" and "by mod".
 - The top 50 single objects (type, name, position, time) are a live table
   (`ProviderSnapshot.details`, `/api/v1/details`): never stored, they change with every measurement.
 - One mixin (`BoundTickingBlockEntityMixin`) completes Forge's timer: it remembers the object
