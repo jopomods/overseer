@@ -312,6 +312,45 @@ function jobLines(realistic: boolean) {
   return Array.from({ length: 300 }, (_, i) => ({ key: `item:${LONG.toLowerCase()}:l${i}`, kind: 'item', name: `${LONG} ${i}`, stored: 9.2e18, active: 9.2e18 - i, pending: 9.2e18 }))
 }
 
+const PROFILER_TYPES: Array<[string, string, number, number]> = [
+  ['block:gtceu:ev_large_chemical_reactor', 'Large Chemical Reactor', 3_210, 2],
+  ['block:ae2:pattern_provider', 'Pattern Provider', 2_480, 64],
+  ['block:gtceu:hv_macerator', 'HV Macerator', 1_150, 12],
+  ['block:minecraft:hopper', 'Hopper', 640, 40],
+  ['entity:minecraft:item', 'Item', 420, 85],
+  ['block:fluxnetworks:flux_point', 'Flux Point', 180, 16],
+]
+
+function profilerSnapshot(realistic: boolean) {
+  const types = realistic
+    ? PROFILER_TYPES
+    : Array.from({ length: 16 }, (_, i): [string, string, number, number] => [`block:${LONG.toLowerCase()}:t${i}`, `${LONG} ${i}`, 9e9 / (i + 1), 65_536])
+  const resource = (key: string, attributes: Record<string, string>, metrics: Record<string, number>) => {
+    const id = key.slice('profiler/'.length).split('/').slice(1).join('/')
+    const type = key.split('/')[1]
+    return { ref: { provider: 'profiler', type, id, key }, attributes, metrics, canEdit: false }
+  }
+  return {
+    provider: 'profiler',
+    at: { wall: now(), uptimeMillis: 123_456_789, session: 3 },
+    resources: [
+      resource('profiler/total/all', {}, { tick_us: types.reduce((s, x) => s + x[2], 0), objects: types.reduce((s, x) => s + x[3], 0) }),
+      ...types.map(([id, name, us, objects]) => resource(`profiler/type/${id}`, { kind: id.split(':')[0], name }, { tick_us: us, objects })),
+    ],
+  }
+}
+
+function profilerTop(realistic: boolean) {
+  if (!realistic) return Array.from({ length: 50 }, (_, i) => ({ kind: 'block', type: `${LONG}:x`, name: `${LONG} ${i}`, where: `${LONG}:dimension@-29999999,-64,${i}`, us: String(9e9 / (i + 1)) }))
+  return [
+    { kind: 'block', type: 'gtceu:ev_large_chemical_reactor', name: 'Large Chemical Reactor', where: 'minecraft:overworld@243,73,30', us: '1820.40' },
+    { kind: 'block', type: 'gtceu:ev_large_chemical_reactor', name: 'Large Chemical Reactor', where: 'minecraft:overworld@241,73,30', us: '1389.60' },
+    { kind: 'block', type: 'gtceu:hv_macerator', name: 'HV Macerator', where: 'minecraft:overworld@205,68,43', us: '212.10' },
+    { kind: 'block', type: 'ae2:pattern_provider', name: 'Pattern Provider', where: 'minecraft:overworld@120,64,-338', us: '96.30' },
+    { kind: 'entity', type: 'minecraft:item', name: 'Item', where: 'minecraft:overworld@118,65,-12', us: '12.80' },
+  ]
+}
+
 /** Job history of a CPU: three finished jobs, then the running one. */
 function eventsBody(url: URL) {
   const at = (minutesAgo: number) => ({ wall: new Date(Date.now() - minutesAgo * 60_000).toISOString(), uptimeMillis: 123_456_789 - minutesAgo * 60_000, session: 3 })
@@ -449,6 +488,7 @@ export function createMockBackend(options: MockOptions = {}) {
           { resource: grid, item: 'fluid:gtceu:oxygen', name: 'Oxygen', kind: 'fluid', createdAt: now(), change1h: 16_000, change24h: 64_000 },
         ]
       : []
+  const profiler: { mode: 'off' | 'timed' | 'continuous'; until?: string; intervalSeconds: number } = { mode: 'off', intervalSeconds: 10 }
   const shares: Array<{ resource: string; player: string; name: string; grantedAt: string }> = options.realistic
     ? [{ resource: 'ae2/grid/minecraft:overworld@120,64,-340', player: '00000000-0000-0000-0000-00000000a1e7', name: 'Alex', grantedAt: now() }]
     : Array.from({ length: 6 }, (_, i) => ({ resource: 'ae2/grid/minecraft:overworld@0,64,-0', player: `uuid-share-${i}`, name: i === 0 ? LONG.slice(0, 16) : `Friend${i}`, grantedAt: now() }))
@@ -502,6 +542,22 @@ export function createMockBackend(options: MockOptions = {}) {
         return json(snapshot('flux'))
       case '/api/v1/providers/ae2/snapshot':
         return json(snapshot('ae2'))
+      case '/api/v1/providers/profiler/snapshot':
+        return json(profilerSnapshot(options.realistic === true))
+      case '/api/v1/admin/profiler': {
+        if (role === 'player') return json({ error: { code: 'forbidden', message: 'no' } }, 403)
+        if (method === 'PUT') {
+          const b = body as { mode: 'off' | 'timed' | 'continuous'; durationSeconds?: number; intervalSeconds?: number }
+          profiler.mode = b.mode
+          profiler.intervalSeconds = b.intervalSeconds ?? profiler.intervalSeconds
+          profiler.until = b.mode === 'timed' ? new Date(Date.now() + (b.durationSeconds ?? 60) * 1000).toISOString() : undefined
+        }
+        return json({ ...profiler, active: profiler.mode !== 'off' })
+      }
+      case '/api/v1/details':
+        return url.searchParams.get('resource') === 'profiler/total/all'
+          ? json({ resource: 'profiler/total/all', at: { wall: now(), uptimeMillis: 123_456_789, session: 3 }, rows: profilerTop(options.realistic === true) })
+          : json({ error: { code: 'not_found', message: 'no' } }, 404)
       case '/api/v1/admin/collectors':
         return json({
           collectors: [
