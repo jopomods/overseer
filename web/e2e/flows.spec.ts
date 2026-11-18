@@ -44,7 +44,7 @@ test.describe('flows', () => {
     await page.getByTestId('network-list').getByRole('link').first().click()
     await expect(page.getByTestId('zones')).toContainText('Power plant')
     const rows = page.getByTestId('device-list').getByRole('listitem')
-    await expect(rows).toHaveCount(200)
+    await expect(rows).toHaveCount(202)
     await page.getByRole('tab', { name: /Storages/ }).click()
     await expect(rows).toHaveCount(50)
     await page.getByPlaceholder('Search devices').fill('Device 2')
@@ -80,17 +80,40 @@ test.describe('flows', () => {
     expect(cached.filter((u) => u.startsWith('/api/'))).toEqual([])
   })
 
-  test('history chart: ranges, axis switch and offline marker', async ({ page }) => {
+  test('history chart: server uptime by default, calendar axis from settings, ranges', async ({ page }) => {
     await mockApi(page)
     await page.goto('/energy/0')
     const chart = page.getByTestId('chart-flow')
     await expect(chart.locator('.recharts-area').first()).toBeVisible()
-    // Uptime axis: the restart inside the last 24 h shows the real offline time.
+    // Server uptime axis: the restart inside the last 24 h shows the real offline time.
     await expect(chart.getByText(/14 h/)).toBeVisible()
-    await chart.getByRole('radio', { name: 'Calendar' }).click()
+    await expect(chart.getByRole('radio', { name: 'Calendar' })).toHaveCount(0)
+
+    // The axis is a viewer setting on the account page.
+    await page.goto('/account')
+    await page.getByRole('button', { name: 'Calendar' }).click()
+    await page.goto('/energy/0')
     await expect(chart.locator('.recharts-reference-area')).toHaveCount(1)
     await chart.getByRole('radio', { name: '7 d' }).click()
     await expect(chart.getByRole('radio', { name: '7 d' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('energy flow detail: zones or devices, same-named devices grouped', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/energy/1')
+    const flow = page.getByTestId('energy-flow')
+    await expect(page.getByTestId('flow-sankey')).toContainText('ACG II')
+    await expect(page.getByTestId('flow-sankey')).not.toContainText('Kraftwerk')
+    await flow.getByRole('radio', { name: 'Devices' }).click()
+    await expect(page.getByTestId('flow-sankey')).toContainText('Kraftwerk')
+    await expect(page.getByTestId('flow-sankey')).toContainText('ACG II')
+  })
+
+  test('energy flow groups devices with the same zone and name', async ({ page }) => {
+    await mockApi(page)
+    await page.addInitScript(() => localStorage.setItem('overseer.preferences', JSON.stringify({ flowDetail: 'devices' })))
+    await page.goto('/energy/0')
+    await expect(page.getByTestId('flow-sankey')).toContainText('Twin ×2')
   })
 
   test('zones can be changed in the UI and the storage forecast is shown', async ({ page }) => {

@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { formatDuration } from '@/lib/format'
 import { useT } from '@/lib/i18n'
-import { setPreferences, usePreferences, type EnergyUnit, type Locale } from '@/lib/preferences'
+import { setPreferences, usePreferences, type EnergyUnit, type Locale, type TimeAxis } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
 
 export function AccountPage() {
@@ -94,6 +94,16 @@ function Preferences() {
               { value: 'en', label: 'English' },
             ]}
             onChange={(locale) => setPreferences({ locale })}
+          />
+        </Row>
+        <Row label={t('account.timeAxis')}>
+          <Choice<TimeAxis>
+            value={prefs.axis}
+            options={[
+              { value: 'uptime', label: t('chart.uptime') },
+              { value: 'calendar', label: t('chart.calendar') },
+            ]}
+            onChange={(axis) => setPreferences({ axis })}
           />
         </Row>
         <Row label={t('account.energyUnit')}>

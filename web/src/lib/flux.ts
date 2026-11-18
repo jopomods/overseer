@@ -1,4 +1,5 @@
 import type { Override, Resource, Snapshot } from '@/api/hooks'
+import type { FlowDetail } from './preferences'
 import { metric, ofType } from './snapshot'
 
 /**
@@ -133,9 +134,11 @@ export function zones(list: FluxDevice[]): ZoneSummary[] {
   }))
 }
 
+export type FlowNodeKind = 'device-source' | 'source' | 'network' | 'sink' | 'device-sink'
+
 export interface FlowNode {
   name: string
-  kind: 'source' | 'network' | 'sink'
+  kind: FlowNodeKind
 }
 
 export interface FlowGraph {
@@ -145,44 +148,110 @@ export interface FlowGraph {
   total: number
 }
 
+
+export interface FlowLabels {
+  network: string
+  noZone: string
+  storageIn: string
+  storageOut: string
+  /** Label of the node that groups the smaller devices of a zone, e.g. "+12 more". */
+  more: (count: number) => string
+}
+
+/** Device detail shows at most this many device groups per zone; the rest is grouped. */
+export const MAX_DEVICES_PER_ZONE = 8
+
 /**
- * Energy flow of one network for the Sankey diagram: generation per zone (plugs) and
- * discharging storages flow into the network, which feeds consumption per zone (points)
- * and charging storages.
+ * Energy flow of one network for the Sankey diagram.
  *
+ * - `zones`: zone → network → zone (plugs on the left, points on the right).
+ * - `devices`: device → zone → network → zone → device. Devices of the same type with the
+ *   same zone and name are grouped ("Power plant B ×2").
+ *
+ * Storages connect to the network directly: discharging on the left, charging on the right.
  * Flux reports transfer positive for energy entering the network (plugs) and negative for
  * energy leaving it (points); storages follow the same sign: positive = discharging.
  */
-export function flowGraph(list: FluxDevice[], labels: { network: string; noZone: string; storageIn: string; storageOut: string }): FlowGraph {
-  const sources = new Map<string, number>()
-  const sinks = new Map<string, number>()
-  const add = (map: Map<string, number>, key: string, value: number) => map.set(key, (map.get(key) ?? 0) + value)
-  for (const d of list) {
-    const flow = d.transfer
-    if (!flow) continue
-    if (d.type === 'plug') add(sources, d.zone ?? labels.noZone, Math.abs(flow))
-    else if (d.type === 'point') add(sinks, d.zone ?? labels.noZone, Math.abs(flow))
-    else if (d.type === 'storage') {
-      if (flow > 0) add(sources, labels.storageOut, flow)
-      else add(sinks, labels.storageIn, -flow)
-    }
-  }
+export function flowGraph(list: FluxDevice[], labels: FlowLabels, detail: FlowDetail = 'zones'): FlowGraph {
   const nodes: FlowNode[] = []
   const links: FlowGraph['links'] = []
-  const sorted = (m: Map<string, number>) => [...m.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
-  const srcEntries = sorted(sources)
-  const sinkEntries = sorted(sinks)
-  for (const [name] of srcEntries) nodes.push({ name, kind: 'source' })
-  const network = nodes.length
-  nodes.push({ name: labels.network, kind: 'network' })
-  srcEntries.forEach(([, value], i) => links.push({ source: i, target: network, value }))
-  for (const [name, value] of sinkEntries) {
-    links.push({ source: network, target: nodes.length, value })
-    nodes.push({ name, kind: 'sink' })
+  const index = new Map<string, number>()
+  const node = (key: string, name: string, kind: FlowNodeKind) => {
+    let i = index.get(key)
+    if (i === undefined) {
+      i = nodes.length
+      nodes.push({ name, kind })
+      index.set(key, i)
+    }
+    return i
   }
-  const total = Math.max(
-    srcEntries.reduce((s, [, v]) => s + v, 0),
-    sinkEntries.reduce((s, [, v]) => s + v, 0),
-  )
-  return { nodes, links, total }
+  const linkValues = new Map<string, number>()
+  const link = (source: number, target: number, value: number) => {
+    const key = `${source}>${target}`
+    linkValues.set(key, (linkValues.get(key) ?? 0) + value)
+  }
+
+  // Sort by size so the biggest flows sit on top.
+  const flowing = list.filter((d) => d.transfer !== 0).sort((a, b) => Math.abs(b.transfer) - Math.abs(a.transfer))
+  const network = () => node('network', labels.network, 'network')
+  let inflow = 0
+  let outflow = 0
+  // Device groups per side and zone: same zone and name count as one device ("×2").
+  const groups = new Map<string, Map<string, { label: string; count: number; value: number }>>()
+  const collect = (side: 'dsrc' | 'dsnk', zone: string, label: string, value: number) => {
+    const key = `${side}:${zone}`
+    const zoneGroups = groups.get(key) ?? new Map()
+    const group = zoneGroups.get(label) ?? { label, count: 0, value: 0 }
+    group.count++
+    group.value += value
+    zoneGroups.set(label, group)
+    groups.set(key, zoneGroups)
+  }
+
+  for (const d of flowing) {
+    const value = Math.abs(d.transfer)
+    const zone = d.zone ?? labels.noZone
+    if (d.type === 'storage') {
+      if (d.transfer > 0) link(node('storage-out', labels.storageOut, 'source'), network(), value)
+      else link(network(), node('storage-in', labels.storageIn, 'sink'), value)
+    } else if (d.type === 'plug') {
+      const zoneNode = node(`src:${zone}`, zone, 'source')
+      if (detail === 'devices') collect('dsrc', zone, d.label, value)
+      link(zoneNode, network(), value)
+    } else if (d.type === 'point') {
+      node(`snk:${zone}`, zone, 'sink')
+      link(network(), index.get(`snk:${zone}`)!, value)
+      if (detail === 'devices') collect('dsnk', zone, d.label, value)
+    } else {
+      continue
+    }
+    if (d.transfer > 0) inflow += value
+    else outflow += value
+  }
+
+  // Device nodes: the largest groups per zone, the rest as one "+N more" node.
+  for (const [key, zoneGroups] of groups) {
+    const side = key.startsWith('dsrc') ? 'dsrc' : 'dsnk'
+    const zone = key.slice(5)
+    const zoneNode = index.get(`${side === 'dsrc' ? 'src' : 'snk'}:${zone}`)!
+    const sorted = [...zoneGroups.values()].sort((a, b) => b.value - a.value)
+    const shown = sorted.length > MAX_DEVICES_PER_ZONE ? sorted.slice(0, MAX_DEVICES_PER_ZONE - 1) : sorted
+    const rest = sorted.slice(shown.length)
+    const entries = shown.map((g) => ({ key: g.label, name: g.count > 1 ? `${g.label} ×${g.count}` : g.label, value: g.value }))
+    if (rest.length) {
+      const count = rest.reduce((s, g) => s + g.count, 0)
+      entries.push({ key: ' more', name: labels.more(count), value: rest.reduce((s, g) => s + g.value, 0) })
+    }
+    for (const e of entries) {
+      const deviceNode = node(`${side}:${zone}:${e.key}`, e.name, side === 'dsrc' ? 'device-source' : 'device-sink')
+      if (side === 'dsrc') link(deviceNode, zoneNode, e.value)
+      else link(zoneNode, deviceNode, e.value)
+    }
+  }
+
+  for (const [key, value] of linkValues) {
+    const [source, target] = key.split('>').map(Number)
+    links.push({ source, target, value })
+  }
+  return { nodes, links, total: Math.max(inflow, outflow) }
 }
