@@ -210,6 +210,17 @@ test.describe('flows', () => {
     await expect(cards.last().getByTestId('job-lines')).toHaveCount(0)
   })
 
+  test('drives show fill and cell states, fullest first', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/ae2/minecraft:overworld@120,64,-340')
+    await expect(page.getByText('3 drives · 9 cells')).toBeVisible()
+    await expect(page.getByTestId('drive-summary')).toContainText('2 cells are full or have no free types')
+    const drives = page.getByTestId('drive-list').getByRole('listitem')
+    await expect(drives).toHaveCount(3)
+    await expect(drives.first()).toContainText('Drive · 116, 64, -338')
+    await expect(drives.last()).toContainText('Drive · 116, 65, -338')
+  })
+
   test('ME network contents are searchable and sortable', async ({ page }) => {
     await mockApi(page, { realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')

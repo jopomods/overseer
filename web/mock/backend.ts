@@ -167,6 +167,32 @@ function cpuResource(grid: string, id: string, attrs: Record<string, string>, me
   }
 }
 
+function driveResource(grid: string, id: string, block: string, cells: string[], bytes: [number, number], types: [number, number]) {
+  return {
+    ref: { provider: 'ae2', type: 'drive', id, key: `ae2/drive/${id}` },
+    attributes: { grid, block, cells: cells.map((c, i) => `${i}=${c}`).join(';') },
+    metrics: { bytes_used: bytes[0], bytes_total: bytes[1], types_used: types[0], types_total: types[1] },
+  }
+}
+
+/** Drives: realistic, a small GregTech base; extreme: 40 drives full of huge add-on cells. */
+function driveResources(realistic: boolean) {
+  if (realistic) {
+    const grid = 'minecraft:overworld@120,64,-340'
+    const cell = (size: string, state: string) => `ae2:item_storage_cell_${size}=${state}`
+    return [
+      driveResource(grid, 'minecraft:overworld@116,64,-338', 'ae2:drive', [cell('64k', 'not_empty'), cell('64k', 'not_empty'), cell('64k', 'types_full'), cell('16k', 'full'), cell('16k', 'not_empty'), 'ae2:fluid_storage_cell_64k=not_empty'], [301_234, 360_448], [298, 378]),
+      driveResource(grid, 'minecraft:overworld@116,65,-338', 'ae2:drive', [cell('256k', 'not_empty'), cell('256k', 'empty')], [41_200, 524_288], [12, 126]),
+      driveResource(grid, 'minecraft:overworld@114,64,-338', 'ae2:chest', [cell('4k', 'not_empty')], [1_904, 4_096], [3, 63]),
+    ]
+  }
+  return Array.from({ length: 40 }, (_, i) =>
+    driveResource('minecraft:overworld@0,64,-0', `minecraft:overworld@${i},${-i},${i}`, i % 3 ? `${LONG.toLowerCase()}:ex_drive` : 'ae2:drive',
+      Array.from({ length: i % 3 ? 20 : 10 }, (_, s) => `megacells:bulk_item_cell_${s}=${['empty', 'not_empty', 'types_full', 'full'][(s + i) % 4]}`),
+      [9.2e18 / (i + 1), 9.2e18], [i * 1000, 987_654]),
+  )
+}
+
 /** Crafting CPUs: realistic, one running job that advances in real time; extreme: many, long names. */
 function cpuResources(realistic: boolean) {
   const t = (Date.now() / 1000) % 600
@@ -230,7 +256,7 @@ export function ae2Snapshot(realistic = false, adopted: Map<string, string> = ne
   return {
     provider: 'ae2',
     at: { wall: now(), uptimeMillis: 123_456_789, session: 3 },
-    resources: [...[...grids, ...hidden].map(gridResource), ...cpuResources(realistic)],
+    resources: [...[...grids, ...hidden].map(gridResource), ...cpuResources(realistic), ...driveResources(realistic)],
   }
 }
 
