@@ -18,6 +18,7 @@ import { CraftingSection } from '@/components/crafting-cpus'
 import { DrivesSection } from '@/components/drives-section'
 import { HistoryChart } from '@/components/history-chart'
 import { InventorySection } from '@/components/inventory-list'
+import { WatchlistSection } from '@/components/watchlist'
 import { LiveBadge } from '@/components/live-badge'
 import { useSession } from '@/components/session'
 import { Section, Stat } from '@/components/stat'
@@ -136,7 +137,9 @@ export function GridPage() {
 
       <DrivesSection drives={drives(snapshot.data, grid.id)} />
 
-      <InventorySection resource={key} />
+      <WatchlistSection grid={grid.resource} canEdit={grid.canEdit} />
+
+      <InventorySection resource={key} canEdit={grid.canEdit} />
 
       {grid.canEdit && <AccessSection resource={key} />}
       {grid.canEdit && grid.kind === 'registered' && <UnregisterButton resource={key} />}

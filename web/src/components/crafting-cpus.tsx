@@ -30,7 +30,7 @@ export function CraftingSection({ cpus }: { cpus: Ae2Cpu[] }) {
       title={t('cpu.title')}
       aside={<span className="text-muted-foreground shrink-0 text-xs">{t('cpu.busyOf', { busy, count: cpus.length })}</span>}
     >
-      <ul className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="cpu-list">
+      <ul className="grid min-w-0 items-start gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="cpu-list">
         {cpus.map((cpu) => (
           <CpuCard key={cpu.id} cpu={cpu} number={numbers.get(cpu.id) ?? 0} />
         ))}

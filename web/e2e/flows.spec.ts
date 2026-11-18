@@ -221,6 +221,28 @@ test.describe('flows', () => {
     await expect(drives.last()).toContainText('Drive · 116, 65, -338')
   })
 
+  test('watchlist shows deficits first, owners star items and set targets', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/ae2/minecraft:overworld@120,64,-340')
+    const list = page.getByTestId('watchlist').getByRole('listitem')
+    await expect(list).toHaveCount(3)
+    await expect(page.getByText('1 below target')).toBeVisible()
+    await expect(list.first()).toContainText('Good Electronic Circuit')
+    await expect(list.first()).toContainText('91 missing')
+    await expect(list.nth(1)).toContainText('empty in ~')
+
+    await list.nth(2).getByRole('button', { name: 'set target' }).click()
+    await list.nth(2).getByLabel('Minimum stock').fill('1000000')
+    await list.nth(2).getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('2 below target')).toBeVisible()
+
+    const rows = page.getByTestId('inventory-list').getByRole('listitem')
+    await rows.filter({ hasText: 'Redstone' }).getByRole('button', { name: 'Watch Redstone' }).click()
+    await expect(list).toHaveCount(4)
+    await list.filter({ hasText: 'Redstone' }).getByRole('button', { name: 'Stop watching Redstone' }).click()
+    await expect(list).toHaveCount(3)
+  })
+
   test('ME network contents are searchable and sortable', async ({ page }) => {
     await mockApi(page, { realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')

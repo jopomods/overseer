@@ -267,3 +267,32 @@ export function drives(snapshot: Snapshot | undefined, gridId: string): Ae2Drive
       totalTypes: metric(r, 'types_total') ?? 0,
     }))
 }
+
+export interface Forecast {
+  /** Net change per hour: the last day's average, else the last hour's. */
+  perHour: number
+  /** Hours until nothing is left at this pace; only while shrinking. */
+  emptyIn?: number
+  /** Hours until the target is reached at this pace; only while below target and growing. */
+  targetIn?: number
+  /** How much is missing to the target; 0 when reached or no target. */
+  deficit: number
+}
+
+/** A simple linear forecast from the net changes (inventory scans, minute resolution). */
+export function forecast(amount: number, change1h: number, change24h: number, target?: number | null): Forecast {
+  const perHour = change24h !== 0 ? change24h / 24 : change1h
+  const deficit = target != null ? Math.max(0, target - amount) : 0
+  return {
+    perHour,
+    emptyIn: perHour < 0 && amount > 0 ? amount / -perHour : undefined,
+    targetIn: deficit > 0 && perHour > 0 ? deficit / perHour : undefined,
+    deficit,
+  }
+}
+
+/** Hours until an item runs out at its recent pace, if it shrinks and within two weeks. */
+export function emptyInHours(amount: number, change1h: number, change24h: number): number | undefined {
+  const hours = forecast(amount, change1h, change24h).emptyIn
+  return hours !== undefined && hours < 24 * 14 ? hours : undefined
+}
