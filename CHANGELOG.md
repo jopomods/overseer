@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Jopo-JP/overseer/compare/v0.4.2...v0.5.0) (2026-11-18)
+
+
+### Features
+
+* tick profiler for block entities and entities ([#44](https://github.com/Jopo-JP/overseer/issues/44)) ([a886e05](https://github.com/Jopo-JP/overseer/commit/a886e05048547823b0ef3eb216f39a2a4b2b84f2))
+
 ## [0.4.2](https://github.com/Jopo-JP/overseer/compare/v0.4.1...v0.4.2) (2026-11-18)
 
 
