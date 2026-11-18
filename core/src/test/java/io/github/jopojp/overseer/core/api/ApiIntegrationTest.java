@@ -11,6 +11,7 @@ import com.google.gson.JsonParser;
 import io.github.jopojp.overseer.core.OverseerRuntime;
 import io.github.jopojp.overseer.core.auth.PlayerRef;
 import io.github.jopojp.overseer.core.http.HttpConfig;
+import io.github.jopojp.overseer.core.provider.Capability;
 import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.storage.StorageSettings;
 import io.github.jopojp.overseer.core.testing.FakeProvider;
@@ -61,10 +62,13 @@ class ApiIntegrationTest {
                 .resource(STEVE_NET, Map.of("name", "Steve Base"))
                 .power(ALEX_NET, 100)
                 .power(STEVE_NET, 200)
-                .policy((player, ref) -> ref.equals(player.equals(ALEX.uuid()) ? ALEX_NET : STEVE_NET));
+                .policy((player, ref) -> ref.equals(player.equals(ALEX.uuid()) ? ALEX_NET : STEVE_NET))
+                .capability(Capability.SHARING);
+        var other = new FakeProvider("other", 1, 50_000_000, new FakeTime())
+                .resource(new ResourceRef("other", "network", "1"), Map.of("name", "Other"));
         var config = new OverseerRuntime.Config(dir, HttpConfig.DEFAULTS.withPort(0), StorageSettings.DEFAULTS,
                 Duration.ofDays(30), 64, "0.0.0-test", "test-web");
-        runtime = OverseerRuntime.start(config, List.of(flux), operators::contains);
+        runtime = OverseerRuntime.start(config, List.of(flux, other), operators::contains);
         base = "http://127.0.0.1:" + runtime.httpPort();
     }
 
@@ -325,6 +329,49 @@ class ApiIntegrationTest {
         assertEquals(400, alex.send("PUT", "/api/v1/overrides", badKey, Map.of("Content-Type", "application/json")).statusCode());
         String tooLong = "{\"resource\":\"flux/network/1\",\"key\":\"zone\",\"value\":\"" + "x".repeat(49) + "\"}";
         assertEquals(400, alex.send("PUT", "/api/v1/overrides", tooLong, Map.of("Content-Type", "application/json")).statusCode());
+    }
+
+    @Test
+    void sharesGrantViewingAndOnlyOwnersManageThem() throws Exception {
+        collect();
+        var json = Map.of("Content-Type", "application/json");
+        var steve = new Browser().loginAs(STEVE); // known to the dashboard from now on
+        assertEquals(1, json(steve.get("/api/v1/providers/flux/snapshot")).getAsJsonArray("resources").size());
+
+        var alex = new Browser().loginAs(ALEX);
+        String share = "{\"resource\":\"flux/network/1\",\"name\":\"steve\"}";
+        // Alex sees his network but has no edit right in the fake policy.
+        assertEquals(403, alex.send("POST", "/api/v1/shares", share, json).statusCode());
+        operators.add(ALEX.uuid());
+        var created = alex.send("POST", "/api/v1/shares", share, json);
+        assertEquals(201, created.statusCode());
+        assertEquals(STEVE.uuid().toString(), json(created).get("player").getAsString());
+        assertEquals("Steve", json(created).get("name").getAsString());
+
+        // Steve now sees Alex's network too, but cannot manage its shares.
+        assertEquals(2, json(steve.get("/api/v1/providers/flux/snapshot")).getAsJsonArray("resources").size());
+        assertEquals(403, steve.get("/api/v1/shares?resource=flux/network/1").statusCode());
+        var list = JsonParser.parseString(alex.get("/api/v1/shares?resource=flux/network/1").body()).getAsJsonArray();
+        assertEquals(1, list.size());
+
+        String unknown = "{\"resource\":\"flux/network/1\",\"name\":\"Herobrine\"}";
+        assertEquals(400, alex.send("POST", "/api/v1/shares", unknown, json).statusCode());
+
+        // Steve leaves; the share is gone and so is the network.
+        String leave = "/api/v1/shares?resource=flux/network/1&player=" + STEVE.uuid();
+        assertEquals(204, steve.send("DELETE", leave, null, Map.of()).statusCode());
+        assertEquals(1, json(steve.get("/api/v1/providers/flux/snapshot")).getAsJsonArray("resources").size());
+        assertEquals(404, steve.send("DELETE", leave, null, Map.of()).statusCode());
+    }
+
+    @Test
+    void sharingNeedsTheProviderCapability() throws Exception {
+        operators.add(ALEX.uuid());
+        var alex = new Browser().loginAs(ALEX);
+        new Browser().loginAs(STEVE);
+        var created = alex.send("POST", "/api/v1/shares", "{\"resource\":\"other/network/1\",\"name\":\"Steve\"}",
+                Map.of("Content-Type", "application/json"));
+        assertEquals(400, created.statusCode());
     }
 
     @Test

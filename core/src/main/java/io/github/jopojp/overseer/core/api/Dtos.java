@@ -9,6 +9,7 @@ import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.provider.Sample;
 import io.github.jopojp.overseer.core.storage.HistoryQuery;
 import io.github.jopojp.overseer.core.storage.Sessions;
+import io.github.jopojp.overseer.core.storage.ShareStore;
 import io.github.jopojp.overseer.core.time.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -50,6 +51,15 @@ public final class Dtos {
     public record OverrideDto(String resource, String key, String value) {}
 
     public record SetOverride(String resource, String key, String value) {}
+
+    public record ShareDto(String player, String name, String grantedBy, String grantedAt) {}
+
+    public record AddShare(String resource, String name) {}
+
+    public static ShareDto share(ShareStore.Share s) {
+        return new ShareDto(s.player().toString(), s.name(), s.grantedBy() == null ? null : s.grantedBy().toString(),
+                s.grantedAt().toString());
+    }
 
     public record Snapshot(String provider, TimestampDto at, List<Resource> resources) {}
 
