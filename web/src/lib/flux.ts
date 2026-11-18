@@ -139,6 +139,8 @@ export type FlowNodeKind = 'device-source' | 'source' | 'network' | 'sink' | 'de
 export interface FlowNode {
   name: string
   kind: FlowNodeKind
+  /** Storage node: charging (energy goes in) or discharging (energy comes out). */
+  storage?: 'charging' | 'discharging'
 }
 
 export interface FlowGraph {
@@ -148,6 +150,8 @@ export interface FlowGraph {
   total: number
 }
 
+
+const COLUMN: Record<FlowNodeKind, number> = { 'device-source': 0, source: 1, network: 2, sink: 3, 'device-sink': 4 }
 
 export interface FlowLabels {
   network: string
@@ -176,11 +180,11 @@ export function flowGraph(list: FluxDevice[], labels: FlowLabels, detail: FlowDe
   const nodes: FlowNode[] = []
   const links: FlowGraph['links'] = []
   const index = new Map<string, number>()
-  const node = (key: string, name: string, kind: FlowNodeKind) => {
+  const node = (key: string, name: string, kind: FlowNodeKind, storage?: FlowNode['storage']) => {
     let i = index.get(key)
     if (i === undefined) {
       i = nodes.length
-      nodes.push({ name, kind })
+      nodes.push(storage ? { name, kind, storage } : { name, kind })
       index.set(key, i)
     }
     return i
@@ -212,8 +216,8 @@ export function flowGraph(list: FluxDevice[], labels: FlowLabels, detail: FlowDe
     const value = Math.abs(d.transfer)
     const zone = d.zone ?? labels.noZone
     if (d.type === 'storage') {
-      if (d.transfer > 0) link(node('storage-out', labels.storageOut, 'source'), network(), value)
-      else link(network(), node('storage-in', labels.storageIn, 'sink'), value)
+      if (d.transfer > 0) link(node('storage-out', labels.storageOut, 'source', 'discharging'), network(), value)
+      else link(network(), node('storage-in', labels.storageIn, 'sink', 'charging'), value)
     } else if (d.type === 'plug') {
       const zoneNode = node(`src:${zone}`, zone, 'source')
       if (detail === 'devices') collect('dsrc', zone, d.label, value)
@@ -249,9 +253,22 @@ export function flowGraph(list: FluxDevice[], labels: FlowLabels, detail: FlowDe
     }
   }
 
+  // Stable order (ADR-0009): by name within a column, storage and "+N more" last. Ordering by
+  // size made nodes of similar flow swap places on every update.
+  const rank = (n: FlowNode, key: string) => (n.storage ? 2 : key.endsWith(': more') ? 1 : 0)
+  const keys = [...index.entries()].sort((a, b) => a[1] - b[1]).map(([k]) => k)
+  const order = nodes
+    .map((n, i) => ({ n, i, key: keys[i] }))
+    .sort(
+      (a, b) =>
+        COLUMN[a.n.kind] - COLUMN[b.n.kind] ||
+        rank(a.n, a.key) - rank(b.n, b.key) ||
+        a.n.name.localeCompare(b.n.name, undefined, { numeric: true, sensitivity: 'base' }),
+    )
+  const remap = new Map(order.map((o, i) => [o.i, i]))
   for (const [key, value] of linkValues) {
     const [source, target] = key.split('>').map(Number)
-    links.push({ source, target, value })
+    links.push({ source: remap.get(source)!, target: remap.get(target)!, value })
   }
-  return { nodes, links, total: Math.max(inflow, outflow) }
+  return { nodes: order.map((o) => o.n), links, total: Math.max(inflow, outflow) }
 }

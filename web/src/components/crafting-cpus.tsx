@@ -83,7 +83,15 @@ function CpuCard({ cpu, number }: { cpu: Ae2Cpu; number: number }) {
               </div>
             </>
           ) : (
-            <span className="text-muted-foreground text-xs">{t('cpu.idle')}</span>
+            // Same rows as a busy card: cards keep their height when jobs start or end, so the
+            // page does not jump while scrolling.
+            <>
+              <div className="flex min-h-6 min-w-0 items-center">
+                <span className="text-muted-foreground text-sm">{t('cpu.idle')}</span>
+              </div>
+              <Progress value={0} aria-hidden className="opacity-40" />
+              <span className="text-xs">&nbsp;</span>
+            </>
           )}
         </button>
         {open && <CpuDetails cpu={cpu} />}
