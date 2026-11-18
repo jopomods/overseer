@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/Jopo-JP/overseer/compare/v0.5.0...v0.5.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **web:** colour codes on every page, profiler keeps its last result ([#46](https://github.com/Jopo-JP/overseer/issues/46)) ([7d900f5](https://github.com/Jopo-JP/overseer/commit/7d900f522bcc87f49a83d62e93eebdda85a4ac9b))
+
 ## [0.5.0](https://github.com/Jopo-JP/overseer/compare/v0.4.2...v0.5.0) (2026-11-18)
 
 
