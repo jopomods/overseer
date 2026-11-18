@@ -38,7 +38,11 @@ export function offlineMarkers(sessions: Sessions | undefined, history: History 
 export function relativeLabel(deltaMs: number, locale: Locale): string {
   if (Math.abs(deltaMs) < 30_000) return locale === 'de' ? 'jetzt' : 'now'
   const minutes = -deltaMs / 60_000
-  // Below 10 h one decimal, so neighbouring ticks (e.g. -80 and -60 min) stay distinct.
+  // One decimal where whole units would repeat on neighbouring ticks: below 10 min
+  // (-2.4 and -1.9 min) and between 1 and 10 h (-80 and -60 min).
+  if (minutes >= 1 && minutes < 10) {
+    return `-${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(minutes)} min`
+  }
   if (minutes >= 60 && minutes < 600) {
     const hours = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(minutes / 60)
     return `-${hours} h`

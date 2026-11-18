@@ -45,6 +45,19 @@ class Ae2MappingTest {
     }
 
     @Test
+    void bootingOrUnpoweredGridsReportNoInventory() {
+        Grid g = grid(OWNER, 10);
+        var booting = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(), g.controllers(),
+                g.state(), true, g.channels(), g.energy(), new Storage(0, 0, 0, 0, 0), g.crafting());
+        var unpowered = new Grid(g.dimension(), 11, g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(), g.controllers(),
+                g.state(), false, g.channels(), new Energy(0, 8_000, 0, 0, 30, false), new Storage(0, 0, 0, 0, 0),
+                g.crafting());
+        var snapshot = Ae2Mapping.snapshot(AT, List.of(booting, unpowered));
+        assertFalse(snapshot.samples().stream().anyMatch(s -> s.metric().equals("items") || s.metric().equals("fluids")));
+        assertTrue(snapshot.samples().stream().anyMatch(s -> s.metric().equals("power_max")));
+    }
+
+    @Test
     void onlyOwnersSeeAndEditTheirGrid() {
         var access = Ae2Mapping.AccessIndex.of(List.of(grid(OWNER, 10), grid(null, 20)));
         var owned = Ae2Mapping.grid("minecraft:overworld@10,64,0");

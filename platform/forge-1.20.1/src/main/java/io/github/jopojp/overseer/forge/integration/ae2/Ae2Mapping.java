@@ -71,10 +71,14 @@ public final class Ae2Mapping {
             samples.add(new Sample(ref, POWER_MAX.key(), g.energy().max()));
             samples.add(new Sample(ref, POWER_USAGE.key(), g.energy().usage()));
             samples.add(new Sample(ref, POWER_INJECTION.key(), g.energy().injection()));
-            samples.add(new Sample(ref, ITEM_TYPES.key(), g.storage().itemTypes()));
-            samples.add(new Sample(ref, ITEMS.key(), g.storage().items()));
-            samples.add(new Sample(ref, FLUID_TYPES.key(), g.storage().fluidTypes()));
-            samples.add(new Sample(ref, FLUIDS.key(), g.storage().fluids()));
+            // A booting or unpowered grid reports an empty inventory. That is not real, so the
+            // inventory metrics are left out and the last stored values hold (step function).
+            if (!g.booting() && g.energy().powered()) {
+                samples.add(new Sample(ref, ITEM_TYPES.key(), g.storage().itemTypes()));
+                samples.add(new Sample(ref, ITEMS.key(), g.storage().items()));
+                samples.add(new Sample(ref, FLUID_TYPES.key(), g.storage().fluidTypes()));
+                samples.add(new Sample(ref, FLUIDS.key(), g.storage().fluids()));
+            }
             samples.add(new Sample(ref, CHANNELS.key(), g.channels()));
             samples.add(new Sample(ref, CPUS_BUSY.key(), g.crafting().busy()));
         }
