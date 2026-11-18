@@ -83,6 +83,10 @@ Toolchain: JDK 17 (Minecraft 1.20.1 requirement), Node 24, Gradle via wrapper.
   `feat(core): ...`, `fix(web): ...`, `docs: ...`, `build: ...`, `ci: ...`,
   `test: ...`, `refactor: ...`, `chore: ...`. Scopes: `core`, `forge`, `web`, `api`,
   `flux`, `ae2`, `ci`, `docs`.
+- **One mod integration per milestone.** A new mod integration (GTCEu, Tom's Storage, ...)
+  is its own milestone in [docs/ROADMAP.md](docs/ROADMAP.md), released on its own; it never
+  rides along with another integration or with refinement work. Milestones without a new mod
+  (refinements, server features) are separate too.
 - **Small PRs by default.** Split a milestone into PRs per coherent slice (e.g. pipeline +
   storage, then HTTP + auth, then UI + integration), each green and reviewable on its own.
   A follow-up slice may branch off the previous one while it is in review; rebase it onto

@@ -244,6 +244,19 @@ test.describe('flows', () => {
     await expect(list).toHaveCount(3)
   })
 
+  test('colour codes in names show as colours unless turned off', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/ae2/minecraft:overworld@120,64,-340')
+    const row = page.getByTestId('inventory-list').getByRole('listitem').filter({ hasText: 'EV Energy Hatch' })
+    await expect(row).not.toContainText('§')
+    await expect(row.locator('span[style*="color"]').first()).toHaveText('EV Energy Hatch')
+    await page.goto('/account')
+    await page.getByRole('button', { name: 'Plain' }).click()
+    await page.goto('/ae2/minecraft:overworld@120,64,-340')
+    await expect(row).toContainText('EV Energy Hatch')
+    await expect(row.locator('span[style*="color"]')).toHaveCount(0)
+  })
+
   test('ME network contents are searchable and sortable', async ({ page }) => {
     await mockApi(page, { realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')
@@ -251,7 +264,7 @@ test.describe('flows', () => {
     const rows = page.getByTestId('inventory-list').getByRole('listitem')
     await expect(rows.first()).toContainText('Cobblestone')
     await expect(rows.first()).toContainText('∞')
-    await expect(inventory).toContainText('15 of 15')
+    await expect(inventory).toContainText('16 of 16')
     await inventory.getByRole('radio', { name: 'Name' }).click()
     await expect(rows.first()).toContainText('1x Copper Wire')
     await inventory.getByRole('radio', { name: 'Fluids' }).click()

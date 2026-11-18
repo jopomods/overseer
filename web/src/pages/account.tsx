@@ -116,6 +116,16 @@ function Preferences() {
             onChange={(energyUnit) => setPreferences({ energyUnit })}
           />
         </Row>
+        <Row label={t('account.nameColors')}>
+          <Choice<'on' | 'off'>
+            value={prefs.nameColors ? 'on' : 'off'}
+            options={[
+              { value: 'on', label: t('account.nameColorsOn') },
+              { value: 'off', label: t('account.nameColorsOff') },
+            ]}
+            onChange={(v) => setPreferences({ nameColors: v === 'on' })}
+          />
+        </Row>
       </Card>
     </Section>
   )

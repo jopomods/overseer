@@ -33,13 +33,6 @@ public final class IconGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void namesLoseFormattingCodes(GameTestHelper helper) {
-        String plain = io.github.jopojp.overseer.forge.integration.ae2.Ae2Names.plain("§5EV §fMachine Hull");
-        helper.assertTrue("EV Machine Hull".equals(plain), "plain: " + plain);
-        helper.succeed();
-    }
-
-    @GameTest(template = "empty")
     public static void iconBatchesFitOnePacketAndRoundTrip(GameTestHelper helper) {
         var icons = new LinkedHashMap<String, byte[]>();
         byte[] png = Arrays.copyOf(new byte[] {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}, 1_500);

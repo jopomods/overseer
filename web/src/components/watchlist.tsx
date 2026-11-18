@@ -3,6 +3,8 @@ import { useState, type FormEvent } from 'react'
 import { useRemoveWatch, useSetWatch, useWatches, type Resource, type Watch } from '@/api/hooks'
 import { HistoryChart } from '@/components/history-chart'
 import { ItemIcon } from '@/components/item-icon'
+import { McText } from '@/components/mc-text'
+import { plainText } from '@/lib/mc-text'
 import { Section } from '@/components/stat'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -46,7 +48,7 @@ export function WatchlistSection({ grid, canEdit }: { grid: Resource; canEdit: b
       ) : (
         <ul className="grid min-w-0 items-start gap-3 md:grid-cols-2" data-testid="watchlist">
           {[...list]
-            .sort((a, b) => urgency(grid, b) - urgency(grid, a) || a.name.localeCompare(b.name))
+            .sort((a, b) => urgency(grid, b) - urgency(grid, a) || plainText(a.name).localeCompare(plainText(b.name)))
             .map((w) => (
               <WatchCard key={w.item} grid={grid} watch={w} canEdit={canEdit} />
             ))}
@@ -87,13 +89,13 @@ function WatchCard({ grid, watch, canEdit }: { grid: Resource; watch: Watch; can
           <div className="flex min-w-0 items-center gap-2">
             <ItemIcon stackKey={watch.item} name={watch.name} />
             <span className="min-w-0 flex-1 truncate text-sm font-medium" title={watch.item}>
-              {watch.name}
+              <McText text={watch.name} />
             </span>
             {canEdit && (
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label={t('watch.remove', { name: watch.name })}
+                aria-label={t('watch.remove', { name: plainText(watch.name) })}
                 onClick={() => remove.mutate(watch.item)}
                 disabled={remove.isPending}
               >
@@ -143,7 +145,7 @@ function WatchCard({ grid, watch, canEdit }: { grid: Resource; watch: Watch; can
           <div className="min-w-0 border-t px-1 pb-1">
             <HistoryChart
               resource={grid.ref.key}
-              series={[{ metric: `stock:${watch.item}`, label: watch.name, color: 'var(--chart-2)' }]}
+              series={[{ metric: `stock:${watch.item}`, label: plainText(watch.name), color: 'var(--chart-2)' }]}
               format={fmt}
             />
           </div>

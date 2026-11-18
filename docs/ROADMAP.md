@@ -1,7 +1,8 @@
 # Roadmap
 
 Milestones are cut so that each one ends with something usable. Decisions behind the
-scope are in the [ADRs](adr/README.md).
+scope are in the [ADRs](adr/README.md). Each mod integration is a milestone of its own
+(see AGENTS.md); refinements and features without a new mod go into their own milestones.
 
 ## M0: Foundation
 
@@ -86,13 +87,21 @@ Delivered in slices (docs/modules/ae2.md):
 - [x] M2k: item icons: client exporter (`/ovicons export`, sent over an optional network
   channel), mod jar texture fallback, letter fallback in the UI
 
-## M3+
+## M2.5: Refinement and tick profiling (no new mod)
 
-- Tick profiling ("what costs tick time"): block entity and entity timings via Forge's
+- [x] 0.4.1/0.4.2: stable Sankey, storage colours, no page jumps, infinity cells as ∞, CPU
+  numbers as in game, colour codes in names (default on, account setting)
+- [ ] Tick profiling ("what costs tick time"): block entity and entity timings via Forge's
   `TimeTracker`, started from the dashboard for a chosen duration or kept running at a chosen
   interval; top list and a stacked chart by block type over time (admins only)
-- Tom's Storage
-- GTCEu as its own bounded module (scope to be defined)
+
+## M3: GregTech CEu (GTCEu)
+
+- Its own integration; scope to be defined (machine state, maintenance, energy buffers, ...)
+
+## M4: Tom's Storage
+
+- Second storage integration; the UI groups storage mods under "Storage" (ADR then)
 
 ## Backlog
 
