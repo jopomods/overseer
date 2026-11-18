@@ -44,6 +44,12 @@ Overseer mandatory on every client, because blocks are synced to clients.
   new requests from that player for 24 hours.
 - 2026-11-18 (M2e): registrations are a core table (`registration`), so other mods without
   ids can use them. Hidden grids get no history because their id changes with the grid.
+- 2026-11-18 (M2f): inventories travel in `ProviderSnapshot.inventories` (capability
+  `INVENTORY`), only on scan collections, and never in SSE pushes. Changes are stored as
+  per-minute net deltas rather than every 10 s: a busy autocrafting system changes the same
+  keys constantly, and the views need hours and days, not seconds. The live list comes from the
+  newest scan in memory (`InventoryState`), the changes from the database. Hourly rollups for
+  longer windows and the forecast come with the deficit view.
 
 ## Consequences
 

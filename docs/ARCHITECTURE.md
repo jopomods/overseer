@@ -70,9 +70,11 @@ flowchart LR
 2. **Hand off.** Snapshots go into a bounded queue. If it is full, the oldest entry is
    dropped and counted. The tick never blocks ([ADR-0004](adr/0004-threading-and-snapshots.md)).
 3. **Latest state.** The newest snapshot per provider is kept in memory for live views
-   and SSE.
+   and SSE. Inventory scans (only some snapshots carry one) are kept per resource in
+   `InventoryState`.
 4. **Store** (single writer thread). Events are stored always; metrics only when they
-   leave the deadband or the heartbeat interval passed. Rollup and retention jobs run
+   leave the deadband or the heartbeat interval passed; inventory scans as per-minute
+   changes of the keys that changed. Rollup and retention jobs run
    on the same thread in batches ([ADR-0005](adr/0005-data-model.md),
    [ADR-0006](adr/0006-storage-sqlite.md)).
 5. **Serve** (Netty event loop + worker pool). REST for queries and history, SSE for

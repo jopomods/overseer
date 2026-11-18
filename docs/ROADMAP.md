@@ -73,8 +73,10 @@ Delivered in slices (docs/modules/ae2.md):
   allow/decline on the grid page, 24 h cool-down after a decline
 - [ ] Optional "placed a block in the grid" access (server setting, default off)
 - [x] M2e: grids without controller: hidden for admins, adoptable in the UI, `/ov ae2 register`
-- [ ] Inventory scan every 10 s (cost measured, spread over ticks only if needed), stored
-  as deltas; watchlist every second
+- [x] M2f: inventory scan every 10 s, stored as per-minute changes; contents list with search
+  and 1 h / 24 h changes
+- [ ] Watchlist every second; measure the scan cost on a real server (spread over ticks only
+  if needed)
 - [ ] Changes view, deficit view with forecast
 - [ ] Crafting CPUs (named first), jobs with progress and history; drive and cell usage
 - [ ] Item icons: optional client exporter (atlas upload) + jar texture fallback, cached by
