@@ -114,7 +114,7 @@ allowed for network owners and admins (Flux's rules) and server operators (ADR-0
 - [x] Flux actions: network name, colour (presets and hex), security, password; devices
   (single and several at once) name, priority, limit, bypass limit, surge, chunk loading,
   network; members add, remove, user/admin, transfer ownership. GameTests against Flux.
-- [ ] UI: network settings, device editor with multi-select and rename by pattern, members,
+- [x] UI: network settings, device editor with multi-select and rename by pattern, members,
   action log. Names at most 24 characters, like in game.
 - [ ] Priority view (order in which Flux serves devices) and the recommended naming convention
   as a suggestion, never enforced

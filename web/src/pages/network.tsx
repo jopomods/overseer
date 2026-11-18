@@ -1,7 +1,8 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { ArrowLeft, BatteryCharging, Cable, Check, Cpu, Pencil, Plug, Search, X, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, BatteryCharging, Cable, Check, Cpu, Pencil, Plug, Search, Settings2, SlidersHorizontal, X, type LucideIcon } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
-import { useHistory, useOverrides, useSessions, useSetOverride, useSnapshot } from '@/api/hooks'
+import { useAllowedActions, useHistory, useOverrides, useSessions, useSetOverride, useSnapshot } from '@/api/hooks'
+import { ActionLog, DeviceEditor, MemberList, NetworkSettings } from '@/components/flux-edit'
 import { Button } from '@/components/ui/button'
 import { McText } from '@/components/mc-text'
 import { plainText } from '@/lib/mc-text'
@@ -11,14 +12,13 @@ import { ZoneChart } from '@/components/zone-chart'
 import { LiveBadge } from '@/components/live-badge'
 import { useSession } from '@/components/session'
 import { Section, Stat } from '@/components/stat'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { devices, members, networks, zones, type DeviceType, type FluxDevice } from '@/lib/flux'
+import { devices, FLUX_ACTIONS, members, networks, zones, type DeviceType, type FluxDevice, type FluxNetwork } from '@/lib/flux'
 import { forecastEmpty, msUntilFull } from '@/lib/forecast'
 import { formatDuration, formatEnergy, formatNumber, formatRate } from '@/lib/format'
-import { useT, type MessageKey } from '@/lib/i18n'
+import { useT } from '@/lib/i18n'
 import { usePreferences } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
 import { SecurityBadge } from '@/components/security-badge'
@@ -38,7 +38,11 @@ export function NetworkPage() {
   const { live } = useSession()
   const { networkId } = useParams({ from: '/app/energy/$networkId' })
   const snapshot = useSnapshot('flux', { pollMs: live === 'live' ? false : 5000 })
-  const network = networks(snapshot.data).find((n) => n.id === networkId)
+  const allNetworks = networks(snapshot.data)
+  const network = allNetworks.find((n) => n.id === networkId)
+  const networkKey = `flux/network/${networkId}`
+  const allowed = useAllowedActions(networkKey, network !== undefined).data
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const overrides = useOverrides('flux').data
   const deviceList = useMemo(() => devices(snapshot.data, networkId, overrides), [snapshot.data, networkId, overrides])
   const memberList = members(snapshot.data, networkId)
@@ -66,8 +70,16 @@ export function NetworkPage() {
           </h1>
           <SecurityBadge security={network.security} />
         </div>
-        <LiveBadge state={live} dataAt={snapshot.data?.at.wall} />
+        <div className="flex shrink-0 items-center gap-2">
+          {allowed?.has(FLUX_ACTIONS.networkEdit) && !settingsOpen && (
+            <Button size="sm" variant="outline" onClick={() => setSettingsOpen(true)} data-testid="network-edit">
+              <Settings2 /> {t('edit.settings')}
+            </Button>
+          )}
+          <LiveBadge state={live} dataAt={snapshot.data?.at.wall} />
+        </div>
       </div>
+      {settingsOpen && <NetworkSettings network={network} onDone={() => setSettingsOpen(false)} />}
 
       <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label={t('energy.input')} value={formatRate(network.input, energyUnit, locale)} />
@@ -113,24 +125,25 @@ export function NetworkPage() {
       <Section title={t('energy.zoneHistory')}>
         <ZoneChart devices={deviceList} />
       </Section>
-      <DevicesSection devices={deviceList} />
+      <DevicesSection
+        devices={deviceList}
+        networkKey={networkKey}
+        editable={allowed?.has(FLUX_ACTIONS.deviceEdit) === true}
+        targets={allNetworks.filter((n) => n.id !== networkId && n.resource.canEdit)}
+      />
 
       <Section title={t('energy.members')}>
-        <Card className="min-w-0 py-1">
-          <ul className="divide-border divide-y" data-testid="member-list">
-            {memberList.map((m) => (
-              <li key={m.uuid} className="flex min-w-0 items-center gap-3 px-4 py-2.5">
-                <span className="bg-primary/15 text-primary flex size-8 shrink-0 items-center justify-center rounded text-sm font-bold">
-                  {m.name.slice(0, 1).toUpperCase()}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.name}</span>
-                <Badge variant={m.access === 'blocked' ? 'destructive' : 'secondary'}>
-                  {t(`energy.access.${m.access}` as MessageKey)}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <MemberList networkKey={networkKey} members={memberList} editable={allowed?.has(FLUX_ACTIONS.memberEdit) === true} />
+      </Section>
+
+      <Section title={t('edit.log')}>
+        <ActionLog
+          resource={networkKey}
+          describe={(key) => {
+            const d = deviceList.find((x) => x.resource.ref.key === key)
+            return d ? plainText(d.label) : memberList.find((m) => key.endsWith(`:${m.uuid}`))?.name
+          }}
+        />
       </Section>
     </>
   )
@@ -235,10 +248,30 @@ function ZonesSection({ devices: list }: { devices: FluxDevice[] }) {
   )
 }
 
-function DevicesSection({ devices: list }: { devices: FluxDevice[] }) {
+function DevicesSection({
+  devices: list,
+  networkKey,
+  editable,
+  targets,
+}: {
+  devices: FluxDevice[]
+  networkKey: string
+  editable: boolean
+  targets: FluxNetwork[]
+}) {
   const t = useT()
   const [type, setType] = useState<DeviceType | 'all'>('all')
   const [query, setQuery] = useState('')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  /** Devices in the open editor: the selection, or one device edited from its row. */
+  const [editing, setEditing] = useState<string[]>()
+  const toggle = (id: string) =>
+    setSelected((s) => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   const q = query.trim().toLowerCase()
   const shown = list.filter(
     (d) =>
@@ -274,13 +307,58 @@ function DevicesSection({ devices: list }: { devices: FluxDevice[] }) {
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('energy.search')} className="pl-8" />
         </div>
       </div>
+      {editable && (
+        <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2 text-sm" data-testid="device-selection">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              setSelected((s) => (shown.every((d) => s.has(d.id)) ? new Set() : new Set([...s, ...shown.map((d) => d.id)])))
+            }
+          >
+            {shown.length > 0 && shown.every((d) => selected.has(d.id)) ? t('edit.selectNone') : t('edit.selectShown', { count: shown.length })}
+          </Button>
+          {selected.size > 0 && (
+            <>
+              <span className="text-muted-foreground">{t('edit.devicesSelected', { count: selected.size })}</span>
+              <Button size="sm" onClick={() => setEditing([...selected])} data-testid="edit-selected">
+                <SlidersHorizontal /> {t('edit.editSelected')}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+      {editing && (
+        <Card className="mb-3 min-w-0 py-1">
+          <ul>
+            <DeviceEditor
+              key={editing.join(',')}
+              networkKey={networkKey}
+              devices={list.filter((d) => editing.includes(d.id))}
+              targets={targets}
+              onDone={() => {
+                setEditing(undefined)
+                setSelected(new Set())
+              }}
+            />
+          </ul>
+        </Card>
+      )}
       {shown.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t('energy.noDevices')}</p>
       ) : (
         <Card className="min-w-0 py-1">
           <ul className="divide-border divide-y" data-testid="device-list">
             {shown.map((d) => (
-              <DeviceRow key={d.id} device={d} zoneNames={zoneNames} />
+              <DeviceRow
+                key={d.id}
+                device={d}
+                zoneNames={zoneNames}
+                selectable={editable}
+                selected={selected.has(d.id)}
+                onToggle={() => toggle(d.id)}
+                onEdit={() => setEditing([d.id])}
+              />
             ))}
           </ul>
         </Card>
@@ -289,7 +367,21 @@ function DevicesSection({ devices: list }: { devices: FluxDevice[] }) {
   )
 }
 
-function DeviceRow({ device: d, zoneNames }: { device: FluxDevice; zoneNames: string[] }) {
+function DeviceRow({
+  device: d,
+  zoneNames,
+  selectable,
+  selected,
+  onToggle,
+  onEdit,
+}: {
+  device: FluxDevice
+  zoneNames: string[]
+  selectable: boolean
+  selected: boolean
+  onToggle: () => void
+  onEdit: () => void
+}) {
   const t = useT()
   const { locale, energyUnit } = usePreferences()
   const [editing, setEditing] = useState(false)
@@ -300,6 +392,15 @@ function DeviceRow({ device: d, zoneNames }: { device: FluxDevice; zoneNames: st
     d.type === 'storage' ? d.transfer : d.type === 'controller' ? 0 : Math.abs(d.transfer)
   return (
     <li className={cn('flex min-w-0 items-center gap-3 px-4 py-2.5', !d.loaded && 'opacity-60')}>
+      {selectable && (
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+          className="accent-primary size-4 shrink-0"
+          aria-label={t('edit.select', { name: plainText(d.label) })}
+        />
+      )}
       <Icon
         className={cn(
           'size-4 shrink-0',
@@ -322,8 +423,15 @@ function DeviceRow({ device: d, zoneNames }: { device: FluxDevice; zoneNames: st
           {d.pos} · {d.dimension} · {t('energy.priority')} {d.priority}
           {!d.loaded && ` · ${t('energy.unloaded')}`}
           {d.surge && ` · ${t('energy.surge')}`}
+          {d.disableLimit && ` · ${t('edit.disableLimit')}`}
+          {d.chunkLoading && ` · ${t('edit.chunkLoading')}`}
         </p>
       </div>
+      {selectable && (
+        <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={onEdit} aria-label={t('edit.device')} title={t('edit.device')}>
+          <SlidersHorizontal className="size-3.5" />
+        </Button>
+      )}
       {d.canEdit && (
         <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => setEditing(true)} aria-label={t('energy.editZone')}>
           <Pencil className="size-3.5" />

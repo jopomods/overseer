@@ -62,6 +62,18 @@ test('no horizontal overflow with the zone editor open', async ({ page }) => {
   await expectNoHorizontalOverflow(page)
 })
 
+test('no horizontal overflow with the Flux editors open', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/energy/0')
+  await page.getByTestId('network-edit').click()
+  await expect(page.getByTestId('network-settings')).toBeVisible()
+  await page.getByRole('checkbox').nth(1).check()
+  await page.getByRole('checkbox').nth(2).check()
+  await page.getByTestId('edit-selected').click()
+  await expect(page.getByTestId('device-editor')).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+})
+
 test('overflow detector catches content wider than the viewport', async ({ page }) => {
   await mockApi(page)
   await page.goto('/login')

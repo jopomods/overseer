@@ -18,6 +18,8 @@ export interface FluxDevice {
   canEdit: boolean
   /** Name without the zone prefix; falls back to type and position. */
   label: string
+  /** The name as stored in Flux (with zone prefix and colour codes); may be empty. */
+  name: string
   dimension: string
   pos: string
   loaded: boolean
@@ -28,6 +30,10 @@ export interface FluxDevice {
   priority: number
   limit: number
   surge: boolean
+  /** Ignores its transfer limit ("bypass limit"). */
+  disableLimit: boolean
+  /** Keeps its chunk loaded. */
+  chunkLoading: boolean
   /** FE a Flux storage holds at most; undefined for other devices or when never seen loaded. */
   capacity?: number
 }
@@ -95,6 +101,7 @@ export function devices(snapshot: Snapshot | undefined, networkId: string, overr
         zoneOverridden: override !== undefined,
         canEdit: r.canEdit === true,
         label: rest || `${type} @ ${pos}`,
+        name: r.attributes.name ?? '',
         dimension: r.attributes.dimension ?? '',
         pos,
         loaded: r.attributes.loaded !== 'false',
@@ -103,6 +110,8 @@ export function devices(snapshot: Snapshot | undefined, networkId: string, overr
         priority: Number(r.attributes.priority ?? 0),
         limit: Number(r.attributes.limit ?? 0),
         surge: r.attributes.surge === 'true',
+        disableLimit: r.attributes.disableLimit === 'true',
+        chunkLoading: r.attributes.forcedLoading === 'true',
         capacity: r.attributes.capacity ? Number(r.attributes.capacity) : undefined,
       }
     })
@@ -115,6 +124,42 @@ export function members(snapshot: Snapshot | undefined, networkId: string): Flux
     .filter((r) => r.attributes.network === networkId)
     .map((r) => ({ uuid: r.attributes.player ?? '', name: r.attributes.name || '?', access: r.attributes.access ?? 'user' }))
     .sort((a, b) => order.indexOf(a.access) - order.indexOf(b.access) || a.name.localeCompare(b.name))
+}
+
+/** World action types of the Flux provider (docs/modules/flux.md, ADR-0016). */
+export const FLUX_ACTIONS = {
+  networkEdit: 'flux.network.edit',
+  deviceEdit: 'flux.device.edit',
+  deviceConnect: 'flux.device.connect',
+  memberEdit: 'flux.member.edit',
+} as const
+
+/** Flux's limits (docs/modules/flux.md): names count colour codes too. */
+export const MAX_NAME = 24
+export const MAX_PASSWORD = 16
+export const MIN_PRIORITY = -9999
+export const MAX_PRIORITY = 9999
+
+/** The colours Flux offers in game (EnumNetworkColor); any other hex colour works too. */
+export const FLUX_COLORS = [
+  '#295e8a', '#343477', '#582a72', '#882d60', '#aa3939', '#aa6f39', '#c6b900',
+  '#609732', '#87cefa', '#86608e', '#f08080', '#ffc0cb', '#ffdab9', '#eedc82',
+] as const
+
+/** `#rgb`, `rgb`, `#rrggbb` or `rrggbb` as `#rrggbb`; undefined if it is no colour. */
+export function parseHexColor(input: string): string | undefined {
+  const v = input.trim().replace(/^#/, '').toLowerCase()
+  if (/^[0-9a-f]{6}$/.test(v)) return `#${v}`
+  if (/^[0-9a-f]{3}$/.test(v)) return `#${[...v].map((c) => c + c).join('')}`
+  return undefined
+}
+
+/**
+ * Names for several devices from one pattern: `{n}` is the position in the selection (1, 2, ...),
+ * `{name}` the device's current name. Without a placeholder every device gets the same name.
+ */
+export function namesFromPattern(pattern: string, current: string[]): string[] {
+  return current.map((name, i) => pattern.replaceAll('{n}', String(i + 1)).replaceAll('{name}', name))
 }
 
 export interface ZoneSummary {
