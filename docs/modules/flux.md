@@ -96,3 +96,11 @@ the last hour of history (`web/src/lib/forecast.ts`); changes below 1 %/h count 
 - `FluxMappingTest` (JUnit): mapping and access rules.
 - `FluxGameTests` (Forge GameTest, also in CI): creates a real network, places and
   connects a plug, a point and a storage, collects, and checks resources and access.
+
+## Storage capacity and fill time
+
+Flux storages report their capacity (`capacity` attribute, from the storage's own handler). A
+storage in an unloaded chunk is a "phantom" and cannot be asked; Overseer remembers the capacity
+it last saw while the server runs. When every storage's capacity is known, the network page shows
+how full the storages are (bar and percent) and, while charging, "full in ~X"; while emptying,
+"empty in ~X" (least-squares slope over the last hour of stored energy).

@@ -86,6 +86,11 @@ Cost: AE2 keeps the network inventory cached; the reader only iterates it to cou
 one pass over the item types per grid and second. Measure with the collector page before
 raising the interval.
 
+## Power
+
+The grid page shows stored power as a bar and "full in ~X" / "empty in ~X" from AE2's average
+injection minus usage (AE per tick).
+
 ## Crafting CPUs
 
 Each CPU is a resource `ae2/cpu/<dimension>@x,y,z` (lowest corner of the multiblock), visible

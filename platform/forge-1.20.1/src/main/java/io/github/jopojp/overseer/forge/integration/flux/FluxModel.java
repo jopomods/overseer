@@ -62,7 +62,16 @@ public final class FluxModel {
             boolean chunkLoaded,
             boolean forcedLoading,
             long buffer,
-            long change) {
+            long change,
+            long capacity) {
+
+        /** @param capacity energy a Flux storage holds at most; -1 for other devices or unknown */
+        public Device(String dimension, int x, int y, int z, DeviceType type, String name, UUID owner, int priority,
+                long limit, long maxLimit, boolean disableLimit, boolean surge, boolean chunkLoaded,
+                boolean forcedLoading, long buffer, long change) {
+            this(dimension, x, y, z, type, name, owner, priority, limit, maxLimit, disableLimit, surge, chunkLoaded,
+                    forcedLoading, buffer, change, -1);
+        }
 
         /** Stable id: dimension and block position (ADR-0005). */
         public String id() {

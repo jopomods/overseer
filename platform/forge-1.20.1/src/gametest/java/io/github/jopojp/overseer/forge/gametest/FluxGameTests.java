@@ -66,6 +66,13 @@ public final class FluxGameTests {
                     .filter(r -> String.valueOf(network.getNetworkID()).equals(snapshot.resources().get(r).get("network")))
                     .count();
             helper.assertTrue(devices == 3, "expected 3 devices, got " + devices);
+            BlockPos storageAt = helper.absolutePos(storage);
+            String storageCapacity = snapshot.resources().entrySet().stream()
+                    .filter(e -> e.getKey().type().equals("device") && e.getKey().id().endsWith(
+                            "@" + storageAt.getX() + "," + storageAt.getY() + "," + storageAt.getZ()))
+                    .map(e -> e.getValue().get("capacity")).findFirst().orElse(null);
+            helper.assertTrue(storageCapacity != null && Long.parseLong(storageCapacity) > 0,
+                    "storage capacity: " + storageCapacity);
             helper.assertTrue(snapshot.resources().containsKey(FluxMapping.member(network.getNetworkID(), OWNER)),
                     "owner membership missing");
 

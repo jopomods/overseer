@@ -28,6 +28,8 @@ export interface FluxDevice {
   priority: number
   limit: number
   surge: boolean
+  /** FE a Flux storage holds at most; undefined for other devices or when never seen loaded. */
+  capacity?: number
 }
 
 export interface FluxNetwork {
@@ -101,6 +103,7 @@ export function devices(snapshot: Snapshot | undefined, networkId: string, overr
         priority: Number(r.attributes.priority ?? 0),
         limit: Number(r.attributes.limit ?? 0),
         surge: r.attributes.surge === 'true',
+        capacity: r.attributes.capacity ? Number(r.attributes.capacity) : undefined,
       }
     })
     .sort((a, b) => (a.zone ?? '￿').localeCompare(b.zone ?? '￿') || a.label.localeCompare(b.label, undefined, { numeric: true }))

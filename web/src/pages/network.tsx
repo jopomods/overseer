@@ -16,8 +16,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { devices, members, networks, zones, type DeviceType, type FluxDevice } from '@/lib/flux'
-import { forecastEmpty } from '@/lib/forecast'
-import { formatDuration, formatEnergy, formatRate } from '@/lib/format'
+import { forecastEmpty, msUntilFull } from '@/lib/forecast'
+import { formatDuration, formatEnergy, formatNumber, formatRate } from '@/lib/format'
 import { useT, type MessageKey } from '@/lib/i18n'
 import { usePreferences } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
@@ -77,7 +77,12 @@ export function NetworkPage() {
           value={`${balance > 0 ? '+' : ''}${formatRate(balance, energyUnit, locale)}`}
           tone={balance > 0 ? 'good' : balance < 0 ? 'warn' : undefined}
         />
-        <StoredStat resource={network.resource.ref.key} energy={network.energy} />
+        <StoredStat
+          resource={network.resource.ref.key}
+          energy={network.energy}
+          capacity={capacityOf(deviceList)}
+          hasStorage={deviceList.some((d) => d.type === 'storage')}
+        />
       </div>
 
       <Section title={t('chart.history')}>
@@ -132,18 +137,39 @@ export function NetworkPage() {
 }
 
 /** Stored energy with a forecast from the last hour of history. */
-function StoredStat({ resource, energy }: { resource: string; energy: number }) {
+/** Sum of the storages' capacities; undefined unless every storage's capacity is known. */
+function capacityOf(devices: FluxDevice[]): number | undefined {
+  const storages = devices.filter((d) => d.type === 'storage')
+  if (storages.length === 0 || storages.some((d) => d.capacity === undefined)) return undefined
+  return storages.reduce((s, d) => s + (d.capacity ?? 0), 0)
+}
+
+function StoredStat({
+  resource,
+  energy,
+  capacity,
+  hasStorage,
+}: {
+  resource: string
+  energy: number
+  capacity?: number
+  hasStorage: boolean
+}) {
   const t = useT()
   const { locale, energyUnit } = usePreferences()
   const uptime = useSessions().data?.uptimeMillis
   const history = useHistory(resource, ['energy'], 3_600_000, uptime)
   const points = history.data?.series[0]?.points.map((p) => ({ t: p.t, value: p.avg })) ?? []
   const forecast = forecastEmpty(points)
+  const full = msUntilFull(forecast, energy, capacity)
+  const share = capacity ? (energy / capacity) * 100 : undefined
   const hint =
     forecast.kind === 'emptying'
       ? t('energy.emptyIn', { time: formatDuration(forecast.msUntilEmpty, locale) })
       : forecast.kind === 'charging'
-        ? t('energy.charging')
+        ? full !== undefined
+          ? t('energy.fullIn', { time: formatDuration(full, locale) })
+          : t('energy.charging')
         : forecast.kind === 'stable'
           ? t('energy.stable')
           : undefined
@@ -151,7 +177,14 @@ function StoredStat({ resource, energy }: { resource: string; energy: number }) 
     <Stat
       label={t('energy.stored')}
       value={formatEnergy(energy, energyUnit, locale)}
-      hint={hint}
+      hint={
+        !hasStorage
+          ? t('energy.noStorage')
+          : share !== undefined
+            ? `${formatNumber(share, locale, 0)} % · ${hint ?? ''}`
+            : hint
+      }
+      progress={share}
       tone={forecast.kind === 'emptying' && forecast.msUntilEmpty < 3_600_000 ? 'warn' : undefined}
     />
   )

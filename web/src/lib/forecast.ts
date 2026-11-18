@@ -4,7 +4,7 @@
  */
 export type Forecast =
   | { kind: 'emptying'; msUntilEmpty: number }
-  | { kind: 'charging' }
+  | { kind: 'charging'; perMs: number }
   | { kind: 'stable' }
   | { kind: 'unknown' }
 
@@ -27,6 +27,12 @@ export function forecastEmpty(points: Array<{ t: number; value: number }>): Fore
   const current = points[n - 1].value
   const perHour = slopePerMs * 3_600_000
   if (Math.abs(perHour) <= Math.max(1, Math.abs(current) * STABLE_PER_HOUR)) return { kind: 'stable' }
-  if (slopePerMs > 0) return { kind: 'charging' }
+  if (slopePerMs > 0) return { kind: 'charging', perMs: slopePerMs }
   return current <= 0 ? { kind: 'emptying', msUntilEmpty: 0 } : { kind: 'emptying', msUntilEmpty: current / -slopePerMs }
+}
+
+/** Milliseconds until a charging store is full, when its capacity is known. */
+export function msUntilFull(forecast: Forecast, stored: number, capacity: number | undefined): number | undefined {
+  if (forecast.kind !== 'charging' || !capacity || capacity <= stored) return undefined
+  return (capacity - stored) / forecast.perMs
 }

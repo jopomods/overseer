@@ -104,6 +104,7 @@ public final class FluxMapping {
                 dattrs.put("surge", Boolean.toString(d.surge()));
                 dattrs.put("loaded", Boolean.toString(d.chunkLoaded()));
                 dattrs.put("forcedLoading", Boolean.toString(d.forcedLoading()));
+                if (d.capacity() >= 0) dattrs.put("capacity", Long.toString(d.capacity()));
                 resources.put(dref, dattrs);
                 samples.add(new Sample(dref, TRANSFER.key(), d.change()));
                 samples.add(new Sample(dref, BUFFER.key(), d.buffer()));
