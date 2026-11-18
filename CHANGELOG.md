@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.2](https://github.com/Jopo-JP/overseer/compare/v0.4.1...v0.4.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **ae2:** names without formatting codes, CPU numbers as in game ([#41](https://github.com/Jopo-JP/overseer/issues/41)) ([c528004](https://github.com/Jopo-JP/overseer/commit/c528004488cb61d71e7bd90fbd177b8158eda138))
+* keep colour codes in names and show them in colour (setting to turn off) ([#43](https://github.com/Jopo-JP/overseer/issues/43)) ([687d792](https://github.com/Jopo-JP/overseer/commit/687d792ad951192048a8fcbeed1ccb00afca1334))
+
 ## [0.4.1](https://github.com/Jopo-JP/overseer/compare/v0.4.0...v0.4.1) (2026-11-18)
 
 
