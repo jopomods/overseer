@@ -49,6 +49,10 @@ public final class Dtos {
     /** One key of an inventory: current amount and net changes over the last hour and day. */
     public record InventoryItem(String key, String kind, String name, long amount, long change1h, long change24h) {}
 
+    public record Watch(String item, String name, String kind, Long target, Instant createdAt) {}
+
+    public record AddWatch(String resource, String item, Long target) {}
+
     public record JobLine(String key, String kind, String name, long stored, long active, long pending) {}
 
     public record Job(String resource, TimestampDto at, List<JobLine> lines) {}

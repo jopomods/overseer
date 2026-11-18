@@ -65,6 +65,7 @@ public final class ApiRoutes {
     private final AccessRequestStore requests;
     private final NotificationStore notifications;
     private final RegistrationStore registrations;
+    private final io.github.jopojp.overseer.core.storage.WatchStore watches;
     private final StorageWriter writer;
 
     private final RateLimiter linkCreate = RateLimiter.perMinute(10);
@@ -89,6 +90,7 @@ public final class ApiRoutes {
             AccessRequestStore requests,
             NotificationStore notifications,
             RegistrationStore registrations,
+            io.github.jopojp.overseer.core.storage.WatchStore watches,
             StorageWriter writer) {
         this.version = version;
         this.auth = auth;
@@ -106,6 +108,7 @@ public final class ApiRoutes {
         this.requests = requests;
         this.notifications = notifications;
         this.registrations = registrations;
+        this.watches = watches;
         this.writer = writer;
     }
 
@@ -129,6 +132,9 @@ public final class ApiRoutes {
                 .get("/api/v1/inventory", this::inventory)
                 .get("/api/v1/events", this::events)
                 .get("/api/v1/jobs", this::job)
+                .get("/api/v1/watches", this::listWatches)
+                .post("/api/v1/watches", this::addWatch)
+                .delete("/api/v1/watches", this::removeWatch)
                 .get("/api/v1/overrides", this::listOverrides)
                 .put("/api/v1/overrides", this::setOverride)
                 .get("/api/v1/shares", this::listShares)
@@ -302,6 +308,58 @@ public final class ApiRoutes {
                 .map(l -> new Dtos.JobLine(l.key(), l.kind(), l.name(), l.stored(), l.active(), l.pending()))
                 .toList();
         return Response.json(new Dtos.Job(ref.key(), Dtos.timestamp(job.at()), lines));
+    }
+
+    // --- watchlist (ADR-0011) -------------------------------------------------------------
+
+    private Response listWatches(Request r) throws SQLException {
+        Principal p = principal(r);
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        return Response.json(watches.list(ref).stream()
+                .map(w -> new Dtos.Watch(w.item(), w.name(), w.kind(), w.target(), w.createdAt()))
+                .toList());
+    }
+
+    /** Watches an item that is (or was) in the inventory, or changes its target. Owners only. */
+    private Response addWatch(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        var body = Json.parse(r.bodyText(), Dtos.AddWatch.class);
+        if (body.resource() == null || body.item() == null) throw HttpError.badRequest("resource and item are required.");
+        ResourceRef ref = parseRef(body.resource());
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        if (!access.canEdit(p, ref)) throw HttpError.forbidden("Only owners may change the watchlist.");
+        if (body.target() != null && body.target() < 0) throw HttpError.badRequest("target must be >= 0.");
+        var known = inventories.get(ref).flatMap(scan -> scan.stacks().stream()
+                .filter(s -> s.key().equals(body.item())).findFirst());
+        String name;
+        String kind;
+        if (known.isPresent()) {
+            name = known.get().name();
+            kind = known.get().kind();
+        } else {
+            var existing = watches.list(ref).stream().filter(w -> w.item().equals(body.item())).findFirst();
+            if (existing.isEmpty()) throw HttpError.badRequest("Unknown item: it is not in this inventory.");
+            name = existing.get().name();
+            kind = existing.get().kind();
+        }
+        boolean isNew = watches.list(ref).stream().noneMatch(w -> w.item().equals(body.item()));
+        if (isNew && watches.list(ref).size() >= io.github.jopojp.overseer.core.storage.WatchStore.MAX_PER_RESOURCE) {
+            throw HttpError.badRequest("At most " + io.github.jopojp.overseer.core.storage.WatchStore.MAX_PER_RESOURCE
+                    + " watched items per network.");
+        }
+        watches.put(ref, body.item(), name, kind, body.target(), p.player().uuid(), clock.instant());
+        return Response.noContent();
+    }
+
+    private Response removeWatch(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        String item = r.queryParam("item").orElseThrow(() -> HttpError.badRequest("item is required."));
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        if (!access.canEdit(p, ref)) throw HttpError.forbidden("Only owners may change the watchlist.");
+        if (!watches.remove(ref, item)) throw HttpError.notFound();
+        return Response.noContent();
     }
 
     static final int MAX_EVENTS = 500;

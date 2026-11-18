@@ -528,6 +528,38 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void ownersManageTheWatchlist() throws Exception {
+        var iron = "item:minecraft:iron_ingot";
+        flux.inventory(ALEX_NET, List.of(new Stack(iron, "item", "Iron Ingot", 100)));
+        collect();
+        var json = Map.of("Content-Type", "application/json");
+        operators.add(ALEX.uuid()); // the fake flux policy grants no edit rights; admins may edit
+        var alex = new Browser().loginAs(ALEX);
+        var steve = new Browser().loginAs(STEVE);
+        String add = "{\"resource\":\"flux/network/1\",\"item\":\"" + iron + "\",\"target\":500}";
+        assertEquals(404, steve.send("POST", "/api/v1/watches", add, json).statusCode());
+        assertEquals(400, alex.send("POST", "/api/v1/watches",
+                "{\"resource\":\"flux/network/1\",\"item\":\"item:minecraft:dirt\"}", json).statusCode());
+        assertEquals(204, alex.send("POST", "/api/v1/watches", add, json).statusCode());
+        assertEquals(java.util.Set.of(iron), runtime.watches().keysByResource("flux").get("1"));
+
+        var list = JsonParser.parseString(alex.get("/api/v1/watches?resource=flux/network/1").body()).getAsJsonArray();
+        assertEquals("Iron Ingot", list.get(0).getAsJsonObject().get("name").getAsString());
+        assertEquals(500, list.get(0).getAsJsonObject().get("target").getAsLong());
+
+        assertEquals(204, alex.send("POST", "/api/v1/watches",
+                "{\"resource\":\"flux/network/1\",\"item\":\"" + iron + "\"}", json).statusCode());
+        list = JsonParser.parseString(alex.get("/api/v1/watches?resource=flux/network/1").body()).getAsJsonArray();
+        assertFalse(list.get(0).getAsJsonObject().has("target"), "target removed");
+
+        assertEquals(404, steve.send("DELETE", "/api/v1/watches?resource=flux/network/1&item=" + iron, null, Map.of())
+                .statusCode());
+        assertEquals(204, alex.send("DELETE", "/api/v1/watches?resource=flux/network/1&item=" + iron, null, Map.of())
+                .statusCode());
+        assertTrue(runtime.watches().keysByResource("flux").isEmpty());
+    }
+
+    @Test
     void sharingNeedsTheProviderCapability() throws Exception {
         operators.add(ALEX.uuid());
         var alex = new Browser().loginAs(ALEX);

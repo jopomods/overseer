@@ -490,6 +490,93 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/watches:
+    get:
+      tags: [data]
+      operationId: listWatches
+      summary: Watched items of a resource
+      description: |
+        Items read every second (AE2: per ME network). Their live amounts arrive as metrics
+        `stock:<item>` of the resource in the snapshot; their history via `/history`.
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Watched items, oldest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Watch"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [data]
+      operationId: addWatch
+      summary: Watch an item or change its target
+      description: |
+        Owners (edit rights) only. The item must be in the newest inventory scan (or already
+        watched). At most 50 watched items per resource. Without `target` the item is only watched.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resource, item]
+              properties:
+                resource:
+                  type: string
+                item:
+                  type: string
+                target:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                  description: Minimum stock for the deficit view.
+      responses:
+        "204":
+          description: Saved.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [data]
+      operationId: removeWatch
+      summary: Stop watching an item
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: item
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/overrides:
     get:
       tags: [data]
@@ -1106,6 +1193,26 @@ components:
         session:
           type: integer
           description: Uptime session number.
+
+    Watch:
+      type: object
+      required: [item, name, kind, createdAt]
+      properties:
+        item:
+          type: string
+          description: Stack key.
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [item, fluid, other]
+        target:
+          type: integer
+          format: int64
+          description: Minimum stock; absent when only watched.
+        createdAt:
+          type: string
+          format: date-time
 
     Job:
       type: object
