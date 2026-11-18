@@ -22,7 +22,7 @@ public abstract class BoundTickingBlockEntityMixin {
 
     /** Remembers what Forge starts timing; passes it on unchanged. */
     @ModifyArg(method = "tick", at = @At(value = "INVOKE",
-            target = "Lnet/minecraftforge/server/timings/TimeTracker;trackStart(Ljava/lang/Object;)V"))
+            target = "Lnet/minecraftforge/server/timings/TimeTracker;trackStart(Ljava/lang/Object;)V", remap = false))
     private Object overseer$remember(Object tracked) {
         overseer$tracked = tracked;
         return tracked;
