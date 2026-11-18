@@ -98,7 +98,7 @@ export function InventorySection({ resource }: { resource: string }) {
           </div>
         ) : !data || data.items.length === 0 ? (
           <p className="text-muted-foreground p-4 text-sm">
-            {data?.scannedAt === null ? t('inv.notScanned') : q ? t('inv.noMatch') : t('inv.empty')}
+            {data && !data.scannedAt ? t('inv.notScanned') : q ? t('inv.noMatch') : t('inv.empty')}
           </p>
         ) : (
           <>

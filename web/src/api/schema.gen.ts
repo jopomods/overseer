@@ -693,15 +693,16 @@ export interface components {
             at: components["schemas"]["Timestamp"];
             /** @enum {string} */
             kind: "added" | "removed" | "attribute";
-            attribute: string | null;
-            /** @description New value; null when the attribute was removed. */
-            value: string | null;
+            /** @description Changed attribute; absent for added and removed. */
+            attribute?: string;
+            /** @description New value; absent when the attribute was removed. */
+            value?: string;
         };
         Inventory: {
             /** @description Resource key. */
             resource: string;
-            /** @description Time of the newest scan; null before the first scan. */
-            scannedAt: components["schemas"]["Timestamp"] | null;
+            /** @description Time of the newest scan; absent before the first scan. */
+            scannedAt?: components["schemas"]["Timestamp"];
             /** @description Number of matching keys (all pages). */
             total: number;
             items: components["schemas"]["InventoryItem"][];

@@ -1079,7 +1079,7 @@ components:
 
     Event:
       type: object
-      required: [at, kind, attribute, value]
+      required: [at, kind]
       properties:
         at:
           $ref: "#/components/schemas/Timestamp"
@@ -1087,23 +1087,22 @@ components:
           type: string
           enum: [added, removed, attribute]
         attribute:
-          type: [string, "null"]
+          type: string
+          description: Changed attribute; absent for added and removed.
         value:
-          type: [string, "null"]
-          description: New value; null when the attribute was removed.
+          type: string
+          description: New value; absent when the attribute was removed.
 
     Inventory:
       type: object
-      required: [resource, scannedAt, total, items]
+      required: [resource, total, items]
       properties:
         resource:
           type: string
           description: Resource key.
         scannedAt:
-          description: Time of the newest scan; null before the first scan.
-          oneOf:
-            - $ref: "#/components/schemas/Timestamp"
-            - type: "null"
+          description: Time of the newest scan; absent before the first scan.
+          $ref: "#/components/schemas/Timestamp"
         total:
           type: integer
           description: Number of matching keys (all pages).
