@@ -110,6 +110,8 @@ class HttpUnitsTest {
     @Test
     void unknownRoutesFallBackToIndexButMissingFilesDoNot() {
         assertTrue(files.serve("/energy/networks/3").isPresent(), "client-side route");
+        var grid = files.serve("/ae2/minecraft:overworld@122,73,-16").orElseThrow();
+        assertTrue(new String(grid.body()).contains("Overseer test"), "routes with ids like dimension@x,y,z reload");
         assertTrue(files.serve("/assets/missing.js").isEmpty());
     }
 
