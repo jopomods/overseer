@@ -161,7 +161,7 @@ function label(r: Resource, t: Translate) {
 function StackedTypes({ types }: { types: Resource[] }) {
   const t = useT()
   const { locale, axis } = usePreferences()
-  const [range, setRange] = useState(RANGES[0].ms)
+  const [range, setRange] = useState(RANGES[2].ms)
   const sessions = useSessions()
   const keys = types.map((r) => r.ref.key)
   const history = useHistory(keys, ['tick_us'], range, sessions.data?.uptimeMillis)

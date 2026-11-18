@@ -144,7 +144,7 @@ export function useHistory(resource: string | string[], metrics: string[], range
       ),
     retry,
     enabled: uptimeNow !== undefined && resources.length > 0,
-    refetchInterval: 30_000,
+    refetchInterval: rangeMs <= 15 * 60_000 ? 5_000 : 30_000,
     placeholderData: (previous) => previous,
   })
 }

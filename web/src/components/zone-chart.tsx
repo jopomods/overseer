@@ -42,7 +42,7 @@ interface ZoneKey {
 export function ZoneChart({ devices }: { devices: FluxDevice[] }) {
   const t = useT()
   const { locale, axis, energyUnit } = usePreferences()
-  const [range, setRange] = useState(RANGES[2].ms)
+  const [range, setRange] = useState(RANGES[4].ms)
   const sessions = useSessions()
   const flowing = useMemo(() => devices.filter((d) => d.type === 'plug' || d.type === 'point').slice(0, 250), [devices])
   const history = useHistory(
