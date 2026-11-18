@@ -193,13 +193,18 @@ test.describe('flows', () => {
   test('crafting CPUs show running jobs and expand to recent jobs', async ({ page }) => {
     await mockApi(page, { realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')
+    // Named CPUs first; unnamed automation CPUs fold away.
     const cards = page.getByTestId('cpu-list').getByRole('listitem')
-    await expect(cards).toHaveCount(3)
+    await expect(cards).toHaveCount(1)
     await expect(page.getByText('2 of 3 busy')).toBeVisible()
     await expect(cards.first()).toContainText('Good Electronic Circuit')
-    await expect(cards.last()).toContainText('Idle')
-    await expect(cards.nth(1)).toContainText('50 %')
-    await expect(cards.nth(1)).not.toContainText('2.15 G')
+    await expect(page.getByTestId('cpu-list-more')).toHaveCount(0)
+    await page.getByRole('button', { name: '2 more CPUs (automation) · 1 busy' }).click()
+    const more = page.getByTestId('cpu-list-more').getByRole('listitem')
+    await expect(more).toHaveCount(2)
+    await expect(more.first()).toContainText('50 %')
+    await expect(more.first()).not.toContainText('2.15 G')
+    await expect(more.last()).toContainText('Idle')
     await cards.first().getByRole('button').click()
     const recent = cards.first().getByTestId('cpu-recent').getByRole('listitem')
     await expect(recent).toHaveCount(3)
@@ -208,8 +213,8 @@ test.describe('flows', () => {
     const lines = cards.first().getByTestId('job-lines').getByRole('listitem')
     await expect(lines).toHaveCount(7)
     await expect(lines.first()).toContainText('Resistor')
-    await cards.last().getByRole('button').click()
-    await expect(cards.last().getByTestId('job-lines')).toHaveCount(0)
+    await more.last().getByRole('button').click()
+    await expect(more.last().getByTestId('job-lines')).toHaveCount(0)
   })
 
   test('drives show fill and cell states, fullest first', async ({ page }) => {

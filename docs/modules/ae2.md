@@ -109,6 +109,10 @@ and editable exactly like its grid (shares included). CPUs of hidden grids are n
 | `job_total`, `job_progress` | AE2's scale (2,147,483,647) and the done share of it; only the ratio is meaningful |
 | `job_elapsed` | Seconds since the job started; AE2 keeps counting across restarts |
 
+The grid page shows named CPUs and CPUs reserved for players ("Players only") first; the others,
+which mostly serve automation, fold away behind "N more CPUs (automation) · M busy". Without any
+named or player CPU, all are shown.
+
 The job history comes from the attribute events (`GET /api/v1/events?resource=…&attribute=job`).
 A job that resumes after a restart has the same attributes, so it is not recorded twice. The UI
 estimates the remaining time from the average pace so far.

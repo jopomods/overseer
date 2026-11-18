@@ -21,24 +21,56 @@ const JOB_ATTRIBUTES = ['job', 'jobName', 'jobAmount']
  */
 export function CraftingSection({ cpus }: { cpus: Ae2Cpu[] }) {
   const t = useT()
+  const [showMore, setShowMore] = useState(false)
   if (cpus.length === 0) return null
   const busy = cpus.filter((c) => c.job).length
   // Unnamed CPUs are numbered by position, so the number stays when a CPU becomes busy.
   const numbers = new Map(
     [...cpus].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true })).map((c, i) => [c.id, i + 1]),
   )
+  // Named CPUs and CPUs reserved for players are the ones people care about; the rest mostly
+  // serves automation in the background and folds away (there may be a hundred of them).
+  const important = cpus.filter(isImportant)
+  const grouped = important.length > 0 && important.length < cpus.length
+  const primary = grouped ? important : cpus
+  const rest = grouped ? cpus.filter((c) => !isImportant(c)) : []
+  const restBusy = rest.filter((c) => c.job).length
+  const card = (cpu: Ae2Cpu) => <CpuCard key={cpu.id} cpu={cpu} number={cpu.number || (numbers.get(cpu.id) ?? 0)} />
   return (
     <Section
       title={t('cpu.title')}
       aside={<span className="text-muted-foreground shrink-0 text-xs">{t('cpu.busyOf', { busy, count: cpus.length })}</span>}
     >
       <ul className="grid min-w-0 items-start gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="cpu-list">
-        {cpus.map((cpu) => (
-          <CpuCard key={cpu.id} cpu={cpu} number={cpu.number || (numbers.get(cpu.id) ?? 0)} />
-        ))}
+        {primary.map(card)}
       </ul>
+      {rest.length > 0 && (
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2"
+            aria-expanded={showMore}
+            onClick={() => setShowMore((s) => !s)}
+            data-testid="cpu-more-toggle"
+          >
+            <ChevronDown className={cn('transition-transform', showMore && 'rotate-180')} />
+            {t('cpu.more', { count: rest.length, busy: restBusy })}
+          </Button>
+          {showMore && (
+            <ul className="mt-2 grid min-w-0 items-start gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="cpu-list-more">
+              {rest.map(card)}
+            </ul>
+          )}
+        </>
+      )}
     </Section>
   )
+}
+
+/** A CPU someone named, or one reserved for players (not for automation). */
+function isImportant(cpu: Ae2Cpu) {
+  return cpu.name !== null || cpu.mode === 'player_only'
 }
 
 function CpuCard({ cpu, number }: { cpu: Ae2Cpu; number: number }) {
