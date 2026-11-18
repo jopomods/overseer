@@ -38,13 +38,27 @@ public final class Ae2Mapping {
     static final MetricDescriptor CHANNELS = new MetricDescriptor("channels", MetricKind.GAUGE, "", 0.0);
     static final MetricDescriptor CPUS_BUSY = new MetricDescriptor("cpus_busy", MetricKind.GAUGE, "", 0.0);
 
+    static final MetricDescriptor JOB_PROGRESS = new MetricDescriptor("job_progress", MetricKind.GAUGE, "", 0.01);
+    static final MetricDescriptor JOB_TOTAL = new MetricDescriptor("job_total", MetricKind.GAUGE, "", 0.0);
+    static final MetricDescriptor JOB_ELAPSED = new MetricDescriptor("job_elapsed", MetricKind.GAUGE, "s", 0.05);
+    /** Per crafting CPU, only while it has a job. */
+    static final List<MetricDescriptor> CPU_METRICS = List.of(JOB_PROGRESS, JOB_TOTAL, JOB_ELAPSED);
+
     static final List<MetricDescriptor> METRICS = List.of(POWER_STORED, POWER_MAX, POWER_USAGE, POWER_INJECTION,
             ITEM_TYPES, ITEMS, FLUID_TYPES, FLUIDS, CHANNELS, CPUS_BUSY);
+
+    /** Grid and CPU metrics: what the provider declares. */
+    static final List<MetricDescriptor> ALL_METRICS = java.util.stream.Stream.concat(METRICS.stream(),
+            CPU_METRICS.stream()).toList();
 
     private Ae2Mapping() {}
 
     public static ResourceRef grid(String id) {
         return new ResourceRef(PROVIDER, "grid", id);
+    }
+
+    public static ResourceRef cpu(String id) {
+        return new ResourceRef(PROVIDER, "cpu", id);
     }
 
     public static ProviderSnapshot snapshot(Timestamp at, List<Grid> grids) {
@@ -88,6 +102,7 @@ public final class Ae2Mapping {
             }
             samples.add(new Sample(ref, CHANNELS.key(), g.channels()));
             samples.add(new Sample(ref, CPUS_BUSY.key(), g.crafting().busy()));
+            for (Ae2Model.Cpu cpu : g.crafting().list()) cpu(g, cpu, resources, samples);
         }
         return new ProviderSnapshot(PROVIDER, at, resources, samples, inventories);
     }
@@ -96,15 +111,45 @@ public final class Ae2Mapping {
      * Who may see and edit which grid (ADR-0011). The owner sees and edits; members of the
      * owner's team see. Dashboard admins are handled by the access service. Shares follow.
      */
+    /**
+     * A crafting CPU: a resource of its own so that jobs have a history (the {@code job}
+     * attribute changes when a job starts or ends). Progress is a metric; it changes too often
+     * for events.
+     */
+    private static void cpu(Grid g, Ae2Model.Cpu cpu, Map<ResourceRef, Map<String, String>> resources,
+            List<Sample> samples) {
+        ResourceRef ref = cpu(cpu.id());
+        var attrs = new LinkedHashMap<String, String>();
+        attrs.put("grid", g.id());
+        attrs.put("name", cpu.name() == null ? "" : cpu.name());
+        attrs.put("storage", Long.toString(cpu.storage()));
+        attrs.put("coProcessors", Integer.toString(cpu.coProcessors()));
+        attrs.put("mode", cpu.mode());
+        Ae2Model.Job job = cpu.job();
+        attrs.put("busy", Boolean.toString(job != null));
+        attrs.put("job", job == null ? "" : job.key());
+        attrs.put("jobKind", job == null ? "" : job.kind());
+        attrs.put("jobName", job == null ? "" : job.name());
+        attrs.put("jobAmount", job == null ? "" : Long.toString(job.amount()));
+        resources.put(ref, attrs);
+        if (job != null) {
+            samples.add(new Sample(ref, JOB_PROGRESS.key(), job.progress()));
+            samples.add(new Sample(ref, JOB_TOTAL.key(), job.totalItems()));
+            samples.add(new Sample(ref, JOB_ELAPSED.key(), job.elapsedNanos() / 1e9));
+        }
+    }
+
     public static final class AccessIndex {
-        public static final AccessIndex EMPTY = new AccessIndex(Map.of(), Map.of());
+        public static final AccessIndex EMPTY = new AccessIndex(Map.of(), Map.of(), Map.of());
 
         private final Map<String, UUID> owners;
         private final Map<String, Set<UUID>> teams;
+        private final Map<String, String> cpuGrids;
 
-        private AccessIndex(Map<String, UUID> owners, Map<String, Set<UUID>> teams) {
+        private AccessIndex(Map<String, UUID> owners, Map<String, Set<UUID>> teams, Map<String, String> cpuGrids) {
             this.owners = owners;
             this.teams = teams;
+            this.cpuGrids = cpuGrids;
         }
 
         public static AccessIndex of(List<Grid> grids) {
@@ -116,13 +161,22 @@ public final class Ae2Mapping {
             var owners = new HashMap<String, UUID>();
             var teams = new HashMap<String, Set<UUID>>();
             var cache = new HashMap<UUID, Set<UUID>>();
+            var cpuGrids = new HashMap<String, String>();
             for (Grid g : grids) {
+                for (Ae2Model.Cpu cpu : g.crafting().list()) cpuGrids.put(cpu.id(), g.id());
                 if (g.owner() == null) continue;
                 owners.put(g.id(), g.owner());
                 Set<UUID> team = cache.computeIfAbsent(g.owner(), teammates);
                 if (!team.isEmpty()) teams.put(g.id(), Set.copyOf(team));
             }
-            return new AccessIndex(Map.copyOf(owners), Map.copyOf(teams));
+            return new AccessIndex(Map.copyOf(owners), Map.copyOf(teams), Map.copyOf(cpuGrids));
+        }
+
+        /** The grid of a crafting CPU: CPUs are visible exactly like their grid. */
+        public ResourceRef parent(ResourceRef ref) {
+            if (!ref.provider().equals(PROVIDER) || !ref.type().equals("cpu")) return null;
+            String grid = cpuGrids.get(ref.id());
+            return grid == null ? null : grid(grid);
         }
 
         public boolean canView(UUID player, ResourceRef ref) {

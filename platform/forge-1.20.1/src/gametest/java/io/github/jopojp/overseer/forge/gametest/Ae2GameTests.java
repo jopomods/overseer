@@ -166,6 +166,35 @@ public final class Ae2GameTests {
         });
     }
 
+    /** A crafting storage block forms a CPU: a resource of its own, visible like its grid. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void craftingCpusAreResources(GameTestHelper helper) {
+        BlockPos controller = new BlockPos(1, 1, 1);
+        BlockPos storage = new BlockPos(2, 1, 1);
+        place(helper, controller, "controller");
+        place(helper, new BlockPos(1, 2, 1), "creative_energy_cell");
+        place(helper, storage, "1k_crafting_storage");
+        int owner = IPlayerRegistry.getMapping(helper.getLevel()).getPlayerId(OWNER);
+        if (helper.getBlockEntity(controller) instanceof ControllerBlockEntity c) c.getMainNode().setOwningPlayerId(owner);
+
+        helper.runAfterDelay(40, () -> {
+            var provider = new Ae2Provider(helper.getLevel().getServer(), Teams.detect(), java.util.Map::of);
+            var snapshot = provider.collect(AT);
+            String dimension = helper.getLevel().dimension().location().toString();
+            BlockPos id = helper.absolutePos(controller);
+            BlockPos at = helper.absolutePos(storage);
+            ResourceRef grid = Ae2Mapping.grid(dimension + "@" + id.getX() + "," + id.getY() + "," + id.getZ());
+            ResourceRef cpu = Ae2Mapping.cpu(dimension + "@" + at.getX() + "," + at.getY() + "," + at.getZ());
+            var attrs = snapshot.resources().get(cpu);
+            helper.assertTrue(attrs != null, "CPU missing; got " + snapshot.resources().keySet());
+            helper.assertTrue(grid.id().equals(attrs.get("grid")), "grid: " + attrs.get("grid"));
+            helper.assertTrue("1024".equals(attrs.get("storage")), "storage: " + attrs.get("storage"));
+            helper.assertTrue("false".equals(attrs.get("busy")), "busy: " + attrs.get("busy"));
+            helper.assertTrue(grid.equals(provider.access().parent(cpu)), "a CPU belongs to its grid");
+            helper.succeed();
+        });
+    }
+
     private static void place(GameTestHelper helper, BlockPos relative, String block) {
         Block ae2 = ForgeRegistries.BLOCKS.getValue(ResourceLocation.tryBuild("ae2", block));
         helper.assertTrue(ae2 != null, "unknown AE2 block " + block);
