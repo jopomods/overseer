@@ -123,4 +123,18 @@ public final class FakeProvider implements DataProvider {
     public AccessPolicy access() {
         return policy;
     }
+
+    private io.github.jopojp.overseer.core.action.ActionHandler actions =
+            io.github.jopojp.overseer.core.action.ActionHandler.NONE;
+
+    /** World actions this provider offers from now on (ADR-0016). */
+    public FakeProvider actions(io.github.jopojp.overseer.core.action.ActionHandler actions) {
+        this.actions = actions;
+        return this;
+    }
+
+    @Override
+    public io.github.jopojp.overseer.core.action.ActionHandler actions() {
+        return actions;
+    }
 }

@@ -31,4 +31,6 @@
 | **Dashboard admin** | Player granted admin by an op. Sees everything. Ops and the server console are always admins. |
 | **Recording** | Snapshots over time in a versioned JSON Lines file. Committed ones are anonymized. See docs/guides/recordings.md. |
 | **Simulator** | Overseer without Minecraft, replaying recordings as live providers. |
+| **World action** (*Änderung*) | A change to the game made from the dashboard, e.g. renaming a Flux device. Run on the server thread, logged with old and new values (ADR-0016). |
+| **Action log** (*Änderungsprotokoll*) | Who changed what and when, refusals included. Visible to everyone who can see the resource. |
 | **Collector cost** | Time a provider spends in `collect()` per run; shown in the admin UI. |

@@ -20,6 +20,8 @@ other. Small clarifications are fine.
 | [0012](0012-item-icons.md) | Item icons in the browser | Accepted |
 | [0013](0013-versioning-and-releases.md) | Versioning, branching and releases | Accepted |
 | [0014](0014-tick-profiler.md) | Tick profiler with Forge's timers and one mixin | Accepted |
+| 0015 | CI: GameTest suites and path rules (written after the shadow week) | Planned |
+| [0016](0016-world-actions.md) | World actions: changing the game from the dashboard | Accepted |
 
 ## Template
 

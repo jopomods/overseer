@@ -29,6 +29,9 @@ Spreading one collection across several ticks is introduced only when measuremen
 show it is needed, because it creates consistency problems (the inventory changes
 while it is scanned).
 
+Since ADR-0016, world actions (changes made from the dashboard) also run on the server thread,
+handed over through `ActionQueue` and applied by `ActionHandler.perform()`.
+
 ## Consequences
 
 - No locks shared between server thread and other threads beyond the queue.

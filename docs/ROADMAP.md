@@ -105,6 +105,20 @@ Delivered in slices (docs/modules/ae2.md):
 - [x] Storage page: inventory changes per module (purged too), icons; overview: deficits, running profiler
 - [ ] Collector cost history (Overseer's own tick time over time)
 
+## M2.7: Flux in the dashboard (no new mod)
+
+Manage Flux Networks from the dashboard, so nobody has to walk to a Flux block. Edits are
+allowed for network owners and admins (Flux's rules) and server operators (ADR-0016).
+
+- [x] World actions: one endpoint, server-thread queue, permission checks, action log (ADR-0016)
+- [ ] Flux actions: network name, colour (presets and hex), security, password; devices
+  (single and several at once) name, priority, limit, bypass limit, surge, chunk loading,
+  network; members add, remove, user/admin, transfer ownership. GameTests against Flux.
+- [ ] UI: network settings, device editor with multi-select and rename by pattern, members,
+  action log. Names at most 24 characters, like in game.
+- [ ] Priority view (order in which Flux serves devices) and the recommended naming convention
+  as a suggestion, never enforced
+
 ## M3: GregTech CEu (GTCEu)
 
 - Its own integration; scope to be defined (machine state, maintenance, energy buffers, ...)
@@ -117,9 +131,6 @@ Delivered in slices (docs/modules/ae2.md):
 
 - **Notifications:** watched items below target, grids without power, profiler findings; in-game
   chat first, Discord webhook later.
-- **Flux in the dashboard:** edit network name, colour, priority and device names from the UI,
-  helping to keep a naming convention. Write access needs its own ADR (CSRF, who may change what,
-  doing it on the server thread).
 
 ## Backlog
 
@@ -127,7 +138,7 @@ Delivered in slices (docs/modules/ae2.md):
 - Recipe export
 - Notifications (push, Discord webhook)
 - Custom dashboard widgets
-- Control actions (write access; requires CSRF protection)
+- Actions for other mods (AE2, GTCEu) on top of the world actions of ADR-0016
 - More loaders and versions (NeoForge, Fabric) via Stonecutter, only when needed
 - Public release (GitHub, Modrinth/CurseForge, MIT license)
 - Final logo

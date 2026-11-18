@@ -40,6 +40,9 @@ Parts of a resource (e.g. the crafting CPUs of an ME network) name their parent 
 `AccessPolicy.parent`. Core then checks the parent instead: viewing, editing and shares of
 the parent apply to the part, so providers cannot get these rules out of sync.
 
+Changes to the game itself (world actions) follow stricter rules: operators and what the mod
+allows, never dashboard admins by role alone ([ADR-0016](0016-world-actions.md)).
+
 ## Consequences
 
 - Permission tests are part of CI for every provider.

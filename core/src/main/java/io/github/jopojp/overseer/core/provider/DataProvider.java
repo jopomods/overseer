@@ -33,4 +33,12 @@ public interface DataProvider {
 
     /** Resource-level access rules for this provider (ADR-0008). */
     AccessPolicy access();
+
+    /**
+     * World actions this provider offers (ADR-0016), e.g. renaming a Flux device. Default:
+     * none, the provider is read-only.
+     */
+    default io.github.jopojp.overseer.core.action.ActionHandler actions() {
+        return io.github.jopojp.overseer.core.action.ActionHandler.NONE;
+    }
 }

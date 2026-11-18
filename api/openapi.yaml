@@ -30,6 +30,7 @@ tags:
   - name: auth
   - name: me
   - name: data
+  - name: actions
   - name: admin
 paths:
   /api/v1/health:
@@ -695,6 +696,139 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/actions:
+    post:
+      tags: [actions]
+      operationId: runAction
+      summary: Change something in the world (ADR-0016)
+      description: |
+        Runs a world action of the resource's provider on the server thread and waits for it
+        (up to 10 s). Allowed for server operators and for players the mod itself allows (e.g.
+        Flux network owners and admins); dashboard admins who are not operators get no extra
+        rights. Never with a device token. Every outcome is logged, refusals included.
+        Rate limit: 60 per minute and player.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunAction"
+      responses:
+        "200":
+          description: Applied.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "400":
+          description: Unknown action or invalid parameters (`status` = `invalid`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Not allowed (`status` = `denied`), or a device token.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ActionResult"
+                  - $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The target cannot be changed right now, e.g. its chunk is not loaded (`unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          description: The provider failed while applying it (`failed`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "503":
+          description: The server did not get to it in time or is stopping (`busy`); nothing was changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+    get:
+      tags: [actions]
+      operationId: listActions
+      summary: Log of world actions, newest first
+      description: |
+        Actions on the resource or that changed it, refusals included, for anyone who can see
+        the resource. Without `resource` only for dashboard admins (everything they can see).
+        Parameters are never returned; the changes say what happened.
+      parameters:
+        - name: resource
+          in: query
+          description: Resource key, e.g. `flux/network/3`.
+          schema:
+            type: string
+        - name: before
+          in: query
+          description: Only entries with a smaller id (paging).
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Log entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActionLogEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/actions/allowed:
+    get:
+      tags: [actions]
+      operationId: allowedActions
+      summary: World actions the caller may run on a resource
+      description: The UI shows edit controls only for these. Empty for most viewers and for device tokens.
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Allowed action types.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllowedActions"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -1771,6 +1905,94 @@ components:
           description: "`zone`: zone of a Flux device. `name`: name of a resource the mod does not name (AE2 grids)."
         value:
           type: [string, "null"]
+
+    RunAction:
+      type: object
+      required: [type, resource]
+      properties:
+        type:
+          type: string
+          description: Action type of the resource's provider, e.g. `flux.network.edit`.
+        resource:
+          type: string
+          description: Target resource key; permissions are checked against it.
+        params:
+          type: object
+          additionalProperties: true
+          description: Action-specific parameters (see the provider's module docs).
+
+    ActionChange:
+      type: object
+      required: [resource, field]
+      properties:
+        resource:
+          type: string
+        field:
+          type: string
+          description: What changed, e.g. `name`, `priority`.
+        before:
+          type: [string, "null"]
+        after:
+          type: [string, "null"]
+
+    ActionResult:
+      type: object
+      required: [status, changes]
+      properties:
+        status:
+          type: string
+          enum: [ok, invalid, denied, not_found, unavailable, busy, failed]
+        message:
+          type: [string, "null"]
+          description: Why it was not applied.
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionChange"
+
+    ActionLogEntry:
+      type: object
+      required: [id, at, actor, actorName, operator, action, resource, status, changes]
+      properties:
+        id:
+          type: integer
+          format: int64
+        at:
+          type: string
+          format: date-time
+        actor:
+          type: string
+          format: uuid
+        actorName:
+          type: string
+        operator:
+          type: boolean
+          description: The actor was a server operator at the time.
+        action:
+          type: string
+        resource:
+          type: string
+          description: Target resource key.
+        status:
+          type: string
+          enum: [ok, invalid, denied, not_found, unavailable, busy, failed]
+        message:
+          type: [string, "null"]
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionChange"
+
+    AllowedActions:
+      type: object
+      required: [resource, types]
+      properties:
+        resource:
+          type: string
+        types:
+          type: array
+          items:
+            type: string
 
     StorageSettings:
       type: object
