@@ -58,6 +58,17 @@ class Ae2MappingTest {
     }
 
     @Test
+    void ownersTeamSeesButDoesNotEdit() {
+        UUID mate = UUID.fromString("00000000-0000-0000-0000-0000000000b2");
+        var access = Ae2Mapping.AccessIndex.of(List.of(grid(OWNER, 10)),
+                owner -> owner.equals(OWNER) ? java.util.Set.of(mate) : java.util.Set.of());
+        var ref = Ae2Mapping.grid("minecraft:overworld@10,64,0");
+        assertTrue(access.canView(mate, ref));
+        assertFalse(access.canEdit(mate, ref));
+        assertFalse(access.canView(STRANGER, ref));
+    }
+
+    @Test
     void onlyOwnersSeeAndEditTheirGrid() {
         var access = Ae2Mapping.AccessIndex.of(List.of(grid(OWNER, 10), grid(null, 20)));
         var owned = Ae2Mapping.grid("minecraft:overworld@10,64,0");

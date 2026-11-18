@@ -8,6 +8,7 @@ import io.github.jopojp.overseer.core.provider.Sample;
 import io.github.jopojp.overseer.core.time.Timestamp;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Mapping;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Provider;
+import io.github.jopojp.overseer.forge.integration.teams.Teams;
 import java.time.Instant;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -49,7 +50,7 @@ public final class Ae2GameTests {
         }
 
         helper.runAfterDelay(40, () -> {
-            var provider = new Ae2Provider(helper.getLevel().getServer());
+            var provider = new Ae2Provider(helper.getLevel().getServer(), Teams.detect());
             var snapshot = provider.collect(AT);
             BlockPos id = helper.absolutePos(first);
             String dimension = helper.getLevel().dimension().location().toString();

@@ -6,6 +6,7 @@ import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.time.Timestamp;
 import io.github.jopojp.overseer.forge.integration.Integrations;
 import io.github.jopojp.overseer.forge.integration.server.ServerProvider;
+import io.github.jopojp.overseer.forge.integration.teams.Teams;
 import java.time.Instant;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -42,8 +43,10 @@ public final class ServerGameTests {
         boolean bare = Boolean.getBoolean("overseer.bareMods");
         boolean flux = ModList.get().isLoaded("fluxnetworks");
         boolean ae2 = ModList.get().isLoaded("ae2");
-        helper.assertTrue(flux == !bare && ae2 == !bare,
-                "expected optional mods " + (bare ? "absent" : "present") + ": flux=" + flux + ", ae2=" + ae2);
+        boolean ftb = ModList.get().isLoaded("ftbteams");
+        helper.assertTrue(flux == !bare && ae2 == !bare && ftb == !bare, "expected optional mods "
+                + (bare ? "absent" : "present") + ": flux=" + flux + ", ae2=" + ae2 + ", ftbteams=" + ftb);
+        helper.assertTrue((Teams.detect() == Teams.NONE) == bare, "team support must follow FTB Teams");
 
         var providers = Integrations.providers(helper.getLevel().getServer());
         Set<String> ids = providers.stream().map(p -> p.descriptor().id()).collect(Collectors.toSet());
