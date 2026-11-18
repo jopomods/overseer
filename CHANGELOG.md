@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/Jopo-JP/overseer/compare/v0.4.0...v0.4.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **web:** stable sankey order, storage colours, no page jumps ([#38](https://github.com/Jopo-JP/overseer/issues/38)) ([5c5ff16](https://github.com/Jopo-JP/overseer/commit/5c5ff1622265fdaaaf90897b2c102c2c50f4acf1))
+
 ## [0.4.0](https://github.com/Jopo-JP/overseer/compare/v0.3.0...v0.4.0) (2026-11-18)
 
 
