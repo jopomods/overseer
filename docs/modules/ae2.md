@@ -21,8 +21,18 @@ AE2 changes them, the integration fails to load and is skipped (`Integrations`).
 Every second the reader walks all grids and keeps those with at least one controller.
 Identity is the controller with the lowest position (dimension, then x, y, z):
 `ae2/grid/<dimension>@x,y,z`. Removing exactly that controller changes the id; the history
-of the old id stays until retention removes it. Grids without a controller (ad-hoc grids)
-are skipped for now; adopting them follows (see roadmap).
+of the old id stays until retention removes it.
+
+Grids without a controller (ad-hoc grids):
+
+- **Registered**: a player looks at one of its blocks and runs `/ov ae2 register <name>`, or
+  an admin adopts a hidden grid in the UI (`POST /api/v1/registrations`). The id is that
+  block's position, the player (admin) is the owner; data and access work like controller
+  grids. The owner or an admin can remove the registration on the grid page. Registrations
+  are looked up only in loaded chunks; chunks are never loaded for Overseer.
+- **Hidden**: not registered and at least 5 nodes. Shown to admins only, id = lowest node
+  position (changes with the grid), no history. Smaller grids are ignored.
+- A registered grid that gets a controller is tracked by its controller from then on.
 
 AE2 grids have no names. The name is an Overseer override (`PUT /api/v1/overrides`, key
 `name`, max 48 characters); without one the UI shows "Network at x, y, z".

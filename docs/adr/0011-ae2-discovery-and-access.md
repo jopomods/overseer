@@ -42,6 +42,8 @@ Overseer mandatory on every client, because blocks are synced to clients.
   `notification` and delivered in chat by the platform while the player is online, so
   "immediately if online, otherwise on next login" needs no login hook. A decline blocks
   new requests from that player for 24 hours.
+- 2026-11-18 (M2e): registrations are a core table (`registration`), so other mods without
+  ids can use them. Hidden grids get no history because their id changes with the grid.
 
 ## Consequences
 

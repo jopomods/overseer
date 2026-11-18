@@ -36,6 +36,7 @@ super admin).
 |---|---|---|
 | `/ov link <code>` | any player | Confirms a dashboard login. The browser shows the code. |
 | `/ov status` | any player | Prints the dashboard address. |
+| `/ov ae2 register <name>` | any player | Registers the ME network without controller the player looks at; the player becomes its owner (AE2 only). |
 | `/ov login <player>` | level 4 / console | Prints a one-time login link (10 minutes) for that player. Recovery path if someone cannot use `/ov link`. |
 | `/ov admin add <player>` | ops | Grants dashboard admin: sees everything. |
 | `/ov admin remove <player>` | ops | Revokes dashboard admin. |
