@@ -1,5 +1,12 @@
-# Runs on every push to main and every PR. Must be green before merging (ADR-0013).
-# Three jobs run in parallel; the slowest (GameTests) sets the wall time.
+# Runs on every push to main and every PR (ADR-0013, ADR-0015).
+#
+#   changes ─┬─ web ────────────────────────────────┐
+#            └─ build ── gametest × suites (parallel) ┼── ci-ok   (the one status to look at)
+#   pr-title ──────────────────────────────────────┘
+#
+# Each GameTest suite runs in its own Forge server and world. `changes` decides which jobs a
+# change needs (.github/ci/classify.py). SHADOW mode: everything still runs; the summary only
+# says what would have been skipped. Turn it off once the rules have proven themselves.
 name: CI
 
 on:
@@ -10,70 +17,151 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
 
+env:
+  SHADOW: "true"
+
 jobs:
-  java:
+  changes:
+    name: Which jobs this change needs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      all: ${{ steps.decide.outputs.all }}
+      build: ${{ steps.decide.outputs.build }}
+      suites: ${{ steps.decide.outputs.suites }}
+      web: ${{ steps.decide.outputs.web }}
+      build_web: ${{ steps.decide.outputs.build_web }}
+      gt_base: ${{ steps.decide.outputs.gt_base }}
+      gt_profiler: ${{ steps.decide.outputs.gt_profiler }}
+      gt_flux: ${{ steps.decide.outputs.gt_flux }}
+      gt_ae2: ${{ steps.decide.outputs.gt_ae2 }}
+      gt_teams: ${{ steps.decide.outputs.gt_teams }}
+      gt_ae2_teams: ${{ steps.decide.outputs.gt_ae2_teams }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Path rules still hold (fixtures)
+        run: python3 -m unittest discover -s .github/ci
+
+      - name: Classify changed paths
+        id: decide
+        run: |
+          # On main and in shadow mode everything runs; the rules only report.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git diff --name-only "origin/${{ github.base_ref }}...HEAD" > changed.txt
+          else
+            : > changed.txt
+            echo ".github/ci/everything-on-main" >> changed.txt
+          fi
+          python3 .github/ci/classify.py < changed.txt > rules.txt
+          if [ "$SHADOW" = "true" ] || [ "${{ github.event_name }}" != "pull_request" ]; then
+            # Everything runs: the rules' output is reported, the run list is complete.
+            echo "all=true" >> "$GITHUB_OUTPUT"
+            grep -v '^suites=\|^build=' rules.txt >> "$GITHUB_OUTPUT"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo 'suites=["base","profiler","flux","ae2","teams","ae2-teams"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "all=false" >> "$GITHUB_OUTPUT"
+            cat rules.txt >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo "### Jobs this change needs"
+            echo
+            echo "| Job | Needed by the rules | Runs |"
+            echo "|---|---|---|"
+            grep -v '^suites=' rules.txt | while IFS='=' read -r name value; do
+              runs=$([ "$SHADOW" = "true" ] || [ "$value" = "true" ] && echo yes || echo no)
+              echo "| $name | $value | $runs |"
+            done
+            echo
+            echo "GameTest suites by the rules: \`$(grep '^suites=' rules.txt | cut -d= -f2-)\`"
+            echo
+            echo "<details><summary>Changed paths ($(wc -l < changed.txt))</summary>"
+            echo
+            sed 's/^/- `/; s/$/`/' changed.txt
+            echo "</details>"
+            [ "$SHADOW" = "true" ] && echo && echo "_Shadow mode: every job runs; \"no\" would have been skipped._"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
     name: Java build and tests
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: "17"
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
-      # core + platform unit tests, web build, mod jar with embedded UI
+      # core + platform unit tests, mod jar; with the web UI embedded when web may have changed,
+      # so the jar's packaging is checked whenever it can break.
       - name: Gradle build
-        run: ./gradlew build --console=plain
+        run: |
+          if [ "${{ needs.changes.outputs.all }}" = "true" ] || [ "${{ needs.changes.outputs.build_web }}" = "true" ]; then
+            ./gradlew build --console=plain
+          else
+            ./gradlew build -PskipWeb=true --console=plain
+          fi
 
       - name: Upload mod jar
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: overseer-jar
           path: platform/*/build/libs/*.jar
           retention-days: 14
 
   gametest:
-    name: GameTests (Forge + Flux Networks + AE2, and without them)
+    name: GameTests (${{ matrix.suite }})
+    needs: [changes, build]
+    if: needs.changes.outputs.suites != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(needs.changes.outputs.suites) }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        with:
+          cache-read-only: true
 
-      # Real Forge server (flat world) with real Flux Networks blocks; exits non-zero on failure.
+      # Real Forge server with only this suite's mods; exits non-zero on failure.
       - name: Run GameTests
-        run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PskipWeb=true --console=plain
-
-      # Same server without the optional mods: Overseer must load and its integrations stay off.
-      - name: Run GameTests without optional mods
-        run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PskipWeb=true -PbareMods=true --console=plain
+        run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PgametestSuite=${{ matrix.suite }} -PskipWeb=true --console=plain
 
   web:
     name: Web lint, types and layout tests
+    needs: changes
+    if: needs.changes.outputs.all == 'true' || needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "24"
           cache: npm
@@ -97,7 +185,7 @@ jobs:
 
       - name: Cache Playwright browser
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
@@ -115,7 +203,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report
           path: web/playwright-report
@@ -128,7 +216,7 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-      - uses: amannn/action-semantic-pull-request@v5
+      - uses: amannn/action-semantic-pull-request@e32d7e603df1aa1ba07e981f2a23455dee596825 # v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -144,3 +232,47 @@ jobs:
             chore
             revert
           requireScope: false
+
+  # The one status to look at (and, once the repository is public, the one required check).
+  # Red if any job failed or was cancelled, or if a job the rules require did not succeed;
+  # a job the rules do not require may be skipped.
+  ci-ok:
+    name: CI ok
+    needs: [changes, build, gametest, web, pr-title]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results against what the change needs
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          ALL: ${{ needs.changes.outputs.all }}
+          BUILD: ${{ needs.changes.outputs.build }}
+          WEB: ${{ needs.changes.outputs.web }}
+          SUITES: ${{ needs.changes.outputs.suites }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          results = {name: job["result"] for name, job in json.loads(os.environ["RESULTS"]).items()}
+          everything = os.environ["ALL"] == "true"
+          required = {"changes"}
+          if everything or os.environ["BUILD"] == "true":
+              required.add("build")
+          if everything or os.environ["WEB"] == "true":
+              required.add("web")
+          if everything or json.loads(os.environ["SUITES"] or "[]"):
+              required.add("gametest")
+          if os.environ["EVENT"] == "pull_request":
+              required.add("pr-title")
+          bad = []
+          for name, result in sorted(results.items()):
+              if result in ("failure", "cancelled"):
+                  bad.append(f"{name}: {result}")
+              elif name in required and result != "success":
+                  bad.append(f"{name}: {result}, but the change needs it")
+          print("\n".join(f"{n}: {r}" for n, r in sorted(results.items())))
+          if bad:
+              print("\nNot ok:\n" + "\n".join(bad))
+              sys.exit(1)
+          print("\nCI ok")
+          PY
