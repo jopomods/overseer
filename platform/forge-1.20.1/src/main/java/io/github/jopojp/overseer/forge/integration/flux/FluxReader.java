@@ -55,7 +55,7 @@ final class FluxReader {
                     device.getOwnerUUID(),
                     device.getRawPriority(),
                     device.getRawLimit(),
-                    device.getMaxTransferLimit(),
+                    maxLimit(device),
                     device.getDisableLimit(),
                     device.getSurgeMode(),
                     device.isChunkLoaded(),
@@ -66,5 +66,19 @@ final class FluxReader {
 
         return new Network(network.getNetworkID(), network.getNetworkName(), network.getNetworkColor(),
                 network.getOwnerUUID(), Security.valueOf(network.getSecurityLevel().name()), stats, members, devices);
+    }
+
+    /**
+     * Devices in unloaded chunks are "phantoms" in Flux Networks; asking them for their maximum
+     * transfer throws ("Logic method cannot be invoked on phantom device") and used to fail the
+     * whole collection. They do not transfer anyway: their configured limit stands in.
+     */
+    private static long maxLimit(IFluxDevice device) {
+        if (!device.isChunkLoaded()) return device.getRawLimit();
+        try {
+            return device.getMaxTransferLimit();
+        } catch (IllegalStateException e) {
+            return device.getRawLimit();
+        }
     }
 }
