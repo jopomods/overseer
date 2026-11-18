@@ -40,7 +40,11 @@ AE2 grids have no names. The name is an Overseer override (`PUT /api/v1/override
   their own. AE2 declares `Capability.SHARING`; Flux does not (Flux has its own members).
 - Dashboard admins see and edit everything.
 
-Access requests follow (ADR-0011).
+- **Access requests**: below their own networks, players see the other grids with an owner
+  (Overseer name or "Network of <owner>", never positions) and can ask for access. The
+  owner gets a chat message in game (right away if online, else on the next login) and
+  allows or declines on the grid page; the list page shows a badge per grid. Allowing
+  creates a share. After a decline the same player can ask again after 24 hours.
 
 ## Data
 

@@ -69,7 +69,9 @@ Delivered in slices (docs/modules/ae2.md):
   the UI; power, inventory totals, channels and CPU usage with history; list and detail pages
 - [x] M2b: FTB Teams party members see the owner's grids; CI also runs without optional mods
 - [x] M2c: explicit shares (view only) managed by owners on the grid page
-- [ ] Access requests with in-game chat notification; optional "placed a block in the grid"
+- [x] M2d: access requests (opaque handles, no positions), in-game chat notifications,
+  allow/decline on the grid page, 24 h cool-down after a decline
+- [ ] Optional "placed a block in the grid" access (server setting, default off)
 - [ ] Ad-hoc grids hidden, adoptable by admins; `/ov ae2 register`
 - [ ] Inventory scan every 10 s (cost measured, spread over ticks only if needed), stored
   as deltas; watchlist every second
