@@ -45,6 +45,14 @@ a reviewer would have run, so they are active.
 for jobs the change does not need, never for jobs it does. Branch protection (once the repository
 is public) requires only this status.
 
+**Remembered passes.** The build, web and every GameTest job first look for a cache entry keyed
+by the hash of their inputs (`.github/`, `core/`, `platform/`, `api/`, Gradle files, `version.txt`,
+fixtures; the web job: `web/`, the API contract, recordings). If exactly these inputs already
+passed, the job skips its steps and reports success; after a pass it stores an empty entry.
+Runs read their own branch's entries and `main`'s, so re-pushes to a PR and later pushes to
+`main` skip what has not changed. `PASS_CACHE` in `ci.yml` (bump it) or deleting the caches
+forgets every pass.
+
 **Speed.** GameTest jobs do not wait for the build job; each compiles what it needs. Flow tests
 run at 360 and 1280 px; the layout tests run at all six widths (ADR-0009). Actions are pinned to
 commit SHAs.
@@ -52,6 +60,8 @@ commit SHAs.
 ## Consequences
 
 - Docs PRs finish in seconds; a Flux change runs the Java build, `base` and `flux`.
+- A test that depends on something outside its hashed inputs (a runner image, a download) is not
+  rerun when only that changes; bump `PASS_CACHE` then.
 - A wrong rule can skip a needed test. Mitigation: unknown paths run everything, the classifier
   has fixtures, and `main` always runs everything.
 - Runner minutes per full run grow with the number of suites (each job pays setup time); the path

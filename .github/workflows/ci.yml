@@ -25,6 +25,8 @@ permissions:
 
 env:
   SHADOW: "false"
+  # Bump to forget every remembered pass (see "Already passed" steps).
+  PASS_CACHE: "1"
 
 jobs:
   changes:
@@ -102,20 +104,33 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      # Skip when exactly these inputs already passed (ADR-0015). A pass is remembered as an
+      # empty cache entry; runs can read their own branch's and main's entries.
+      - name: Already passed with these inputs?
+        id: passed
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .ci-passed
+          key: passed-build-${{ env.PASS_CACHE }}-${{ needs.changes.outputs.all == 'true' || needs.changes.outputs.build_web == 'true' }}-${{ hashFiles('.github/**', 'core/**', 'platform/**', 'api/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', 'version.txt', 'fixtures/**', 'web/**') }}
+          lookup-only: true
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        if: steps.passed.outputs.cache-hit != 'true'
         with:
           distribution: temurin
           java-version: "17"
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        if: steps.passed.outputs.cache-hit != 'true'
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: web/package-lock.json
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        if: steps.passed.outputs.cache-hit != 'true'
 
       # core + platform unit tests, mod jar; with the web UI embedded when web may have changed,
       # so the jar's packaging is checked whenever it can break.
       - name: Gradle build
+        if: steps.passed.outputs.cache-hit != 'true'
         run: |
           if [ "${{ needs.changes.outputs.all }}" = "true" ] || [ "${{ needs.changes.outputs.build_web }}" = "true" ]; then
             ./gradlew build --console=plain
@@ -124,11 +139,21 @@ jobs:
           fi
 
       - name: Upload mod jar
+        if: steps.passed.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: overseer-jar
           path: platform/*/build/libs/*.jar
           retention-days: 14
+
+      - name: Remember the pass
+        if: steps.passed.outputs.cache-hit != 'true'
+        run: mkdir -p "$GITHUB_WORKSPACE/.ci-passed" && echo "${{ github.sha }}" > "$GITHUB_WORKSPACE/.ci-passed/sha"
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: steps.passed.outputs.cache-hit != 'true'
+        with:
+          path: .ci-passed
+          key: ${{ steps.passed.outputs.cache-primary-key }}
 
   gametest:
     name: GameTests (${{ matrix.suite }})
@@ -143,17 +168,38 @@ jobs:
         suite: ${{ fromJSON(needs.changes.outputs.suites) }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      # Skip when exactly these inputs already passed (ADR-0015). A pass is remembered as an
+      # empty cache entry; runs can read their own branch's and main's entries.
+      - name: Already passed with these inputs?
+        id: passed
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .ci-passed
+          key: passed-gametest-${{ env.PASS_CACHE }}-${{ matrix.suite }}-${{ hashFiles('.github/**', 'core/**', 'platform/**', 'api/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', 'version.txt', 'fixtures/**') }}
+          lookup-only: true
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        if: steps.passed.outputs.cache-hit != 'true'
         with:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        if: steps.passed.outputs.cache-hit != 'true'
         with:
           cache-read-only: true
 
       # Real Forge server with only this suite's mods; exits non-zero on failure.
       - name: Run GameTests
+        if: steps.passed.outputs.cache-hit != 'true'
         run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PgametestSuite=${{ matrix.suite }} -PskipWeb=true --console=plain
+
+      - name: Remember the pass
+        if: steps.passed.outputs.cache-hit != 'true'
+        run: mkdir -p "$GITHUB_WORKSPACE/.ci-passed" && echo "${{ github.sha }}" > "$GITHUB_WORKSPACE/.ci-passed/sha"
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: steps.passed.outputs.cache-hit != 'true'
+        with:
+          path: .ci-passed
+          key: ${{ steps.passed.outputs.cache-primary-key }}
 
   web:
     name: Web lint, types and layout tests
@@ -166,29 +212,45 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      # Skip when exactly these inputs already passed (ADR-0015). A pass is remembered as an
+      # empty cache entry; runs can read their own branch's and main's entries.
+      - name: Already passed with these inputs?
+        id: passed
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .ci-passed
+          key: passed-web-${{ env.PASS_CACHE }}-${{ hashFiles('.github/**', 'web/**', 'api/openapi.yaml', 'fixtures/recordings/**') }}
+          lookup-only: true
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        if: steps.passed.outputs.cache-hit != 'true'
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: web/package-lock.json
 
       - run: npm ci --no-audit --no-fund
+        if: steps.passed.outputs.cache-hit != 'true'
 
       - name: Lint
+        if: steps.passed.outputs.cache-hit != 'true'
         run: npm run lint
 
       - name: Typecheck
+        if: steps.passed.outputs.cache-hit != 'true'
         run: npm run typecheck
 
       - name: API client is up to date with api/openapi.yaml
+        if: steps.passed.outputs.cache-hit != 'true'
         run: |
           npm run gen:api
           git diff --exit-code -- src/api/schema.gen.ts
 
       - name: Build
+        if: steps.passed.outputs.cache-hit != 'true'
         run: npm run build
 
       - name: Cache Playwright browser
+        if: steps.passed.outputs.cache-hit != 'true'
         id: playwright-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -196,23 +258,33 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
 
       - name: Install Playwright browser
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.cache-hit != 'true' && (steps.playwright-cache.outputs.cache-hit != 'true')
         run: npx playwright install --with-deps --only-shell chromium
 
       - name: Install Playwright system dependencies
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        if: steps.passed.outputs.cache-hit != 'true' && (steps.playwright-cache.outputs.cache-hit == 'true')
         run: npx playwright install-deps chromium
 
       - name: Layout and flow tests (360-1920 px)
+        if: steps.passed.outputs.cache-hit != 'true'
         run: npm run test:e2e
 
       - name: Upload Playwright report
-        if: failure()
+        if: steps.passed.outputs.cache-hit != 'true' && (failure())
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report
           path: web/playwright-report
           retention-days: 7
+
+      - name: Remember the pass
+        if: steps.passed.outputs.cache-hit != 'true'
+        run: mkdir -p "$GITHUB_WORKSPACE/.ci-passed" && echo "${{ github.sha }}" > "$GITHUB_WORKSPACE/.ci-passed/sha"
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: steps.passed.outputs.cache-hit != 'true'
+        with:
+          path: .ci-passed
+          key: ${{ steps.passed.outputs.cache-primary-key }}
 
   pr-title:
     name: PR title is a Conventional Commit
