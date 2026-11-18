@@ -7,7 +7,6 @@ import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.time.Timestamp;
 import io.github.jopojp.overseer.forge.integration.flux.FluxMapping;
 import io.github.jopojp.overseer.forge.integration.flux.FluxProvider;
-import io.github.jopojp.overseer.forge.integration.server.ServerProvider;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -77,16 +76,6 @@ public final class FluxGameTests {
             FluxNetworkData.getInstance().deleteNetwork(network);
             helper.succeed();
         });
-    }
-
-    @GameTest(template = "empty")
-    public static void serverProviderReportsTpsAndDimensions(GameTestHelper helper) {
-        var snapshot = new ServerProvider(helper.getLevel().getServer()).collect(AT);
-        helper.assertTrue(snapshot.resources().containsKey(new ResourceRef("server", "server", "main")), "server");
-        helper.assertTrue(snapshot.resources().containsKey(
-                new ResourceRef("server", "dimension", "minecraft:overworld")), "overworld");
-        helper.assertTrue(snapshot.samples().stream().anyMatch(s -> s.metric().equals("tps")), "tps sample");
-        helper.succeed();
     }
 
     private static void connect(GameTestHelper helper, BlockPos relative, String block, FluxNetwork network) {

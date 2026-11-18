@@ -14,10 +14,15 @@ base {
 }
 version = "${project.version}+forge-$mcVersion"
 
+// -PbareMods=true: dev runs without the optional mods (Flux Networks, AE2). CI uses it to
+// prove Overseer starts without them (AGENTS.md rule 3). Their GameTests are left out.
+val bareMods = providers.gradleProperty("bareMods").map { it.toBoolean() }.getOrElse(false)
+
 // In-game tests (Forge GameTest) live in their own source set and never ship in the jar.
 val gametest: SourceSet = sourceSets.create("gametest") {
     compileClasspath += sourceSets.main.get().output
     runtimeClasspath += sourceSets.main.get().output
+    if (bareMods) java.exclude("**/FluxGameTests.java", "**/Ae2GameTests.java")
 }
 configurations[gametest.compileClasspathConfigurationName].extendsFrom(configurations.compileClasspath.get())
 configurations[gametest.runtimeClasspathConfigurationName].extendsFrom(configurations.runtimeClasspath.get())
@@ -54,8 +59,9 @@ legacyForge {
         create("gameTestServer") {
             type = "gameTestServer"
             sourceSet = gametest
-            gameDirectory = project.file("run/gametest")
+            gameDirectory = project.file(if (bareMods) "run/gametest-bare" else "run/gametest")
             systemProperty("forge.enabledGameTestNamespaces", modId)
+            systemProperty("overseer.bareMods", bareMods.toString())
         }
     }
 
@@ -76,10 +82,12 @@ dependencies {
     // Optional integrations: compile against them, never require them (AGENTS.md rule 3).
     // They are present in dev runs so integrations can be exercised.
     "modCompileOnly"(libs.flux.networks)
-    "modRuntimeOnly"(libs.flux.networks)
     "modCompileOnly"(libs.ae2)
-    "modRuntimeOnly"(libs.ae2)
-    "modRuntimeOnly"(libs.guideme)
+    if (!bareMods) {
+        "modRuntimeOnly"(libs.flux.networks)
+        "modRuntimeOnly"(libs.ae2)
+        "modRuntimeOnly"(libs.guideme)
+    }
 
     // Libraries Minecraft does not ship, embedded with Forge Jar-in-Jar (ADR-0003, ADR-0006).
     // FML picks one copy if several mods embed the same library; ranges say what we accept.

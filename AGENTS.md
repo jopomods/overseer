@@ -37,6 +37,7 @@ builds resources and access rules (unit-tested), a thin `*Provider`, a factory e
 ./gradlew :core:test                     # core unit tests
 ./gradlew :platform:forge-1.20.1:runServer   # Forge dev server (run dir: platform/forge-1.20.1/run)
 ./gradlew :platform:forge-1.20.1:runGameTestServer   # in-game tests (Flux etc.), exits non-zero on failure
+./gradlew :platform:forge-1.20.1:runGameTestServer -PbareMods=true   # same without Flux/AE2 (rule 3)
 ./gradlew :platform:forge-1.20.1:test        # platform unit tests (pure mapping code)
 ./gradlew :core:runSimulator                 # Overseer without Minecraft, replaying fixtures/recordings
 ./gradlew :core:exportRecording --args="<db> <out.jsonl>"   # anonymized recording (docs/guides/recordings.md)

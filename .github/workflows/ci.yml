@@ -45,7 +45,7 @@ jobs:
           retention-days: 14
 
   gametest:
-    name: GameTests (Forge + Flux Networks)
+    name: GameTests (Forge + Flux Networks + AE2, and without them)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -59,6 +59,10 @@ jobs:
       # Real Forge server (flat world) with real Flux Networks blocks; exits non-zero on failure.
       - name: Run GameTests
         run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PskipWeb=true --console=plain
+
+      # Same server without the optional mods: Overseer must load and its integrations stay off.
+      - name: Run GameTests without optional mods
+        run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PskipWeb=true -PbareMods=true --console=plain
 
   web:
     name: Web lint, types and layout tests
