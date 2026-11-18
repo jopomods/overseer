@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useInventory, useWatches, type InventoryItem, type InventoryQuery } from '@/api/hooks'
+import { ItemHistory } from '@/components/item-history'
 import { ItemIcon } from '@/components/item-icon'
 import { McText } from '@/components/mc-text'
 import { plainText } from '@/lib/mc-text'
@@ -147,6 +148,7 @@ function Row({
   watched: boolean
 }) {
   const t = useT()
+  const [open, setOpen] = useState(false)
   const emptyIn = emptyInHours(item.amount, item.change1h, item.change24h)
   const hint = emptyIn === undefined ? '' : t('watch.emptyIn', { time: formatDuration(emptyIn * 3_600_000, locale) })
   const infinite = isInfinite(item.amount, item.kind)
@@ -165,14 +167,20 @@ function Row({
       <div className="flex min-w-0 items-center gap-1">
         {canEdit && <WatchToggle grid={grid} item={item.key} watched={watched} name={plainText(item.name)} />}
         <ItemIcon stackKey={item.key} name={item.name} className={cn('mr-1.5', item.amount === 0 && 'opacity-50')} />
-        <div className="min-w-0">
+        <button
+          type="button"
+          className="min-w-0 text-left"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+          title={t('inv.showHistory')}
+        >
           <p className={cn('truncate text-sm font-medium', item.amount === 0 && 'text-muted-foreground')}>
             <McText text={item.name} />
           </p>
           <p className="text-muted-foreground truncate text-xs">
             {hint ? <span className="text-destructive">{hint}</span> : item.key}
           </p>
-        </div>
+        </button>
       </div>
       <span className="tabular text-right text-sm font-semibold" title={exact}>
         {amount}
@@ -181,6 +189,11 @@ function Row({
         <Change value={item.change1h} kind={item.kind} label={t('inv.change1h')} locale={locale} />
         <Change value={item.change24h} kind={item.kind} label={t('inv.change24h')} locale={locale} />
       </div>
+      {open && (
+        <div className="col-span-full min-w-0 pt-2">
+          <ItemHistory resource={grid} item={item.key} kind={item.kind} />
+        </div>
+      )}
     </li>
   )
 }

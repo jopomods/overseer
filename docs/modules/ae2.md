@@ -209,6 +209,11 @@ The first scan of a grid is a baseline, not a change, so installing Overseer doe
 whole inventory as gained. A restart compares against the stored amounts: things that changed
 while the server was off count as one change at the first scan.
 
+Every key has a history: clicking a row in the contents list shows a step chart (15 min to 48 h)
+from `inventory_change` (`GET /api/v1/inventory/history`): the amount at the window start is the
+current amount minus every change since, then one step per minute that changed. Watched items
+additionally have per-second `stock:` metrics.
+
 `GET /api/v1/inventory?resource=…` returns the newest scan with the net change of each key over
 the last hour and day. Keys used up completely are listed with amount 0 while they have a
 change. Search, kind filter, sort (amount, change, name) and paging happen on the server.

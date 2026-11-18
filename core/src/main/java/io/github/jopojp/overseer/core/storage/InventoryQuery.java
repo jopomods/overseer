@@ -4,6 +4,7 @@ import io.github.jopojp.overseer.core.provider.ResourceRef;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Reads inventory changes (ADR-0011). Use a reader connection. */
@@ -44,6 +45,55 @@ public final class InventoryQuery {
             }
         }
         return result;
+    }
+
+    /** Amount of one key at minute resolution: where it started and every minute it changed. */
+    public record ItemHistory(long start, List<long[]> points) {}
+
+    /**
+     * How the amount of one key moved between {@code from} and {@code to} (uptime). {@code start} is
+     * the amount at {@code from}: the current amount minus every change since. Each point is
+     * {@code [bucket start, amount at its end]}; between points the amount stayed.
+     */
+    public static ItemHistory history(Connection c, ResourceRef ref, String key, long from, long to) throws SQLException {
+        long fromBucket = bucketStart(from);
+        String ids = "(SELECT id FROM resource WHERE provider = ? AND type = ? AND rid = ?)";
+        String keyId = "(SELECT id FROM inventory_key WHERE key = ?)";
+        long current = 0;
+        try (var ps = c.prepareStatement("SELECT amount FROM inventory_amount WHERE resource_id = " + ids
+                + " AND key_id = " + keyId)) {
+            bind(ps, ref, key);
+            try (var rs = ps.executeQuery()) {
+                if (rs.next()) current = rs.getLong(1);
+            }
+        }
+        long since = 0;
+        try (var ps = c.prepareStatement("SELECT COALESCE(SUM(delta), 0) FROM inventory_change WHERE resource_id = " + ids
+                + " AND key_id = " + keyId + " AND bucket >= ?")) {
+            bind(ps, ref, key);
+            ps.setLong(5, fromBucket);
+            try (var rs = ps.executeQuery()) {
+                if (rs.next()) since = rs.getLong(1);
+            }
+        }
+        var points = new java.util.ArrayList<long[]>();
+        try (var ps = c.prepareStatement("SELECT bucket, amount FROM inventory_change WHERE resource_id = " + ids
+                + " AND key_id = " + keyId + " AND bucket >= ? AND bucket <= ? ORDER BY bucket")) {
+            bind(ps, ref, key);
+            ps.setLong(5, fromBucket);
+            ps.setLong(6, to);
+            try (var rs = ps.executeQuery()) {
+                while (rs.next()) points.add(new long[] {rs.getLong(1), rs.getLong(2)});
+            }
+        }
+        return new ItemHistory(current - since, points);
+    }
+
+    private static void bind(java.sql.PreparedStatement ps, ResourceRef ref, String key) throws SQLException {
+        ps.setString(1, ref.provider());
+        ps.setString(2, ref.type());
+        ps.setString(3, ref.id());
+        ps.setString(4, key);
     }
 
     /** The bucket containing {@code t}: a bucket counts when any part of it is in the window. */

@@ -366,6 +366,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How the amount of one item moved
+         * @description Any item, watched or not, at minute resolution from the inventory scans (kept for the raw
+         *     retention, 48 h by default). `start` is the amount at `from`; each point is
+         *     `[uptime of the minute, amount at its end]` and the amount stays until the next point.
+         *     `now` is the amount in the newest scan.
+         */
+        get: operations["getInventoryHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/icon": {
         parameters: {
             query?: never;
@@ -891,6 +914,19 @@ export interface components {
             /** @description Number of matching keys (all pages). */
             total: number;
             items: components["schemas"]["InventoryItem"][];
+        };
+        InventoryHistory: {
+            resource: string;
+            item: string;
+            /** Format: int64 */
+            from: number;
+            /** Format: int64 */
+            to: number;
+            /** Format: int64 */
+            start: number;
+            /** Format: int64 */
+            now?: number;
+            points: number[][];
         };
         InventoryItem: {
             /** @description `<kind>:<registry id>`, plus `#<hash>` of the NBT when present. */
@@ -1568,6 +1604,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Job"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getInventoryHistory: {
+        parameters: {
+            query: {
+                resource: string;
+                item: string;
+                from?: number;
+                to?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The steps. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryHistory"];
                 };
             };
             400: components["responses"]["BadRequest"];

@@ -136,6 +136,7 @@ public final class ApiRoutes {
                 .get("/api/v1/history", this::history)
                 .get("/api/v1/sessions", this::sessions)
                 .get("/api/v1/inventory", this::inventory)
+                .get("/api/v1/inventory/history", this::inventoryHistory)
                 .get("/api/v1/events", this::events)
                 .get("/api/v1/jobs", this::job)
                 .get("/api/v1/watches", this::listWatches)
@@ -472,6 +473,24 @@ public final class ApiRoutes {
     private static final java.util.Comparator<Dtos.InventoryItem> BY_NAME = java.util.Comparator
             .comparing((Dtos.InventoryItem i) -> plain(i.name()).toLowerCase(java.util.Locale.ROOT))
             .thenComparing(Dtos.InventoryItem::key);
+
+    /** How one item's amount moved, minute by minute, for any item (watched or not). */
+    private Response inventoryHistory(Request r) throws SQLException {
+        Principal p = principal(r);
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        String item = r.queryParam("item").orElseThrow(() -> HttpError.badRequest("item is required."));
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        long to = longParam(r, "to", uptime.getAsLong());
+        long from = longParam(r, "from", to - CHANGE_LONGER);
+        if (to <= from) throw HttpError.badRequest("to must be after from.");
+        InventoryQuery.ItemHistory history;
+        try (var reader = db.openReader()) {
+            history = InventoryQuery.history(reader, ref, item, Math.max(0, from), to);
+        }
+        Long now = inventories.get(ref).flatMap(scan -> scan.stacks().stream()
+                .filter(s -> s.key().equals(item)).findFirst()).map(s -> s.amount()).orElse(null);
+        return Response.json(new Dtos.InventoryHistory(ref.key(), item, from, to, history.start(), now, history.points()));
+    }
 
     /** Current contents from the newest scan, with net changes from the database (ADR-0011). */
     private Response inventory(Request r) throws SQLException {

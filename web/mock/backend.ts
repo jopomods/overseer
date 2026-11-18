@@ -680,6 +680,17 @@ export function createMockBackend(options: MockOptions = {}) {
       }
       case '/api/v1/events':
         return json(eventsBody(url))
+      case '/api/v1/inventory/history': {
+        const to = Number(url.searchParams.get('to') ?? 123_456_789)
+        const from = Number(url.searchParams.get('from') ?? to - 24 * HOUR)
+        const points: Array<[number, number]> = []
+        let amount = 212_034 + 20_410
+        for (let t = Math.ceil(from / 60_000) * 60_000; t <= to; t += 7 * 60_000) {
+          amount -= 600 + ((t / 60_000) % 5) * 90
+          points.push([t, amount])
+        }
+        return json({ resource: url.searchParams.get('resource'), item: url.searchParams.get('item'), from, to, start: 232_444, now: amount, points })
+      }
       case '/api/v1/inventory':
         return json(inventoryBody(url, options.realistic === true))
       case '/api/v1/me/credentials':
