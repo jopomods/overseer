@@ -88,6 +88,9 @@ Delivered in slices (docs/modules/ae2.md):
 
 ## M3+
 
+- Tick profiling ("what costs tick time"): block entity and entity timings via Forge's
+  `TimeTracker`, started from the dashboard for a chosen duration or kept running at a chosen
+  interval; top list and a stacked chart by block type over time (admins only)
 - Tom's Storage
 - GTCEu as its own bounded module (scope to be defined)
 

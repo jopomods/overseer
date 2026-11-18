@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { emptyInHours, formatBuckets } from '@/lib/ae2'
+import { emptyInHours, formatBuckets, isInfinite } from '@/lib/ae2'
 import { formatDuration, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { usePreferences, type Locale } from '@/lib/preferences'
@@ -147,8 +147,17 @@ function Row({
   const t = useT()
   const emptyIn = emptyInHours(item.amount, item.change1h, item.change24h)
   const hint = emptyIn === undefined ? '' : t('watch.emptyIn', { time: formatDuration(emptyIn * 3_600_000, locale) })
-  const amount = item.kind === 'fluid' ? `${formatBuckets(item.amount, locale)} ${t('ae2.buckets')}` : formatSi(item.amount, locale)
-  const exact = item.kind === 'fluid' ? `${formatNumber(item.amount, locale)} mB` : formatNumber(item.amount, locale)
+  const infinite = isInfinite(item.amount, item.kind)
+  const amount = infinite
+    ? '∞'
+    : item.kind === 'fluid'
+      ? `${formatBuckets(item.amount, locale)} ${t('ae2.buckets')}`
+      : formatSi(item.amount, locale)
+  const exact = infinite
+    ? t('inv.infinite')
+    : item.kind === 'fluid'
+      ? `${formatNumber(item.amount, locale)} mB`
+      : formatNumber(item.amount, locale)
   return (
     <li className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-2 sm:grid-cols-[minmax(0,1fr)_7rem_6rem_6rem]">
       <div className="flex min-w-0 items-center gap-1">

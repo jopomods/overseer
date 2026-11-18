@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
-import { forecast, formatBuckets, type Forecast } from '@/lib/ae2'
+import { forecast, formatBuckets, isInfinite, type Forecast } from '@/lib/ae2'
 import { formatDuration, formatSi } from '@/lib/format'
 import { useT, type Translate } from '@/lib/i18n'
 import { usePreferences, type Locale } from '@/lib/preferences'
@@ -183,6 +183,7 @@ function TargetForm({ grid, watch, onDone }: { grid: string; watch: Watch; onDon
 }
 
 function format(v: number, kind: string, locale: Locale) {
+  if (isInfinite(v, kind)) return '∞'
   return kind === 'fluid' ? `${formatBuckets(v, locale)} B` : formatSi(v, locale)
 }
 
