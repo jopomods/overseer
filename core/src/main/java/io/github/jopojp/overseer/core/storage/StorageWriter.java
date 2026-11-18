@@ -68,6 +68,7 @@ public final class StorageWriter implements AutoCloseable {
     private final Map<String, Set<ResourceRef>> presentByProvider = new HashMap<>();
     private final Map<SeriesKey, Long> seriesIds = new HashMap<>();
     private SampleFilter filter = new SampleFilter();
+    private final InventoryWriter inventories;
 
     private PreparedStatement insertResource;
     private PreparedStatement insertEvent;
@@ -89,6 +90,7 @@ public final class StorageWriter implements AutoCloseable {
             StorageSettings settings) {
         this.db = Objects.requireNonNull(db);
         this.connection = db.writer();
+        this.inventories = new InventoryWriter(connection);
         this.queue = Objects.requireNonNull(queue);
         this.clock = Objects.requireNonNull(clock);
         this.settings = Objects.requireNonNull(settings);
@@ -278,6 +280,12 @@ public final class StorageWriter implements AutoCloseable {
                 ps.executeUpdate();
             }
         }
+
+        var scanned = new ArrayList<>(snapshot.inventories().keySet());
+        scanned.sort(BY_KEY);
+        for (ResourceRef ref : scanned) {
+            inventories.apply(resourceId(ref, at), snapshot.inventories().get(ref), at);
+        }
     }
 
     private long resourceId(ResourceRef ref, Timestamp at) throws SQLException {
@@ -377,6 +385,7 @@ public final class StorageWriter implements AutoCloseable {
             }
         }
         attributes.replaceAll((ref, attrs) -> Map.copyOf(attrs));
+        inventories.load();
         connection.commit();
         stateLoaded = true;
     }

@@ -12,6 +12,7 @@ import io.github.jopojp.overseer.core.http.Request;
 import io.github.jopojp.overseer.core.http.Response;
 import io.github.jopojp.overseer.core.http.Router;
 import io.github.jopojp.overseer.core.pipeline.CollectorStatus;
+import io.github.jopojp.overseer.core.pipeline.InventoryState;
 import io.github.jopojp.overseer.core.pipeline.LatestState;
 import io.github.jopojp.overseer.core.pipeline.SnapshotQueue;
 import io.github.jopojp.overseer.core.provider.ProviderDescriptor;
@@ -20,6 +21,7 @@ import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.storage.AccessRequestStore;
 import io.github.jopojp.overseer.core.storage.Database;
 import io.github.jopojp.overseer.core.storage.HistoryQuery;
+import io.github.jopojp.overseer.core.storage.InventoryQuery;
 import io.github.jopojp.overseer.core.storage.NotificationStore;
 import io.github.jopojp.overseer.core.storage.OverrideStore;
 import io.github.jopojp.overseer.core.storage.RegistrationStore;
@@ -50,6 +52,7 @@ public final class ApiRoutes {
     private final AuthService auth;
     private final AccessService access;
     private final LatestState latest;
+    private final InventoryState inventories;
     private final SnapshotQueue queue;
     private final List<ProviderDescriptor> providers;
     private final Supplier<List<CollectorStatus>> collectors;
@@ -73,6 +76,7 @@ public final class ApiRoutes {
             AuthService auth,
             AccessService access,
             LatestState latest,
+            InventoryState inventories,
             SnapshotQueue queue,
             List<ProviderDescriptor> providers,
             Supplier<List<CollectorStatus>> collectors,
@@ -89,6 +93,7 @@ public final class ApiRoutes {
         this.auth = auth;
         this.access = access;
         this.latest = latest;
+        this.inventories = inventories;
         this.queue = queue;
         this.providers = List.copyOf(providers);
         this.collectors = collectors;
@@ -120,6 +125,7 @@ public final class ApiRoutes {
                 .get("/api/v1/stream", r -> Response.sse(principal(r)))
                 .get("/api/v1/history", this::history)
                 .get("/api/v1/sessions", this::sessions)
+                .get("/api/v1/inventory", this::inventory)
                 .get("/api/v1/overrides", this::listOverrides)
                 .put("/api/v1/overrides", this::setOverride)
                 .get("/api/v1/shares", this::listShares)
@@ -281,6 +287,65 @@ public final class ApiRoutes {
         try (var reader = db.openReader()) {
             return Response.json(Dtos.sessions(uptime.getAsLong(), Sessions.list(reader)));
         }
+    }
+
+    static final int MAX_INVENTORY_PAGE = 500;
+    static final long CHANGE_RECENT = 3_600_000L;
+    static final long CHANGE_LONGER = 24 * 3_600_000L;
+    private static final java.util.Set<String> INVENTORY_KINDS = java.util.Set.of("item", "fluid", "other");
+    private static final java.util.Comparator<Dtos.InventoryItem> BY_NAME = java.util.Comparator
+            .comparing((Dtos.InventoryItem i) -> i.name().toLowerCase(java.util.Locale.ROOT))
+            .thenComparing(Dtos.InventoryItem::key);
+
+    /** Current contents from the newest scan, with net changes from the database (ADR-0011). */
+    private Response inventory(Request r) throws SQLException {
+        Principal p = principal(r);
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        String q = r.queryParam("q").map(s -> s.strip().toLowerCase(java.util.Locale.ROOT)).orElse("");
+        String kind = r.queryParam("kind").orElse(null);
+        if (kind != null && !INVENTORY_KINDS.contains(kind)) throw HttpError.badRequest("kind must be item, fluid or other.");
+        String sort = r.queryParam("sort").orElse("amount");
+        java.util.Comparator<Dtos.InventoryItem> order = switch (sort) {
+            case "amount" -> java.util.Comparator.comparingLong(Dtos.InventoryItem::amount).reversed().thenComparing(BY_NAME);
+            case "name" -> BY_NAME;
+            case "change" -> java.util.Comparator.comparingLong((Dtos.InventoryItem i) -> -Math.abs(i.change24h()))
+                    .thenComparingLong(i -> -Math.abs(i.change1h())).thenComparing(BY_NAME);
+            default -> throw HttpError.badRequest("sort must be amount, name or change.");
+        };
+        int limit = (int) longParam(r, "limit", 100);
+        int offset = (int) longParam(r, "offset", 0);
+        if (limit < 1 || limit > MAX_INVENTORY_PAGE) throw HttpError.badRequest("limit must be 1 to " + MAX_INVENTORY_PAGE + ".");
+        if (offset < 0) throw HttpError.badRequest("offset must be >= 0.");
+
+        long now = uptime.getAsLong();
+        Map<String, InventoryQuery.Change> changes;
+        try (var reader = db.openReader()) {
+            changes = InventoryQuery.changes(reader, ref, now - CHANGE_RECENT, now - CHANGE_LONGER);
+        }
+        var scan = inventories.get(ref);
+        var items = new java.util.ArrayList<Dtos.InventoryItem>();
+        var seen = new java.util.HashSet<String>();
+        for (var stack : scan.map(InventoryState.Scan::stacks).orElse(List.of())) {
+            if (!seen.add(stack.key())) continue;
+            var change = changes.get(stack.key());
+            items.add(new Dtos.InventoryItem(stack.key(), stack.kind(), stack.name(), stack.amount(),
+                    change == null ? 0 : change.recent(), change == null ? 0 : change.longer()));
+        }
+        // Keys used up completely: no longer in the scan, but they changed.
+        changes.forEach((key, change) -> {
+            if (!seen.contains(key)) items.add(new Dtos.InventoryItem(key, change.kind(), change.name(), 0,
+                    change.recent(), change.longer()));
+        });
+        var matching = items.stream()
+                .filter(i -> kind == null || kind.equals(i.kind()))
+                .filter(i -> q.isEmpty() || i.name().toLowerCase(java.util.Locale.ROOT).contains(q)
+                        || i.key().contains(q))
+                .sorted(order)
+                .toList();
+        var page = matching.subList(Math.min(offset, matching.size()), Math.min(offset + limit, matching.size()));
+        return Response.json(new Dtos.Inventory(ref.key(),
+                scan.map(s -> Dtos.timestamp(s.at())).orElse(null), matching.size(), List.copyOf(page)));
     }
 
     public static final int MAX_OVERRIDE_LENGTH = 48;

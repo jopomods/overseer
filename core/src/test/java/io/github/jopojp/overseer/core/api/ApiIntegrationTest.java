@@ -13,6 +13,7 @@ import io.github.jopojp.overseer.core.auth.PlayerRef;
 import io.github.jopojp.overseer.core.http.HttpConfig;
 import io.github.jopojp.overseer.core.provider.Capability;
 import io.github.jopojp.overseer.core.provider.ResourceRef;
+import io.github.jopojp.overseer.core.provider.Stack;
 import io.github.jopojp.overseer.core.storage.StorageSettings;
 import io.github.jopojp.overseer.core.testing.FakeProvider;
 import io.github.jopojp.overseer.core.testing.FakeTime;
@@ -51,13 +52,14 @@ class ApiIntegrationTest {
     Path dir;
 
     private OverseerRuntime runtime;
+    private FakeProvider flux;
     private final Set<UUID> operators = new HashSet<>();
     private final HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
     private String base;
 
     @BeforeEach
     void start() throws Exception {
-        var flux = new FakeProvider("flux", 1, 50_000_000, new FakeTime())
+        flux = new FakeProvider("flux", 1, 50_000_000, new FakeTime())
                 .resource(ALEX_NET, Map.of("name", "Alex Base", "owner", ALEX.uuid().toString(), "ownerName", "Alex"))
                 .resource(STEVE_NET, Map.of("name", "Steve Base"))
                 .power(ALEX_NET, 100)
@@ -446,6 +448,44 @@ class ApiIntegrationTest {
         assertEquals(204, alex.send("DELETE", "/api/v1/registrations?resource=flux/network/2", null, Map.of()).statusCode());
         assertTrue(runtime.registrations().find(STEVE_NET).isEmpty());
         assertEquals(404, alex.send("DELETE", "/api/v1/registrations?resource=flux/network/2", null, Map.of()).statusCode());
+    }
+
+    @Test
+    void inventoryShowsContentsAndChangesToViewersOnly() throws Exception {
+        var iron = "item:minecraft:iron_ingot";
+        flux.inventory(ALEX_NET, List.of(new Stack(iron, "item", "Iron Ingot", 100),
+                new Stack("fluid:minecraft:water", "fluid", "Water", 4_000),
+                new Stack("item:minecraft:dirt", "item", "Dirt", 3)));
+        collect();
+        flux.inventory(ALEX_NET, List.of(new Stack(iron, "item", "Iron Ingot", 64),
+                new Stack("fluid:minecraft:water", "fluid", "Water", 4_000)));
+        collect();
+        var alex = new Browser().loginAs(ALEX);
+        var steve = new Browser().loginAs(STEVE);
+        assertEquals(404, steve.get("/api/v1/inventory?resource=flux/network/1").statusCode());
+        assertEquals(400, alex.get("/api/v1/inventory?resource=flux/network/1&sort=price").statusCode());
+
+        JsonObject body = null;
+        for (int i = 0; i < 50; i++) { // the storage writer is asynchronous
+            body = json(alex.get("/api/v1/inventory?resource=flux/network/1&sort=change"));
+            if (body.get("total").getAsInt() == 3) break;
+            Thread.sleep(100);
+        }
+        assertEquals(3, body.get("total").getAsInt());
+        var items = body.getAsJsonArray("items");
+        var first = items.get(0).getAsJsonObject();
+        assertEquals(iron, first.get("key").getAsString());
+        assertEquals(64, first.get("amount").getAsLong());
+        assertEquals(-36, first.get("change1h").getAsLong());
+        var dirt = items.get(1).getAsJsonObject();
+        assertEquals(0, dirt.get("amount").getAsLong(), "used up, still listed");
+        assertEquals(-3, dirt.get("change24h").getAsLong());
+        assertTrue(body.get("scannedAt").isJsonObject());
+
+        var fluids = json(alex.get("/api/v1/inventory?resource=flux/network/1&kind=fluid"));
+        assertEquals(1, fluids.get("total").getAsInt());
+        var search = json(alex.get("/api/v1/inventory?resource=flux/network/1&q=IRON&limit=1"));
+        assertEquals("Iron Ingot", search.getAsJsonArray("items").get(0).getAsJsonObject().get("name").getAsString());
     }
 
     @Test

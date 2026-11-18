@@ -26,6 +26,7 @@ public final class FakeProvider implements DataProvider {
     private final Map<ResourceRef, Map<String, String>> resources = new LinkedHashMap<>();
     private final Map<ResourceRef, Double> power = new LinkedHashMap<>();
     private long workNanos;
+    private final Map<ResourceRef, List<io.github.jopojp.overseer.core.provider.Stack>> inventories = new LinkedHashMap<>();
     private RuntimeException failure;
     private final List<Timestamp> calls = new ArrayList<>();
     private AccessPolicy policy = AccessPolicy.ALLOW_AUTHENTICATED;
@@ -62,6 +63,12 @@ public final class FakeProvider implements DataProvider {
     }
 
     /** Each collect() advances the fake clock by this much, simulating work. */
+    /** Contents reported with every collection from now on. */
+    public FakeProvider inventory(ResourceRef ref, List<io.github.jopojp.overseer.core.provider.Stack> stacks) {
+        inventories.put(ref, List.copyOf(stacks));
+        return this;
+    }
+
     public FakeProvider work(long amount, TimeUnit unit) {
         this.workNanos = unit.toNanos(amount);
         return this;
@@ -93,7 +100,7 @@ public final class FakeProvider implements DataProvider {
         if (failure != null) throw failure;
         var samples = new ArrayList<Sample>();
         power.forEach((ref, value) -> samples.add(new Sample(ref, POWER.key(), value)));
-        return new ProviderSnapshot(descriptor.id(), at, resources, samples);
+        return new ProviderSnapshot(descriptor.id(), at, resources, samples, inventories);
     }
 
     @Override

@@ -113,6 +113,8 @@ public final class OverseerRuntime implements AutoCloseable {
         var clock = UptimeClock.system(session.baseUptimeMillis(), session.session());
         var queue = new SnapshotQueue(config.queueCapacity());
         var latest = new LatestState();
+        var inventories = new io.github.jopojp.overseer.core.pipeline.InventoryState();
+        latest.addListener(inventories);
         scheduler = new CollectorScheduler(providers, clock, queue, latest, System::nanoTime);
         List<ProviderDescriptor> descriptors = providers.stream().map(DataProvider::descriptor).toList();
 
@@ -145,7 +147,7 @@ public final class OverseerRuntime implements AutoCloseable {
         var sse = new SseHub(access, auth, latest);
         resources.push(sse);
 
-        var router = new ApiRoutes(config.version(), auth, access, latest, queue, descriptors, scheduler::status, wall,
+        var router = new ApiRoutes(config.version(), auth, access, latest, inventories, queue, descriptors, scheduler::status, wall,
                 db, clock::uptimeMillis, overrides, shares, requests, notifications, registrations, writer)
                 .register(new Router());
         http = new HttpServer(config.http(), router,
