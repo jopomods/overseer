@@ -294,6 +294,16 @@ test.describe('flows', () => {
     await expect(page.getByRole('progressbar').first()).toBeVisible()
   })
 
+  test('every item in the contents has a history', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/ae2/minecraft:overworld@120,64,-340')
+    const row = page.getByTestId('inventory-list').getByRole('listitem').filter({ hasText: 'Iron Ingot' })
+    await row.getByRole('button', { name: /^Iron Ingot/ }).click()
+    await expect(row.getByTestId('item-history')).toBeVisible()
+    await row.getByTestId('item-history').getByRole('radio', { name: '6 h' }).click()
+    await expect(row.getByTestId('item-history').locator('.recharts-area')).toHaveCount(1)
+  })
+
   test('ME network contents are searchable and sortable', async ({ page }) => {
     await mockApi(page, { realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')
