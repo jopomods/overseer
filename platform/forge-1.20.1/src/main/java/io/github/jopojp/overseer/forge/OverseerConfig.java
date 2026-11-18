@@ -19,6 +19,7 @@ public final class OverseerConfig {
     static final ForgeConfigSpec.ConfigValue<List<? extends String>> TRUSTED_PROXIES;
     static final ForgeConfigSpec.BooleanValue FORCE_SECURE_COOKIES;
     static final ForgeConfigSpec.ConfigValue<String> PUBLIC_URL;
+    static final ForgeConfigSpec.BooleanValue AE2_PLACER_ACCESS;
 
     static {
         var builder = new ForgeConfigSpec.Builder();
@@ -43,6 +44,12 @@ public final class OverseerConfig {
                         "Used for links printed by /ov. Empty = http://<bindAddress>:<port>.")
                 .define("publicUrl", "");
         builder.pop();
+        builder.comment("Who sees what, on top of the mods' own rules").push("access");
+        AE2_PLACER_ACCESS = builder.comment(
+                        "AE2: players who placed any block or part of an ME network may view it (not edit it).",
+                        "Off by default: anyone could place a cable on a neighbour's network and watch it.")
+                .define("ae2PlacerAccess", false);
+        builder.pop();
         SPEC = builder.build();
     }
 
@@ -51,6 +58,11 @@ public final class OverseerConfig {
     static HttpConfig http() {
         return new HttpConfig(BIND_ADDRESS.get(), PORT.get(), new HashSet<>(TRUSTED_PROXIES.get()),
                 FORCE_SECURE_COOKIES.get(), HttpConfig.DEFAULTS.maxRequestBytes());
+    }
+
+    /** Read every collection, so a change applies without a restart. */
+    public static boolean ae2PlacerAccess() {
+        return SPEC.isLoaded() && AE2_PLACER_ACCESS.get();
     }
 
     public static String publicUrl() {

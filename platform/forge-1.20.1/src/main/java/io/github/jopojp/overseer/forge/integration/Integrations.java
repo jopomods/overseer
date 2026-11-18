@@ -31,7 +31,8 @@ public final class Integrations {
         providers.add(new ServerProvider(server));
         optional(providers, "fluxnetworks", () -> new io.github.jopojp.overseer.forge.integration.flux.FluxProvider());
         optional(providers, "ae2", () -> new io.github.jopojp.overseer.forge.integration.ae2.Ae2Provider(server, teams,
-                () -> registrations("ae2"), () -> watches("ae2")));
+                () -> registrations("ae2"), () -> watches("ae2"))
+                .placerAccess(io.github.jopojp.overseer.forge.OverseerConfig::ae2PlacerAccess));
         return providers;
     }
 

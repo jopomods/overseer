@@ -31,8 +31,11 @@ public final class Ae2Provider implements DataProvider {
     private final Teams teams;
     private final Supplier<Map<String, UUID>> registrations;
     private final Supplier<Map<String, Set<String>>> watches;
+    private java.util.function.BooleanSupplier placerAccess = () -> false;
     private volatile Ae2Mapping.AccessIndex access = Ae2Mapping.AccessIndex.EMPTY;
     private final Ae2Reader.StackCache stacks = new Ae2Reader.StackCache();
+    /** Placers per grid id, refreshed with every inventory scan (10 s); walking all nodes costs. */
+    private final Map<String, Set<UUID>> placers = new java.util.HashMap<>();
     private long collections;
 
     /**
@@ -57,6 +60,12 @@ public final class Ae2Provider implements DataProvider {
     /** Full inventory scan every 10th collection: every 10 s (ADR-0011). */
     static final int SCAN_EVERY = 10;
 
+    /** Players who placed a node of a grid may view it (server setting {@code access.ae2PlacerAccess}). */
+    public Ae2Provider placerAccess(java.util.function.BooleanSupplier enabled) {
+        this.placerAccess = enabled;
+        return this;
+    }
+
     @Override
     public ProviderDescriptor descriptor() {
         return DESCRIPTOR;
@@ -65,8 +74,9 @@ public final class Ae2Provider implements DataProvider {
     @Override
     public ProviderSnapshot collect(Timestamp at) {
         boolean scan = collections++ % SCAN_EVERY == 0;
-        List<Ae2Model.Grid> grids = Ae2Reader.readAll(server, registrations.get(), watches.get(), stacks, scan);
-        access = Ae2Mapping.AccessIndex.of(grids, teams::teammates);
+        List<Ae2Model.Grid> grids = Ae2Reader.readAll(server, registrations.get(), watches.get(), stacks, scan,
+                placerAccess.getAsBoolean() ? placers : null);
+        access = Ae2Mapping.AccessIndex.of(grids, teams::teammates, placerAccess.getAsBoolean());
         return Ae2Mapping.snapshot(at, grids);
     }
 

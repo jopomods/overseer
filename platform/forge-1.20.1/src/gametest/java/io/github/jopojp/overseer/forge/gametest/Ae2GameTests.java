@@ -212,6 +212,35 @@ public final class Ae2GameTests {
         });
     }
 
+    /** With placer access on, whoever placed a part of a grid may view it. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void placersSeeGridsOnlyWhenEnabled(GameTestHelper helper) {
+        BlockPos controller = new BlockPos(1, 1, 1);
+        BlockPos cell = new BlockPos(2, 1, 1);
+        place(helper, controller, "controller");
+        place(helper, cell, "energy_cell");
+        var players = IPlayerRegistry.getMapping(helper.getLevel());
+        if (helper.getBlockEntity(controller) instanceof ControllerBlockEntity c) {
+            c.getMainNode().setOwningPlayerId(players.getPlayerId(OWNER));
+        }
+        if (helper.getBlockEntity(cell) instanceof appeng.blockentity.networking.EnergyCellBlockEntity e) {
+            e.getMainNode().setOwningPlayerId(players.getPlayerId(STRANGER));
+        }
+        helper.runAfterDelay(40, () -> {
+            BlockPos id = helper.absolutePos(controller);
+            String dimension = helper.getLevel().dimension().location().toString();
+            ResourceRef ref = Ae2Mapping.grid(dimension + "@" + id.getX() + "," + id.getY() + "," + id.getZ());
+            var off = new Ae2Provider(helper.getLevel().getServer(), Teams.detect(), java.util.Map::of);
+            off.collect(AT);
+            helper.assertFalse(off.access().canView(STRANGER, ref), "off by default");
+            var on = new Ae2Provider(helper.getLevel().getServer(), Teams.detect(), java.util.Map::of).placerAccess(() -> true);
+            on.collect(AT);
+            helper.assertTrue(on.access().canView(STRANGER, ref), "the player who placed the energy cell may view");
+            helper.assertFalse(on.access().canEdit(STRANGER, ref), "but not edit");
+            helper.succeed();
+        });
+    }
+
     private static void place(GameTestHelper helper, BlockPos relative, String block) {
         Block ae2 = ForgeRegistries.BLOCKS.getValue(ResourceLocation.tryBuild("ae2", block));
         helper.assertTrue(ae2 != null, "unknown AE2 block " + block);

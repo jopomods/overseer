@@ -193,17 +193,22 @@ public final class Ae2Mapping {
     }
 
     public static final class AccessIndex {
-        public static final AccessIndex EMPTY = new AccessIndex(Map.of(), Map.of(), Map.of());
+        public static final AccessIndex EMPTY = new AccessIndex(Map.of(), Map.of(), Map.of(), Map.of());
 
         private final Map<String, UUID> owners;
         private final Map<String, Set<UUID>> teams;
         /** Resource key of a part (CPU, drive) to the id of its grid. */
         private final Map<String, String> partGrids;
 
-        private AccessIndex(Map<String, UUID> owners, Map<String, Set<UUID>> teams, Map<String, String> partGrids) {
+        /** Grid id to players who placed a node of it (placer access). */
+        private final Map<String, Set<UUID>> placers;
+
+        private AccessIndex(Map<String, UUID> owners, Map<String, Set<UUID>> teams, Map<String, String> partGrids,
+                Map<String, Set<UUID>> placers) {
             this.owners = owners;
             this.teams = teams;
             this.partGrids = partGrids;
+            this.placers = placers;
         }
 
         public static AccessIndex of(List<Grid> grids) {
@@ -212,19 +217,31 @@ public final class Ae2Mapping {
 
         /** @param teammates the other team members of an owner */
         public static AccessIndex of(List<Grid> grids, Function<UUID, Set<UUID>> teammates) {
+            return of(grids, teammates, false);
+        }
+
+        /**
+         * @param placerAccess players who placed a node of a grid may view it (server setting,
+         *                     default off)
+         */
+        public static AccessIndex of(List<Grid> grids, Function<UUID, Set<UUID>> teammates, boolean placerAccess) {
             var owners = new HashMap<String, UUID>();
             var teams = new HashMap<String, Set<UUID>>();
             var cache = new HashMap<UUID, Set<UUID>>();
             var partGrids = new HashMap<String, String>();
+            var viewers = new HashMap<String, Set<UUID>>();
             for (Grid g : grids) {
                 for (Ae2Model.Cpu cpu : g.crafting().list()) partGrids.put(cpu(cpu.id()).key(), g.id());
                 for (Ae2Model.Drive drive : g.drives()) partGrids.put(drive(drive.id()).key(), g.id());
+                if (placerAccess && g.kind() != Ae2Model.Kind.HIDDEN && !g.placers().isEmpty()) {
+                    viewers.put(g.id(), g.placers());
+                }
                 if (g.owner() == null) continue;
                 owners.put(g.id(), g.owner());
                 Set<UUID> team = cache.computeIfAbsent(g.owner(), teammates);
                 if (!team.isEmpty()) teams.put(g.id(), Set.copyOf(team));
             }
-            return new AccessIndex(Map.copyOf(owners), Map.copyOf(teams), Map.copyOf(partGrids));
+            return new AccessIndex(Map.copyOf(owners), Map.copyOf(teams), Map.copyOf(partGrids), Map.copyOf(viewers));
         }
 
         /** The grid of a part (crafting CPU, drive): parts are visible exactly like their grid. */
@@ -236,7 +253,8 @@ public final class Ae2Mapping {
 
         public boolean canView(UUID player, ResourceRef ref) {
             String grid = gridId(player, ref);
-            return grid != null && (player.equals(owners.get(grid)) || teams.getOrDefault(grid, Set.of()).contains(player));
+            return grid != null && (player.equals(owners.get(grid)) || teams.getOrDefault(grid, Set.of()).contains(player)
+                    || placers.getOrDefault(grid, Set.of()).contains(player));
         }
 
         /** Owners may name their grid. */

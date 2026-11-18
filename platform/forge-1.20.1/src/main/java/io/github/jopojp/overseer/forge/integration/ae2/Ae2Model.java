@@ -125,6 +125,7 @@ public final class Ae2Model {
      * @param inventory  full contents when scanned this time (every 10 s), otherwise {@code null}
      * @param drives     drives and ME chests
      * @param watched    current amount of each watched stack key that AE2 knows (every second)
+     * @param placers    players who placed any node of the grid; only read when placer access is on
      */
     public record Grid(
             String dimension,
@@ -144,9 +145,11 @@ public final class Ae2Model {
             Kind kind,
             List<Stack> inventory,
             List<Drive> drives,
-            java.util.Map<String, Long> watched) {
+            java.util.Map<String, Long> watched,
+            java.util.Set<UUID> placers) {
 
         public Grid {
+            placers = placers == null ? java.util.Set.of() : java.util.Set.copyOf(placers);
             if (inventory != null) inventory = List.copyOf(inventory);
             drives = drives == null ? List.of() : List.copyOf(drives);
             watched = watched == null ? java.util.Map.of() : java.util.Map.copyOf(watched);
@@ -156,7 +159,15 @@ public final class Ae2Model {
                 ControllerState state, boolean booting, int channels, Energy energy, Storage storage,
                 Crafting crafting, Kind kind, List<Stack> inventory, List<Drive> drives) {
             this(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy, storage,
-                    crafting, kind, inventory, drives, java.util.Map.of());
+                    crafting, kind, inventory, drives, java.util.Map.of(), java.util.Set.of());
+        }
+
+        public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,
+                ControllerState state, boolean booting, int channels, Energy energy, Storage storage,
+                Crafting crafting, Kind kind, List<Stack> inventory, List<Drive> drives,
+                java.util.Map<String, Long> watched) {
+            this(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy, storage,
+                    crafting, kind, inventory, drives, watched, java.util.Set.of());
         }
 
         public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,
