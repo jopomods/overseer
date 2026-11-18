@@ -37,6 +37,12 @@ export function offlineMarkers(sessions: Sessions | undefined, history: History 
 /** Uptime axis labels relative to now: "-6 h", "-30 min", "now". */
 export function relativeLabel(deltaMs: number, locale: Locale): string {
   if (Math.abs(deltaMs) < 30_000) return locale === 'de' ? 'jetzt' : 'now'
+  const minutes = -deltaMs / 60_000
+  // Below 10 h one decimal, so neighbouring ticks (e.g. -80 and -60 min) stay distinct.
+  if (minutes >= 60 && minutes < 600) {
+    const hours = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(minutes / 60)
+    return `-${hours} h`
+  }
   return `-${formatDuration(-deltaMs, locale)}`
 }
 

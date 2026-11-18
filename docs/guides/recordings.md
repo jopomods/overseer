@@ -29,7 +29,13 @@ replaces the MOTD. Device, network and zone names are kept.
 
    The last argument is the snapshot spacing in milliseconds. Paths are relative to the
    repository root.
-3. Check the file for anything personal before committing (search for your player name).
+3. Check the export against its source database before committing:
+
+   ```sh
+   node scripts/check-recording-leaks.mjs <overseer.db> fixtures/recordings/<name>.jsonl
+   ```
+
+   It fails if a player UUID, player name, MOTD or original device position remains.
 
 The exporter rebuilds full snapshots on a fixed uptime grid from the stored events and
 thinned samples, up to the end of the last uptime session.
@@ -39,6 +45,14 @@ thinned samples, up to the end of the last uptime session.
 ```sh
 ./gradlew :core:runSimulator                       # replays fixtures/recordings/*.jsonl
 ./gradlew :core:runSimulator --args="path/to/x.jsonl"
+```
+
+Options: `--data=<dir>` uses the `overseer.db` in that folder (e.g. a copy from a real
+server; its history is served and extended — work on a copy), `--port=<n>` picks another
+port (e.g. when an SSH tunnel already uses 8765):
+
+```sh
+./gradlew :core:runSimulator --args="../fixtures/recordings --data=C:/tmp/realdb --port=8766"
 ```
 
 It serves the API on `http://127.0.0.1:8765` (and the built UI if `web/dist` exists),
@@ -56,4 +70,5 @@ operator. Data goes to `core/build/simulator/`.
 
 | File | Content |
 |---|---|
-| `flux-real-01.jsonl` | Real GregTech server (Star Technology), ~3 min, 1 Flux network with 22 devices in 6 zones, 2 members, 11 dimensions. 5 s spacing. |
+| `flux-real-01.jsonl` | Real GregTech server (Star Technology), ~3 min, 1 Flux network with 22 devices in 6 zones, 2 members, 11 dimensions. 5 s spacing. Used by the realistic Playwright tests and `dev:mock`. |
+| `flux-real-02.jsonl` | Same server, 87 min of play, 23 devices, 2 players, one input drop to ~25 kFE/t. 30 s spacing (short TPS dips are only in the database, not at this spacing). Preferred by the simulator. |

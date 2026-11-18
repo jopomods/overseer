@@ -24,7 +24,9 @@ import java.util.stream.Stream;
  * it) and for trying features against real data.
  *
  * <p>{@code ./gradlew :core:runSimulator} (recordings from {@code fixtures/recordings}),
- * or {@code --args="<dir or .jsonl> ..."}. Everyone is treated as an operator.
+ * or {@code --args="<dir or .jsonl> ... [--data=<dir>] [--port=<n>]"}. {@code --data} points at a folder
+ * with an {@code overseer.db} (e.g. a copy from a real server) whose history is served and
+ * extended; default {@code build/simulator}. Everyone is treated as an operator.
  */
 public final class Simulator {
     static final UUID DEVELOPER = UUID.fromString("00000000-0000-4000-8000-00000000de70");
@@ -33,11 +35,22 @@ public final class Simulator {
 
     public static void main(String[] args) throws Exception {
         List<Path> files = new ArrayList<>();
-        for (String arg : args.length > 0 ? args : new String[] {"../fixtures/recordings"}) {
+        Path data = Path.of("build/simulator");
+        int port = HttpConfig.DEFAULTS.port();
+        var inputs = new ArrayList<String>();
+        for (String arg : args) {
+            if (arg.startsWith("--data=")) data = Path.of(arg.substring("--data=".length()));
+            else if (arg.startsWith("--port=")) port = Integer.parseInt(arg.substring("--port=".length()));
+            else inputs.add(arg);
+        }
+        if (inputs.isEmpty()) inputs.add("../fixtures/recordings");
+        for (String arg : inputs) {
             Path path = Path.of(arg);
             if (Files.isDirectory(path)) {
                 try (Stream<Path> list = Files.list(path)) {
-                    list.filter(p -> p.toString().endsWith(".jsonl")).sorted().forEach(files::add);
+                    // Newest first: when several recordings contain the same provider, the latest wins.
+                    list.filter(p -> p.toString().endsWith(".jsonl")).sorted(java.util.Comparator.reverseOrder())
+                            .forEach(files::add);
                 }
             } else {
                 files.add(path);
@@ -55,8 +68,7 @@ public final class Simulator {
             System.out.printf("Replaying %s (%d frames)%n", file.getFileName(), recording.snapshots().size());
         }
 
-        Path data = Path.of("build/simulator");
-        var config = new OverseerRuntime.Config(data, HttpConfig.DEFAULTS, StorageSettings.DEFAULTS,
+        var config = new OverseerRuntime.Config(data, HttpConfig.DEFAULTS.withPort(port), StorageSettings.DEFAULTS,
                 Duration.ofDays(30), 1024, "simulator", "overseer-web");
         OverseerRuntime runtime = OverseerRuntime.start(config, providers, player -> true);
 

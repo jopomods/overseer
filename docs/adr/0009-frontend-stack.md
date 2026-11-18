@@ -47,7 +47,9 @@ Implementation notes (M1a):
 - Charts (`components/history-chart.tsx`): Recharts via shadcn `chart`, step areas (the data
   is a step function, ADR-0005). Axis preference per viewer: server uptime with dashed restart
   markers labelled with the real offline time, or calendar time with shaded offline gaps.
-  Y axis shows number + SI prefix only; units are in the tooltip. Later series are dashed so
+  Each series also draws its min-max band per bucket, so short spikes (e.g. TPS dips) stay
+  visible at long ranges; the tooltip shows the range. Y axis shows number + SI prefix only;
+  units are in the tooltip. Later series are dashed so
   identical series stay visible.
 - Energy flow (`components/energy-flow.tsx`): Recharts `Sankey` was sufficient with a custom
   node renderer; ECharts was not needed. Below 640 px a bar list replaces it.
