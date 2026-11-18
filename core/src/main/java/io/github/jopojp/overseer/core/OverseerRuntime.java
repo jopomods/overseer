@@ -15,7 +15,9 @@ import io.github.jopojp.overseer.core.pipeline.LatestState;
 import io.github.jopojp.overseer.core.pipeline.SnapshotQueue;
 import io.github.jopojp.overseer.core.provider.DataProvider;
 import io.github.jopojp.overseer.core.provider.ProviderDescriptor;
+import io.github.jopojp.overseer.core.storage.AccessRequestStore;
 import io.github.jopojp.overseer.core.storage.Database;
+import io.github.jopojp.overseer.core.storage.NotificationStore;
 import io.github.jopojp.overseer.core.storage.OverrideStore;
 import io.github.jopojp.overseer.core.storage.ShareStore;
 import io.github.jopojp.overseer.core.storage.StorageAdmin;
@@ -76,6 +78,7 @@ public final class OverseerRuntime implements AutoCloseable {
     private CollectorScheduler scheduler;
     private AuthService auth;
     private HttpServer http;
+    private NotificationStore notifications;
 
     private OperatorCheck operators = OperatorCheck.NONE;
 
@@ -124,12 +127,16 @@ public final class OverseerRuntime implements AutoCloseable {
         var shares = new ShareStore(db.openControlWriter());
         resources.push(shares);
         var access = new AccessService(providers, shares);
+        var requests = new AccessRequestStore(db.openControlWriter());
+        resources.push(requests);
+        notifications = new NotificationStore(db.openControlWriter());
+        resources.push(notifications);
 
         var sse = new SseHub(access, auth, latest);
         resources.push(sse);
 
         var router = new ApiRoutes(config.version(), auth, access, latest, queue, descriptors, scheduler::status, wall,
-                db, clock::uptimeMillis, overrides, shares, writer)
+                db, clock::uptimeMillis, overrides, shares, requests, notifications, writer)
                 .register(new Router());
         http = new HttpServer(config.http(), router,
                 new StaticFiles(config.webRoot(), OverseerRuntime.class.getClassLoader()), sse);
@@ -148,6 +155,11 @@ public final class OverseerRuntime implements AutoCloseable {
     /** For {@code /ov link}, {@code ov login}, {@code ov admin}. */
     public AuthService auth() {
         return auth;
+    }
+
+    /** In-game messages for players; the platform delivers them while players are online. */
+    public NotificationStore notifications() {
+        return notifications;
     }
 
     public int httpPort() {

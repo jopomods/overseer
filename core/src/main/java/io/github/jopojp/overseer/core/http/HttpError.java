@@ -35,6 +35,10 @@ public final class HttpError extends RuntimeException {
         return new HttpError(404, "not_found", "Not found.");
     }
 
+    public static HttpError conflict(String message) {
+        return new HttpError(409, "conflict", message);
+    }
+
     public static HttpError rateLimited() {
         return new HttpError(429, "rate_limited", "Too many requests. Try again in a minute.");
     }

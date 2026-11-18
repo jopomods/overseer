@@ -25,7 +25,7 @@ import org.sqlite.SQLiteConfig;
 public final class Database implements AutoCloseable {
     /** Applied in order; index + 1 is the schema version stored in {@code PRAGMA user_version}. */
     static final List<String> MIGRATIONS = List.of("V001__init.sql", "V002__auth.sql", "V003__rollups.sql", "V004__overrides.sql",
-            "V005__shares.sql");
+            "V005__shares.sql", "V006__access_requests.sql");
 
     private static final String MIGRATION_DIR = "/io/github/jopojp/overseer/core/storage/migration/";
     private static final int BUSY_TIMEOUT_MILLIS = 5_000;

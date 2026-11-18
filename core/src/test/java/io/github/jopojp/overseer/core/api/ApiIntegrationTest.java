@@ -58,7 +58,7 @@ class ApiIntegrationTest {
     @BeforeEach
     void start() throws Exception {
         var flux = new FakeProvider("flux", 1, 50_000_000, new FakeTime())
-                .resource(ALEX_NET, Map.of("name", "Alex Base"))
+                .resource(ALEX_NET, Map.of("name", "Alex Base", "owner", ALEX.uuid().toString(), "ownerName", "Alex"))
                 .resource(STEVE_NET, Map.of("name", "Steve Base"))
                 .power(ALEX_NET, 100)
                 .power(STEVE_NET, 200)
@@ -362,6 +362,70 @@ class ApiIntegrationTest {
         assertEquals(204, steve.send("DELETE", leave, null, Map.of()).statusCode());
         assertEquals(1, json(steve.get("/api/v1/providers/flux/snapshot")).getAsJsonArray("resources").size());
         assertEquals(404, steve.send("DELETE", leave, null, Map.of()).statusCode());
+    }
+
+    @Test
+    void accessRequestsNotifyAndApprovalShares() throws Exception {
+        collect();
+        var json = Map.of("Content-Type", "application/json");
+        var alex = new Browser().loginAs(ALEX);
+        var steve = new Browser().loginAs(STEVE);
+
+        var listing = steve.get("/api/v1/access/requestable?provider=flux");
+        assertFalse(listing.body().contains("network/1"), "ids (positions) must not leak: " + listing.body());
+        var requestable = JsonParser.parseString(listing.body()).getAsJsonArray();
+        assertEquals(1, requestable.size(), "only Alex's network has an owner and is hidden from Steve");
+        var entry = requestable.get(0).getAsJsonObject();
+        assertEquals("Alex Base", entry.get("name").getAsString());
+        assertEquals("Alex", entry.get("ownerName").getAsString());
+        assertEquals("none", entry.get("request").getAsString());
+
+        String ask = "{\"provider\":\"flux\",\"handle\":\"" + entry.get("handle").getAsString() + "\"}";
+        assertEquals(201, steve.send("POST", "/api/v1/access/requests", ask, json).statusCode());
+        assertEquals(201, steve.send("POST", "/api/v1/access/requests", ask, json).statusCode(), "asking twice is fine");
+        assertEquals(404, steve.send("POST", "/api/v1/access/requests", "{\"provider\":\"flux\",\"handle\":\"nope\"}", json)
+                .statusCode());
+        assertEquals("pending", JsonParser.parseString(steve.get("/api/v1/access/requestable?provider=flux").body())
+                .getAsJsonArray().get(0).getAsJsonObject().get("request").getAsString());
+
+        var toAlex = runtime.notifications().take(ALEX.uuid());
+        assertEquals(1, toAlex.size());
+        assertTrue(toAlex.get(0).contains("Steve") && toAlex.get(0).contains("Alex Base"), toAlex.get(0));
+
+        // Only those who may manage the network see the request.
+        assertEquals(0, JsonParser.parseString(alex.get("/api/v1/access/requests").body()).getAsJsonArray().size());
+        operators.add(ALEX.uuid());
+        var pending = JsonParser.parseString(alex.get("/api/v1/access/requests").body()).getAsJsonArray();
+        assertEquals(1, pending.size());
+        assertEquals("Steve", pending.get(0).getAsJsonObject().get("name").getAsString());
+
+        String approve = "{\"resource\":\"flux/network/1\",\"player\":\"" + STEVE.uuid() + "\",\"approve\":true}";
+        assertEquals(204, alex.send("POST", "/api/v1/access/decisions", approve, json).statusCode());
+        assertEquals(2, json(steve.get("/api/v1/providers/flux/snapshot")).getAsJsonArray("resources").size());
+        assertEquals(0, JsonParser.parseString(alex.get("/api/v1/access/requests").body()).getAsJsonArray().size());
+        assertTrue(runtime.notifications().take(STEVE.uuid()).get(0).contains("gave you access"));
+        assertEquals(404, alex.send("POST", "/api/v1/access/decisions", approve, json).statusCode());
+    }
+
+    @Test
+    void deniedRequestsCoolDown() throws Exception {
+        collect();
+        var json = Map.of("Content-Type", "application/json");
+        operators.add(ALEX.uuid());
+        var alex = new Browser().loginAs(ALEX);
+        var steve = new Browser().loginAs(STEVE);
+        String handle = JsonParser.parseString(steve.get("/api/v1/access/requestable?provider=flux").body())
+                .getAsJsonArray().get(0).getAsJsonObject().get("handle").getAsString();
+        String ask = "{\"provider\":\"flux\",\"handle\":\"" + handle + "\"}";
+        assertEquals(201, steve.send("POST", "/api/v1/access/requests", ask, json).statusCode());
+
+        String deny = "{\"resource\":\"flux/network/1\",\"player\":\"" + STEVE.uuid() + "\",\"approve\":false}";
+        assertEquals(204, alex.send("POST", "/api/v1/access/decisions", deny, json).statusCode());
+        assertEquals(1, json(steve.get("/api/v1/providers/flux/snapshot")).getAsJsonArray("resources").size());
+        assertTrue(runtime.notifications().take(STEVE.uuid()).get(0).contains("declined"));
+        assertEquals("denied", JsonParser.parseString(steve.get("/api/v1/access/requestable?provider=flux").body())
+                .getAsJsonArray().get(0).getAsJsonObject().get("request").getAsString());
+        assertEquals(409, steve.send("POST", "/api/v1/access/requests", ask, json).statusCode());
     }
 
     @Test

@@ -56,6 +56,15 @@ public final class Dtos {
 
     public record AddShare(String resource, String name) {}
 
+    /** A resource the caller cannot see but may ask for. No id: ids contain positions. */
+    public record RequestableDto(String provider, String handle, String name, String ownerName, String request) {}
+
+    public record CreateRequest(String provider, String handle) {}
+
+    public record PendingRequestDto(String resource, String resourceName, String player, String name, String requestedAt) {}
+
+    public record Decision(String resource, String player, Boolean approve) {}
+
     public static ShareDto share(ShareStore.Share s) {
         return new ShareDto(s.player().toString(), s.name(), s.grantedBy() == null ? null : s.grantedBy().toString(),
                 s.grantedAt().toString());
