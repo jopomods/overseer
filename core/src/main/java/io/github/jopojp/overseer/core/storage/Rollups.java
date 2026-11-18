@@ -131,6 +131,8 @@ final class Rollups {
             throws SQLException {
         if (s.rawRetentionMillis() > 0) {
             delete(c, "DELETE FROM sample WHERE uptime_ms < ?", Math.min(now - s.rawRetentionMillis(), minuteMark));
+            // Inventory changes are minute buckets already but far more numerous: raw retention.
+            delete(c, "DELETE FROM inventory_change WHERE bucket < ?", now - s.rawRetentionMillis());
         }
         if (s.minuteRetentionMillis() > 0) {
             delete(c, "DELETE FROM sample_minute WHERE bucket < ?", Math.min(now - s.minuteRetentionMillis(), hourMark));

@@ -18,6 +18,8 @@
 | **Calendar time** (*Kalenderzeit*) | Wall-clock time including offline periods. |
 | **Uptime session** | One continuous run of the server, from start to stop. Numbered from 1. |
 | **ME network** (*ME-Netzwerk*), **grid** | An AE2 network. In code and API `grid` (AE2's term), in the UI "ME network". Identified by its lowest controller (ADR-0011). |
+| **Inventory scan** (*Inventar-Scan*) | A full copy of a resource's contents (AE2: every 10 s), one `Stack` per key. Stored as per-minute changes; the first scan of a resource is a baseline. |
+| **Stack key** | Stable id of a thing in an inventory: `item:<id>`, `fluid:<id>`, plus `#<hash>` of its NBT. Names are display only. |
 | **Share** (*Freigabe*) | An owner lets one more player view a resource in Overseer. Only for providers with `SHARING` (AE2); never grants editing. |
 | **Zone** (*Bereich*) | Grouping of Flux devices. Taken from the device name prefix before the first `:` (`Power plant: Diesel 1` is zone `Power plant`), overridable in the UI. |
 | **Link code** | One-time, short-lived code shown on the login page and confirmed in-game with `/ov link <code>`. |

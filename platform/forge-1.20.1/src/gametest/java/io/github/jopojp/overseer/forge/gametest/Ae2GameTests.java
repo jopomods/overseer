@@ -120,6 +120,52 @@ public final class Ae2GameTests {
         });
     }
 
+    /** A drive with a 1k cell: the scan lists its contents, NBT variants under their own key. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void inventoryScanListsTheContents(GameTestHelper helper) {
+        BlockPos controller = new BlockPos(1, 1, 1);
+        BlockPos drive = new BlockPos(2, 1, 1);
+        place(helper, controller, "controller");
+        place(helper, new BlockPos(1, 2, 1), "creative_energy_cell");
+        place(helper, drive, "drive");
+
+        helper.runAfterDelay(20, () -> {
+            if (!(helper.getBlockEntity(drive) instanceof appeng.blockentity.storage.DriveBlockEntity d)) {
+                helper.fail("drive missing");
+                return;
+            }
+            d.getInternalInventory().setItemDirect(0, appeng.core.definitions.AEItems.ITEM_CELL_1K.stack());
+        });
+        helper.runAfterDelay(40, () -> {
+            var grid = ((ControllerBlockEntity) helper.getBlockEntity(controller)).getMainNode().getGrid();
+            var named = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_INGOT);
+            named.setHoverName(net.minecraft.network.chat.Component.literal("Shiny"));
+            var storage = grid.getStorageService().getInventory();
+            var source = appeng.api.networking.security.IActionSource.empty();
+            long plain = storage.insert(appeng.api.stacks.AEItemKey.of(net.minecraft.world.item.Items.IRON_INGOT), 100,
+                    appeng.api.config.Actionable.MODULATE, source);
+            long shiny = storage.insert(appeng.api.stacks.AEItemKey.of(named), 3, appeng.api.config.Actionable.MODULATE,
+                    source);
+            helper.assertTrue(plain == 100 && shiny == 3, "inserted " + plain + " and " + shiny);
+        });
+        helper.runAfterDelay(80, () -> {
+            var provider = new Ae2Provider(helper.getLevel().getServer(), Teams.detect(), java.util.Map::of);
+            var snapshot = provider.collect(AT);
+            BlockPos id = helper.absolutePos(controller);
+            String dimension = helper.getLevel().dimension().location().toString();
+            ResourceRef ref = Ae2Mapping.grid(dimension + "@" + id.getX() + "," + id.getY() + "," + id.getZ());
+            var stacks = snapshot.inventories().get(ref);
+            helper.assertTrue(stacks != null, "first collection scans; got " + snapshot.inventories().keySet());
+            var plain = stacks.stream().filter(s -> s.key().equals("item:minecraft:iron_ingot")).findFirst();
+            helper.assertTrue(plain.isPresent() && plain.get().amount() == 100, "plain iron: " + stacks);
+            helper.assertTrue("item".equals(plain.get().kind()), "kind: " + plain.get().kind());
+            var shiny = stacks.stream().filter(s -> s.key().startsWith("item:minecraft:iron_ingot#")).findFirst();
+            helper.assertTrue(shiny.isPresent() && shiny.get().amount() == 3, "NBT variant: " + stacks);
+            helper.assertTrue(provider.collect(AT).inventories().isEmpty(), "the next nine collections do not scan");
+            helper.succeed();
+        });
+    }
+
     private static void place(GameTestHelper helper, BlockPos relative, String block) {
         Block ae2 = ForgeRegistries.BLOCKS.getValue(ResourceLocation.tryBuild("ae2", block));
         helper.assertTrue(ae2 != null, "unknown AE2 block " + block);

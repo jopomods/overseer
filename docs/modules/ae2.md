@@ -81,3 +81,37 @@ AE2 grids have no names. The name is an Overseer override (`PUT /api/v1/override
 Cost: AE2 keeps the network inventory cached; the reader only iterates it to count, about
 one pass over the item types per grid and second. Measure with the collector page before
 raising the interval.
+
+## Contents (inventory scan)
+
+Every 10th collection (every 10 s) the reader also copies the full cached inventory of each
+identified grid: one `Stack` per key with id, kind, name and amount. Hidden grids, booting and
+unpowered grids are not scanned (they report empty). The id and name of an AE2 key are built
+once and cached, so a scan costs one pass over the cache plus one small object per key. The
+collector page shows the cost: every 10th run of `ae2` includes the scan.
+
+| Key | Example |
+|---|---|
+| `item:<registry id>` | `item:minecraft:iron_ingot` |
+| `item:<registry id>#<hash>` | Same item with NBT (renamed, enchanted, damaged). Hash of the NBT, independent of tag order, stable across restarts |
+| `fluid:<registry id>[#<hash>]` | `fluid:minecraft:water`, amounts in mB |
+| `other:<key type>/<id>` | Add-on key types, e.g. chemicals |
+
+Names are resolved by the server (English) and are for display only; a key keeps its history
+when its name changes.
+
+Storage (`V008__inventory.sql`, core, usable by other storage mods):
+
+- `inventory_key`: key, kind, name.
+- `inventory_amount`: current amount per grid and key; a key that is gone has no row.
+- `inventory_change`: net change per grid, key and minute (`delta`, plus the amount at the end
+  of the minute). A key that changes every 10 s still writes one row per minute. Only keys
+  that changed are written. Kept for the raw retention (48 h by default).
+
+The first scan of a grid is a baseline, not a change, so installing Overseer does not show the
+whole inventory as gained. A restart compares against the stored amounts: things that changed
+while the server was off count as one change at the first scan.
+
+`GET /api/v1/inventory?resource=…` returns the newest scan with the net change of each key over
+the last hour and day. Keys used up completely are listed with amount 0 while they have a
+change. Search, kind filter, sort (amount, change, name) and paging happen on the server.

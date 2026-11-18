@@ -46,6 +46,11 @@ public final class Dtos {
 
     public record Ref(String provider, String type, String id, String key) {}
 
+    /** One key of an inventory: current amount and net changes over the last hour and day. */
+    public record InventoryItem(String key, String kind, String name, long amount, long change1h, long change24h) {}
+
+    public record Inventory(String resource, TimestampDto scannedAt, int total, List<InventoryItem> items) {}
+
     public record Resource(Ref ref, Map<String, String> attributes, Map<String, Double> metrics, boolean canEdit) {}
 
     public record OverrideDto(String resource, String key, String value) {}

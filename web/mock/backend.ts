@@ -207,6 +207,63 @@ export function ae2Snapshot(realistic = false, adopted: Map<string, string> = ne
 
 // Two uptime sessions: 10 h, then 14 h offline, then 16 h up to now.
 const HOUR = 3_600_000
+
+type MockStack = { key: string; kind: 'item' | 'fluid'; name: string; amount: number; change1h: number; change24h: number }
+
+/** A mid-game GregTech + AE2 storage; extreme: long names, huge numbers and many keys. */
+function inventoryStacks(realistic: boolean): MockStack[] {
+  const base: MockStack[] = [
+    { key: 'item:gtceu:steel_ingot', kind: 'item', name: 'Steel Ingot', amount: 48_213, change1h: 1_204, change24h: 9_870 },
+    { key: 'item:minecraft:iron_ingot', kind: 'item', name: 'Iron Ingot', amount: 212_034, change1h: -3_512, change24h: -20_410 },
+    { key: 'item:gtceu:aluminium_ingot', kind: 'item', name: 'Aluminium Ingot', amount: 9_412, change1h: 88, change24h: 1_020 },
+    { key: 'item:gtceu:stainless_steel_ingot', kind: 'item', name: 'Stainless Steel Ingot', amount: 2_048, change1h: -64, change24h: -512 },
+    { key: 'item:gtceu:copper_single_wire', kind: 'item', name: '1x Copper Wire', amount: 3_120, change1h: 0, change24h: 640 },
+    { key: 'item:gtceu:basic_electronic_circuit', kind: 'item', name: 'Basic Electronic Circuit', amount: 0, change1h: -12, change24h: -96 },
+    { key: 'item:gtceu:good_electronic_circuit', kind: 'item', name: 'Good Electronic Circuit', amount: 37, change1h: 4, change24h: 16 },
+    { key: 'item:minecraft:redstone', kind: 'item', name: 'Redstone', amount: 1_843_220, change1h: 12_400, change24h: 140_220 },
+    { key: 'item:minecraft:coal', kind: 'item', name: 'Coal', amount: 64_000, change1h: 0, change24h: 0 },
+    { key: 'item:ae2:certus_quartz_crystal', kind: 'item', name: 'Certus Quartz Crystal', amount: 5_512, change1h: 128, change24h: 2_048 },
+    { key: 'item:minecraft:enchanted_book#3f2a91c0', kind: 'item', name: 'Enchanted Book', amount: 3, change1h: 0, change24h: 1 },
+    { key: 'fluid:minecraft:water', kind: 'fluid', name: 'Water', amount: 2_400_000, change1h: -120_000, change24h: 300_000 },
+    { key: 'fluid:gtceu:oxygen', kind: 'fluid', name: 'Oxygen', amount: 512_000, change1h: 16_000, change24h: 64_000 },
+    { key: 'fluid:gtceu:sulfuric_acid', kind: 'fluid', name: 'Sulfuric Acid', amount: 36_000, change1h: -4_000, change24h: -12_000 },
+  ]
+  if (realistic) return base
+  const many: MockStack[] = Array.from({ length: 640 }, (_, i) => ({
+    key: `item:${LONG.toLowerCase()}:part_${i}#${(i * 2654435761 % 2 ** 32).toString(16)}`,
+    kind: 'item',
+    name: `${LONG} ${i}`,
+    amount: i === 0 ? Number.MAX_SAFE_INTEGER : i * 997,
+    change1h: i % 3 === 0 ? -i * 13 : i * 7,
+    change24h: i % 2 === 0 ? -i * 1_000_003 : i * 31,
+  }))
+  return [...base, ...many]
+}
+
+function inventoryBody(url: URL, realistic: boolean) {
+  const q = (url.searchParams.get('q') ?? '').toLowerCase()
+  const kind = url.searchParams.get('kind')
+  const sort = url.searchParams.get('sort') ?? 'amount'
+  const limit = Number(url.searchParams.get('limit') ?? 100)
+  const offset = Number(url.searchParams.get('offset') ?? 0)
+  const byName = (a: MockStack, b: MockStack) => a.name.localeCompare(b.name)
+  const items = inventoryStacks(realistic)
+    .filter((s) => !kind || s.kind === kind)
+    .filter((s) => !q || s.name.toLowerCase().includes(q) || s.key.includes(q))
+    .sort(
+      sort === 'name'
+        ? byName
+        : sort === 'change'
+          ? (a, b) => Math.abs(b.change24h) - Math.abs(a.change24h) || byName(a, b)
+          : (a, b) => b.amount - a.amount || byName(a, b),
+    )
+  return {
+    resource: url.searchParams.get('resource') ?? '',
+    scannedAt: { wall: new Date(Date.now() - 4_000).toISOString(), uptimeMillis: 1_000_000, session: 3 },
+    total: items.length,
+    items: items.slice(offset, offset + limit),
+  }
+}
 const UPTIME_NOW = 26 * HOUR
 function sessionsBody() {
   const end = Date.now()
@@ -431,6 +488,8 @@ export function createMockBackend(options: MockOptions = {}) {
         return json(sessionsBody())
       case '/api/v1/history':
         return json(historyBody(url))
+      case '/api/v1/inventory':
+        return json(inventoryBody(url, options.realistic === true))
       case '/api/v1/me/credentials':
         return json([
           { id: 1, kind: 'session', name: `Mozilla/5.0 ${LONG}`, createdAt: now(), lastUsedAt: now(), current: true },

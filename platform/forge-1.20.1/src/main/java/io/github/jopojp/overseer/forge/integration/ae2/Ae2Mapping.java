@@ -50,6 +50,7 @@ public final class Ae2Mapping {
     public static ProviderSnapshot snapshot(Timestamp at, List<Grid> grids) {
         Map<ResourceRef, Map<String, String>> resources = new HashMap<>();
         List<Sample> samples = new ArrayList<>();
+        Map<ResourceRef, List<io.github.jopojp.overseer.core.provider.Stack>> inventories = new HashMap<>();
         for (Grid g : grids) {
             ResourceRef ref = grid(g.id());
             var attrs = new LinkedHashMap<String, String>();
@@ -83,11 +84,12 @@ public final class Ae2Mapping {
                 samples.add(new Sample(ref, ITEMS.key(), g.storage().items()));
                 samples.add(new Sample(ref, FLUID_TYPES.key(), g.storage().fluidTypes()));
                 samples.add(new Sample(ref, FLUIDS.key(), g.storage().fluids()));
+                if (g.inventory() != null) inventories.put(ref, g.inventory());
             }
             samples.add(new Sample(ref, CHANNELS.key(), g.channels()));
             samples.add(new Sample(ref, CPUS_BUSY.key(), g.crafting().busy()));
         }
-        return new ProviderSnapshot(PROVIDER, at, resources, samples);
+        return new ProviderSnapshot(PROVIDER, at, resources, samples, inventories);
     }
 
     /**
