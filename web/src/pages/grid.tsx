@@ -1,7 +1,7 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { ArrowLeft, Check, Pencil, X } from 'lucide-react'
+import { ArrowLeft, Check, Pencil, UserPlus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { useOverrides, useSetOverride, useSnapshot } from '@/api/hooks'
+import { ApiError, useAddShare, useOverrides, useRemoveShare, useSetOverride, useShares, useSnapshot } from '@/api/hooks'
 import { GridStateBadge } from '@/components/grid-state-badge'
 import { HistoryChart } from '@/components/history-chart'
 import { LiveBadge } from '@/components/live-badge'
@@ -113,6 +113,8 @@ export function GridPage() {
         </div>
       </Section>
 
+      {grid.canEdit && <AccessSection resource={key} />}
+
       <Section title={t('ae2.details')}>
         <Card className="min-w-0 py-1">
           <dl className="divide-border grid min-w-0 divide-y sm:grid-cols-2 sm:divide-y-0" data-testid="grid-details">
@@ -131,6 +133,63 @@ export function GridPage() {
         </Card>
       </Section>
     </>
+  )
+}
+
+/** Shares of this grid; owners and admins only (ADR-0011). */
+function AccessSection({ resource }: { resource: string }) {
+  const t = useT()
+  const shares = useShares(resource, true)
+  const add = useAddShare(resource)
+  const remove = useRemoveShare(resource)
+  const [name, setName] = useState('')
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    if (!name.trim()) return
+    add.mutate(name.trim(), { onSuccess: () => setName('') })
+  }
+  const error =
+    add.error instanceof ApiError && add.error.status === 400 ? t('ae2.shareUnknown') : add.error ? t('ae2.shareFailed') : null
+  return (
+    <Section title={t('ae2.access')}>
+      <Card className="min-w-0 gap-0 py-1" data-testid="grid-access">
+        <p className="text-muted-foreground px-4 py-2.5 text-sm">{t('ae2.accessHint')}</p>
+        <ul className="divide-border border-border divide-y border-t">
+          {shares.data?.length === 0 && <li className="text-muted-foreground px-4 py-2.5 text-sm">{t('ae2.noShares')}</li>}
+          {shares.data?.map((s) => (
+            <li key={s.player} className="flex min-w-0 items-center gap-3 px-4 py-2">
+              <span className="bg-primary/15 text-primary flex size-8 shrink-0 items-center justify-center rounded text-sm font-bold">
+                {(s.name ?? '?').slice(0, 1).toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.name ?? s.player}</span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t('ae2.unshare')}
+                disabled={remove.isPending}
+                onClick={() => remove.mutate(s.player)}
+              >
+                <X />
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <form onSubmit={submit} className="border-border flex min-w-0 flex-wrap gap-2 border-t px-4 py-2.5">
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('ae2.sharePlaceholder')}
+            maxLength={16}
+            className="min-w-0 flex-1 basis-40"
+            aria-label={t('ae2.sharePlaceholder')}
+          />
+          <Button type="submit" size="sm" className="shrink-0" disabled={add.isPending || !name.trim()}>
+            <UserPlus /> {t('ae2.share')}
+          </Button>
+          {error && <p className="text-destructive w-full text-xs">{error}</p>}
+        </form>
+      </Card>
+    </Section>
   )
 }
 

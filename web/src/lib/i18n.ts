@@ -209,6 +209,14 @@ const en = {
   'ae2.rename': 'Rename',
   'ae2.name': 'Name',
   'ae2.namePlaceholder': 'Name of this network',
+  'ae2.access': 'Access',
+  'ae2.accessHint': 'You and members of your FTB party see this network. Share it with more players here; they can view, not change.',
+  'ae2.sharePlaceholder': 'Player name',
+  'ae2.share': 'Share',
+  'ae2.shareUnknown': 'Unknown player. They must log in to the dashboard once (/ov link).',
+  'ae2.shareFailed': 'Sharing failed.',
+  'ae2.noShares': 'Not shared with anyone yet.',
+  'ae2.unshare': 'Remove access',
 } as const
 
 export type MessageKey = keyof typeof en
@@ -418,6 +426,14 @@ const de: Record<MessageKey, string> = {
   'ae2.rename': 'Umbenennen',
   'ae2.name': 'Name',
   'ae2.namePlaceholder': 'Name dieses Netzwerks',
+  'ae2.access': 'Zugriff',
+  'ae2.accessHint': 'Du und die Mitglieder deiner FTB-Party sehen dieses Netzwerk. Hier kannst du es weiteren Spielern freigeben; sie können es ansehen, aber nicht ändern.',
+  'ae2.sharePlaceholder': 'Spielername',
+  'ae2.share': 'Freigeben',
+  'ae2.shareUnknown': 'Unbekannter Spieler. Er muss sich einmal im Dashboard anmelden (/ov link).',
+  'ae2.shareFailed': 'Freigabe fehlgeschlagen.',
+  'ae2.noShares': 'Noch für niemanden freigegeben.',
+  'ae2.unshare': 'Zugriff entfernen',
 }
 
 const messages: Record<Locale, Record<MessageKey, string>> = { en, de }

@@ -312,12 +312,42 @@ export interface paths {
         /**
          * Set or clear an override
          * @description Needs edit rights on the resource (dashboard admins, or what the mod allows, e.g.
-         *     Flux network owners and admins). Allowed keys - `zone`. `value: null` clears it.
+         *     Flux network owners and admins). Allowed keys - `zone`, `name`. `value: null` clears it.
          *     Values are at most 48 characters.
          */
         put: operations["setOverride"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Players a resource is shared with
+         * @description Only for providers with Overseer sharing (AE2 grids) and for callers with edit rights
+         *     on the resource (its owner, dashboard admins).
+         */
+        get: operations["listShares"];
+        put?: never;
+        /**
+         * Share a resource with a player (view only)
+         * @description The player is found by name among players who logged in to the dashboard at least
+         *     once. Sharing twice is harmless.
+         */
+        post: operations["addShare"];
+        /**
+         * Remove a share
+         * @description Owners remove any share; a player may remove their own (leave).
+         */
+        delete: operations["removeShare"];
         options?: never;
         head?: never;
         patch?: never;
@@ -625,6 +655,16 @@ export interface components {
              */
             uptimeMillis: number;
             sessions: components["schemas"]["Session"][];
+        };
+        Share: {
+            /** Format: uuid */
+            player: string;
+            /** @description Last known dashboard name. */
+            name?: string | null;
+            /** Format: uuid */
+            grantedBy?: string | null;
+            /** Format: date-time */
+            grantedAt: string;
         };
         Override: {
             /** @description Resource key, e.g. `flux/device/minecraft:overworld@1,64,2`. */
@@ -1115,6 +1155,89 @@ export interface operations {
         };
         responses: {
             /** @description Saved. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listShares: {
+        parameters: {
+            query: {
+                /** @description Resource key, e.g. `ae2/grid/minecraft:overworld@1,64,2`. */
+                resource: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Shares of the resource. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Share"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    resource: string;
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Shared. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Share"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    removeShare: {
+        parameters: {
+            query: {
+                resource: string;
+                player: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
             204: {
                 headers: {
                     [name: string]: unknown;
