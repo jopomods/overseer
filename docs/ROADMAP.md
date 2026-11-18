@@ -69,6 +69,10 @@ complete M1a ships as 0.2.0. Delivered as several small PRs: pipeline + storage,
 - Item icons: optional client exporter (atlas upload) + jar texture fallback, cached by
   item id + NBT hash
 
+Verified with 87 minutes of real server data (0.2.0 database migrated to schema 4, rollup of
+87 min in 86 ms, history queries < 10 ms). Charts got a min-max band after the real data
+showed TPS dips to ~7-10 every few minutes that averages hid.
+
 ## M3+
 
 - Tom's Storage
