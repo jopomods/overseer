@@ -490,6 +490,34 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/icon:
+    get:
+      tags: [data]
+      operationId: getIcon
+      summary: Item icon as PNG
+      description: |
+        Icon of a stack key. Exported icons (rendered by a client with `/ov icons export`) first,
+        then the base key without NBT hash, then a texture from the mod jar if there is one.
+        Cached by the browser for a day; misses for an hour.
+      parameters:
+        - name: key
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The icon.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/watches:
     get:
       tags: [data]
