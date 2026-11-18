@@ -58,7 +58,8 @@ export function ProfilerSection() {
   const [interval, setInterval] = useState(10)
   const snapshot = useSnapshot('profiler')
   const sessions = useSessions()
-  const typeResources = useMemo(() => ofType(snapshot.data, 'type'), [snapshot.data])
+  const [group, setGroup] = useState<'type' | 'mod'>('type')
+  const typeResources = useMemo(() => ofType(snapshot.data, group), [snapshot.data, group])
   // Values arrive only with a measurement; between measurements (and after a stop) the newest
   // stored point is the last result.
   const latestHistory = useHistory(
@@ -131,7 +132,12 @@ export function ProfilerSection() {
 
       {types.length > 0 && (
         <div className="mt-3 grid min-w-0 gap-3 xl:grid-cols-2">
-          <StackedTypes types={types.slice(0, PALETTE.length).map((x) => x.r)} />
+          <StackedTypes
+            key={group}
+            types={types.slice(0, PALETTE.length).map((x) => x.r)}
+            group={group}
+            onGroup={setGroup}
+          />
           <TopList />
         </div>
       )}
@@ -158,7 +164,15 @@ function label(r: Resource, t: Translate) {
 }
 
 /** µs per tick of the largest types, stacked over time. */
-function StackedTypes({ types }: { types: Resource[] }) {
+function StackedTypes({
+  types,
+  group,
+  onGroup,
+}: {
+  types: Resource[]
+  group: 'type' | 'mod'
+  onGroup: (group: 'type' | 'mod') => void
+}) {
   const t = useT()
   const { locale, axis } = usePreferences()
   const [range, setRange] = useState(RANGES[0].ms)
@@ -170,11 +184,21 @@ function StackedTypes({ types }: { types: Resource[] }) {
   return (
     <Card className="min-w-0 gap-3 py-4" data-testid="profiler-chart">
       <CardContent className="min-w-0 space-y-3 px-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Segmented
-          value={String(range)}
-          options={RANGES.map((r) => ({ value: String(r.ms), label: locale === 'de' ? r.label.replace(' d', ' T') : r.label }))}
-          onChange={(v) => setRange(Number(v))}
-        />
+            value={String(range)}
+            options={RANGES.map((r) => ({ value: String(r.ms), label: locale === 'de' ? r.label.replace(' d', ' T') : r.label }))}
+            onChange={(v) => setRange(Number(v))}
+          />
+          <Segmented<'type' | 'mod'>
+            value={group}
+            options={[
+              { value: 'type', label: t('prof.byType') },
+              { value: 'mod', label: t('prof.byMod') },
+            ]}
+            onChange={onGroup}
+          />
+        </div>
         <div className="flex min-w-0 flex-wrap gap-x-4 gap-y-1">
           {types.map((r, i) => (
             <span key={r.ref.key} className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">

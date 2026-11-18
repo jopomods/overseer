@@ -38,6 +38,18 @@ class ProfilerMappingTest {
     }
 
     @Test
+    void everyTypeCountsTowardsItsMod() {
+        var timings = new ArrayList<Timing>();
+        for (int i = 0; i < 20; i++) timings.add(new Timing("block", "gtceu:m" + i, "M" + i, "d@" + i + ",0,0", 1000));
+        timings.add(new Timing("entity", "minecraft:zombie", "Zombie", "d@0,0,9", 500));
+        var m = ProfilerMapping.measure(timings, ns -> ns.equals("gtceu") ? "GregTech CEu" : ns);
+        var gtceu = new ResourceRef("profiler", "mod", "gtceu");
+        assertEquals(20, value(m, gtceu, "tick_us"), 1e-9, "all 20 types, also those summed as other");
+        assertEquals("GregTech CEu", m.resources().get(gtceu).get("name"));
+        assertEquals(0.5, value(m, new ResourceRef("profiler", "mod", "minecraft"), "tick_us"), 1e-9);
+    }
+
+    @Test
     void smallTypesAreSummedAsOther() {
         var timings = new ArrayList<Timing>();
         for (int i = 0; i < 20; i++) timings.add(new Timing("block", "mod:b" + i, "B" + i, "d@" + i + ",0,0", 1000 * (i + 1)));

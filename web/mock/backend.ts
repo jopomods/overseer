@@ -337,6 +337,9 @@ function profilerSnapshot(realistic: boolean) {
     resources: [
       resource('profiler/total/all', {}, { tick_us: types.reduce((s, x) => s + x[2], 0), objects: types.reduce((s, x) => s + x[3], 0) }),
       ...types.map(([id, name, us, objects]) => resource(`profiler/type/${id}`, { kind: id.split(':')[0], name }, { tick_us: us, objects })),
+      resource('profiler/mod/gtceu', { name: 'GregTech CEu' }, { tick_us: 4_360, objects: 14 }),
+      resource('profiler/mod/ae2', { name: 'Applied Energistics 2' }, { tick_us: 2_480, objects: 64 }),
+      resource('profiler/mod/minecraft', { name: 'Minecraft' }, { tick_us: 1_060, objects: 125 }),
     ],
   }
 }

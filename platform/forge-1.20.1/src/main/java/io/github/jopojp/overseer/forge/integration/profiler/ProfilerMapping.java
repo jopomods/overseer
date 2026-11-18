@@ -57,6 +57,13 @@ public final class ProfilerMapping {
     }
 
     public static Measurement measure(List<Timing> timings) {
+        return measure(timings, ns -> ns);
+    }
+
+    /**
+     * @param modName display name of a mod by its namespace (e.g. {@code gtceu} -> {@code GregTech CEu})
+     */
+    public static Measurement measure(List<Timing> timings, java.util.function.UnaryOperator<String> modName) {
         var byType = new HashMap<String, double[]>();
         var names = new HashMap<String, String>();
         double total = 0;
@@ -76,6 +83,21 @@ public final class ProfilerMapping {
         var samples = new ArrayList<Sample>();
         int count = (int) timings.stream().filter(t -> t.nanos() > 0).count();
         resources.put(TOTAL, Map.of());
+        // Per mod: every type counts, not only the largest (namespace of the registry id).
+        var byMod = new java.util.TreeMap<String, double[]>();
+        for (var e : byType.entrySet()) {
+            String id = e.getKey().substring(e.getKey().indexOf(':') + 1);
+            String mod = id.contains(":") ? id.substring(0, id.indexOf(':')) : "minecraft";
+            double[] sum = byMod.computeIfAbsent(mod, k -> new double[2]);
+            sum[0] += e.getValue()[0];
+            sum[1] += e.getValue()[1];
+        }
+        for (var e : byMod.entrySet()) {
+            var ref = new ResourceRef(PROVIDER, "mod", e.getKey());
+            resources.put(ref, Map.of("name", modName.apply(e.getKey())));
+            samples.add(new Sample(ref, TICK_US.key(), e.getValue()[0] / 1000));
+            samples.add(new Sample(ref, OBJECTS.key(), e.getValue()[1]));
+        }
         samples.add(new Sample(TOTAL, TICK_US.key(), total / 1000));
         samples.add(new Sample(TOTAL, OBJECTS.key(), count));
         double other = 0;
