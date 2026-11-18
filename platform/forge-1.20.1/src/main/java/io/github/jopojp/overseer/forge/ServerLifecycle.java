@@ -27,6 +27,7 @@ public final class ServerLifecycle {
 
     private static volatile OverseerRuntime runtime;
     private final String version;
+    private final ChatNotifications chat = new ChatNotifications();
 
     ServerLifecycle(String version) {
         this.version = version;
@@ -63,7 +64,9 @@ public final class ServerLifecycle {
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         OverseerRuntime current = runtime;
-        if (current != null) current.tick();
+        if (current == null) return;
+        current.tick();
+        chat.tick(event.getServer(), current.notifications());
     }
 
     @SubscribeEvent

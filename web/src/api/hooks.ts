@@ -12,6 +12,8 @@ export type History = components['schemas']['History']
 export type Sessions = components['schemas']['Sessions']
 export type Override = components['schemas']['Override']
 export type Share = components['schemas']['Share']
+export type Requestable = components['schemas']['Requestable']
+export type AccessRequest = components['schemas']['AccessRequest']
 
 /** An API failure with its HTTP status; 401 means "not logged in". */
 export class ApiError extends Error {
@@ -56,6 +58,8 @@ export const keys = {
   sessions: ['sessions'] as const,
   overrides: (provider: string) => ['overrides', provider] as const,
   shares: (resource: string) => ['shares', resource] as const,
+  requestable: (provider: string) => ['requestable', provider] as const,
+  accessRequests: ['access-requests'] as const,
   history: (resources: string[], metrics: string[], rangeMs: number) =>
     ['history', resources.join(','), metrics.join(','), rangeMs] as const,
 }
@@ -170,6 +174,46 @@ export function useRemoveShare(resource: string) {
   return useMutation({
     mutationFn: (player: string) => unwrap(api.DELETE('/api/v1/shares', { params: { query: { resource, player } } })),
     onSuccess: () => client.invalidateQueries({ queryKey: keys.shares(resource) }),
+  })
+}
+
+/** Hidden resources the viewer may ask access for. */
+export function useRequestable(provider: string) {
+  return useQuery({
+    queryKey: keys.requestable(provider),
+    queryFn: () => unwrap(api.GET('/api/v1/access/requestable', { params: { query: { provider } } })),
+    retry,
+    staleTime: 30_000,
+  })
+}
+
+export function useRequestAccess(provider: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (handle: string) => unwrap(api.POST('/api/v1/access/requests', { body: { provider, handle } })),
+    onSettled: () => client.invalidateQueries({ queryKey: keys.requestable(provider) }),
+  })
+}
+
+/** Pending requests on resources the viewer manages. */
+export function useAccessRequests() {
+  return useQuery({
+    queryKey: keys.accessRequests,
+    queryFn: () => unwrap(api.GET('/api/v1/access/requests')),
+    retry,
+    refetchInterval: 30_000,
+  })
+}
+
+export function useDecideAccess() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (decision: { resource: string; player: string; approve: boolean }) =>
+      unwrap(api.POST('/api/v1/access/decisions', { body: decision })),
+    onSuccess: (_, decision) => {
+      client.invalidateQueries({ queryKey: keys.accessRequests })
+      client.invalidateQueries({ queryKey: keys.shares(decision.resource) })
+    },
   })
 }
 

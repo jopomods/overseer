@@ -36,6 +36,12 @@ Overseer mandatory on every client, because blocks are synced to clients.
   provider with `Capability.SHARING`, so other storage mods can reuse them. A share grants
   viewing only. Share targets are found among players known to the dashboard (logged in
   once), so core needs no server lookup.
+- 2026-11-18 (M2d): players who cannot see a grid only get an opaque handle (HMAC of the
+  resource key with a per-server secret in `meta`), its Overseer name and the owner name.
+  Resource ids contain block positions and would reveal bases. Notifications are stored in
+  `notification` and delivered in chat by the platform while the player is online, so
+  "immediately if online, otherwise on next login" needs no login hook. A decline blocks
+  new requests from that player for 24 hours.
 
 ## Consequences
 

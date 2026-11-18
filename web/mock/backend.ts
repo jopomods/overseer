@@ -270,6 +270,12 @@ export function createMockBackend(options: MockOptions = {}) {
   const editable = role !== 'player'
   // Players who logged in to the dashboard once (share targets).
   const knownPlayers = new Map([['steve', { uuid: '00000000-0000-0000-0000-0000000057e7', name: 'Steve' }], ['alex', { uuid: '00000000-0000-0000-0000-00000000a1e7', name: 'Alex' }]])
+  const requestable = options.realistic
+    ? [{ provider: 'ae2', handle: 'h-steve', name: 'Steve\'s storage', ownerName: 'Steve', request: 'none' }, { provider: 'ae2', handle: 'h-anon', name: null, ownerName: 'Alex', request: 'pending' }]
+    : Array.from({ length: 5 }, (_, i) => ({ provider: 'ae2', handle: `h-${i}`, name: i === 0 ? LONG.slice(0, 48) : null, ownerName: i === 1 ? LONG.slice(0, 16) : `Player${i}`, request: ['none', 'pending', 'denied'][i % 3] }))
+  const accessRequests = options.realistic
+    ? [{ resource: 'ae2/grid/minecraft:overworld@120,64,-340', resourceName: 'Main base', player: '00000000-0000-0000-0000-0000000057e7', name: 'Steve', requestedAt: now() }]
+    : [{ resource: 'ae2/grid/minecraft:overworld@0,64,-0', resourceName: null, player: 'uuid-req', name: LONG.slice(0, 16), requestedAt: now() }]
   const shares: Array<{ resource: string; player: string; name: string; grantedAt: string }> = options.realistic
     ? [{ resource: 'ae2/grid/minecraft:overworld@120,64,-340', player: '00000000-0000-0000-0000-00000000a1e7', name: 'Alex', grantedAt: now() }]
     : Array.from({ length: 6 }, (_, i) => ({ resource: 'ae2/grid/minecraft:overworld@0,64,-0', player: `uuid-share-${i}`, name: i === 0 ? LONG.slice(0, 16) : `Friend${i}`, grantedAt: now() }))
@@ -361,6 +367,27 @@ export function createMockBackend(options: MockOptions = {}) {
           return { status: 204 }
         }
         return json(shares.filter((s) => s.resource === resource).map((s) => ({ player: s.player, name: s.name, grantedBy: null, grantedAt: s.grantedAt })))
+      }
+      case '/api/v1/access/requestable':
+        return json(requestable)
+      case '/api/v1/access/requests': {
+        if (method === 'POST') {
+          const r = requestable.find((x) => x.handle === (body as { handle: string }).handle)
+          if (!r) return json({ error: { code: 'not_found', message: 'no' } }, 404)
+          if (r.request === 'denied') return json({ error: { code: 'conflict', message: 'declined' } }, 409)
+          r.request = 'pending'
+          return json({ request: 'pending' }, 201)
+        }
+        return json(editable ? accessRequests : [])
+      }
+      case '/api/v1/access/decisions': {
+        if (!editable) return json({ error: { code: 'forbidden', message: 'no' } }, 403)
+        const d = body as { resource: string; player: string; approve: boolean }
+        const i = accessRequests.findIndex((r) => r.resource === d.resource && r.player === d.player)
+        if (i < 0) return json({ error: { code: 'not_found', message: 'no' } }, 404)
+        const [request] = accessRequests.splice(i, 1)
+        if (d.approve) shares.push({ resource: d.resource, player: d.player, name: request.name, grantedAt: now() })
+        return { status: 204 }
       }
       case '/api/v1/admin/storage':
         return json({

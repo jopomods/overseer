@@ -217,6 +217,17 @@ const en = {
   'ae2.shareFailed': 'Sharing failed.',
   'ae2.noShares': 'Not shared with anyone yet.',
   'ae2.unshare': 'Remove access',
+  'ae2.others': 'Other ME networks',
+  'ae2.othersHint': 'You cannot see these yet. Ask the owner; they get a message in game.',
+  'ae2.ownedBy': 'Network of {owner}',
+  'ae2.requestAccess': 'Ask for access',
+  'ae2.requested': 'Asked',
+  'ae2.declined': 'Declined',
+  'ae2.requests': 'Access requests',
+  'ae2.approve': 'Allow',
+  'ae2.asks': 'asks for access',
+  'ae2.deny': 'Decline',
+  'ae2.pendingCount': '{count} request(s)',
 } as const
 
 export type MessageKey = keyof typeof en
@@ -434,6 +445,17 @@ const de: Record<MessageKey, string> = {
   'ae2.shareFailed': 'Freigabe fehlgeschlagen.',
   'ae2.noShares': 'Noch für niemanden freigegeben.',
   'ae2.unshare': 'Zugriff entfernen',
+  'ae2.others': 'Weitere ME-Netzwerke',
+  'ae2.othersHint': 'Diese siehst du noch nicht. Frag den Besitzer; er bekommt eine Nachricht im Spiel.',
+  'ae2.ownedBy': 'Netzwerk von {owner}',
+  'ae2.requestAccess': 'Zugriff anfragen',
+  'ae2.requested': 'Angefragt',
+  'ae2.declined': 'Abgelehnt',
+  'ae2.requests': 'Zugriffsanfragen',
+  'ae2.approve': 'Erlauben',
+  'ae2.asks': 'möchte Zugriff',
+  'ae2.deny': 'Ablehnen',
+  'ae2.pendingCount': '{count} Anfrage(n)',
 }
 
 const messages: Record<Locale, Record<MessageKey, string>> = { en, de }

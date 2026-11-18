@@ -17,20 +17,22 @@ import io.github.jopojp.overseer.core.pipeline.SnapshotQueue;
 import io.github.jopojp.overseer.core.provider.ProviderDescriptor;
 import io.github.jopojp.overseer.core.provider.ProviderSnapshot;
 import io.github.jopojp.overseer.core.provider.ResourceRef;
+import io.github.jopojp.overseer.core.storage.AccessRequestStore;
 import io.github.jopojp.overseer.core.storage.Database;
 import io.github.jopojp.overseer.core.storage.HistoryQuery;
+import io.github.jopojp.overseer.core.storage.NotificationStore;
 import io.github.jopojp.overseer.core.storage.OverrideStore;
+import io.github.jopojp.overseer.core.storage.Sessions;
 import io.github.jopojp.overseer.core.storage.ShareStore;
 import io.github.jopojp.overseer.core.storage.StorageAdmin;
 import io.github.jopojp.overseer.core.storage.StorageWriter;
-import io.github.jopojp.overseer.core.storage.Sessions;
-import java.util.function.LongSupplier;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
-import java.util.UUID;
 import java.util.Map;
+import java.util.UUID;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -55,11 +57,14 @@ public final class ApiRoutes {
     private final LongSupplier uptime;
     private final OverrideStore overrides;
     private final ShareStore shares;
+    private final AccessRequestStore requests;
+    private final NotificationStore notifications;
     private final StorageWriter writer;
 
     private final RateLimiter linkCreate = RateLimiter.perMinute(10);
     private final RateLimiter linkPoll = RateLimiter.perMinute(90);
     private final RateLimiter tokenLogin = RateLimiter.perMinute(20);
+    private final RateLimiter requestLimit = RateLimiter.perMinute(10);
 
     public ApiRoutes(
             String version,
@@ -74,6 +79,8 @@ public final class ApiRoutes {
             LongSupplier uptime,
             OverrideStore overrides,
             ShareStore shares,
+            AccessRequestStore requests,
+            NotificationStore notifications,
             StorageWriter writer) {
         this.version = version;
         this.auth = auth;
@@ -87,6 +94,8 @@ public final class ApiRoutes {
         this.uptime = uptime;
         this.overrides = overrides;
         this.shares = shares;
+        this.requests = requests;
+        this.notifications = notifications;
         this.writer = writer;
     }
 
@@ -112,6 +121,10 @@ public final class ApiRoutes {
                 .get("/api/v1/shares", this::listShares)
                 .post("/api/v1/shares", this::addShare)
                 .delete("/api/v1/shares", this::removeShare)
+                .get("/api/v1/access/requestable", this::listRequestable)
+                .get("/api/v1/access/requests", this::listRequests)
+                .post("/api/v1/access/requests", this::createRequest)
+                .post("/api/v1/access/decisions", this::decide)
                 .get("/api/v1/admin/collectors", this::collectors)
                 .get("/api/v1/admin/storage", this::storage)
                 .put("/api/v1/admin/storage/settings", this::storageSettings)
@@ -333,6 +346,106 @@ public final class ApiRoutes {
         }
         if (!player.equals(p.player().uuid())) manageableShare(p, ref.key());
         if (!shares.remove(ref, player)) throw HttpError.notFound();
+        return Response.noContent();
+    }
+
+    // --- access requests (ADR-0011) ------------------------------------------------------
+
+    /** Shareable resources of a provider that the caller cannot see and that have an owner. */
+    private List<Map.Entry<ResourceRef, Map<String, String>>> requestable(Principal p, String provider) {
+        var snapshot = latest.get(provider).orElse(null);
+        if (snapshot == null) return List.of();
+        return snapshot.resources().entrySet().stream()
+                .filter(e -> access.isShareable(e.getKey()))
+                .filter(e -> !e.getValue().getOrDefault("owner", "").isEmpty())
+                .filter(e -> !access.canView(p, e.getKey()))
+                .toList();
+    }
+
+    /** The Overseer name of a resource (override), else its own name attribute, else null. */
+    private String resourceName(ResourceRef ref, Map<String, String> attributes) throws SQLException {
+        for (var o : overrides.list(ref.provider())) {
+            if (o.resource().equals(ref) && o.key().equals("name")) return o.value();
+        }
+        String name = attributes == null ? null : attributes.get("name");
+        return name == null || name.isEmpty() ? null : name;
+    }
+
+    private Response listRequestable(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        String provider = r.queryParam("provider").orElseThrow(() -> HttpError.badRequest("provider is required."));
+        var result = new java.util.ArrayList<Dtos.RequestableDto>();
+        for (var e : requestable(p, provider)) {
+            var status = requests.status(e.getKey(), p.player().uuid(), clock.instant());
+            result.add(new Dtos.RequestableDto(provider, requests.handle(e.getKey()), resourceName(e.getKey(), e.getValue()),
+                    e.getValue().getOrDefault("ownerName", ""), status.name().toLowerCase(java.util.Locale.ROOT)));
+        }
+        return Response.json(result);
+    }
+
+    private Response createRequest(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        if (!requestLimit.tryAcquire(p.player().uuid().toString())) throw HttpError.rateLimited();
+        var body = Json.parse(r.bodyText(), Dtos.CreateRequest.class);
+        if (body.provider() == null || body.handle() == null) throw HttpError.badRequest("provider and handle are required.");
+        var match = requestable(p, body.provider()).stream()
+                .filter(e -> requests.handle(e.getKey()).equals(body.handle()))
+                .findFirst()
+                .orElseThrow(HttpError::notFound);
+        ResourceRef ref = match.getKey();
+        var outcome = requests.request(ref, p.player().uuid(), clock.instant());
+        if (outcome == AccessRequestStore.Outcome.DENIED_RECENTLY) {
+            throw HttpError.conflict("The owner declined recently. Try again later.");
+        }
+        if (outcome == AccessRequestStore.Outcome.CREATED) {
+            UUID owner = UUID.fromString(match.getValue().get("owner"));
+            String name = resourceName(ref, match.getValue());
+            notifications.add(owner, "[Overseer] " + p.player().name() + " asks for access to "
+                    + (name == null ? "your " + ref.type() + " at " + ref.id() : "\"" + name + "\"")
+                    + ". Decide in the dashboard.", clock.instant());
+        }
+        return Response.json(201, Map.of("request", "pending"));
+    }
+
+    /** Pending requests on resources the caller may manage. */
+    private Response listRequests(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        var result = new java.util.ArrayList<Dtos.PendingRequestDto>();
+        for (var pending : requests.pending()) {
+            ResourceRef ref = pending.resource();
+            if (!access.isShareable(ref) || !access.canEdit(p, ref)) continue;
+            var attributes = latest.get(ref.provider()).map(s -> s.resources().get(ref)).orElse(null);
+            result.add(new Dtos.PendingRequestDto(ref.key(), resourceName(ref, attributes), pending.player().toString(),
+                    pending.name(), pending.requestedAt().toString()));
+        }
+        return Response.json(result);
+    }
+
+    private Response decide(Request r) throws SQLException {
+        Principal p = humanOnly(principal(r));
+        var body = Json.parse(r.bodyText(), Dtos.Decision.class);
+        if (body.resource() == null || body.player() == null || body.approve() == null) {
+            throw HttpError.badRequest("resource, player and approve are required.");
+        }
+        ResourceRef ref = manageableShare(p, body.resource());
+        UUID player;
+        try {
+            player = UUID.fromString(body.player());
+        } catch (IllegalArgumentException e) {
+            throw HttpError.badRequest("player must be a UUID.");
+        }
+        if (requests.find(ref, player).isEmpty()) throw HttpError.notFound();
+        var attributes = latest.get(ref.provider()).map(s -> s.resources().get(ref)).orElse(null);
+        String name = resourceName(ref, attributes);
+        String what = name == null ? "a " + ref.type() : "\"" + name + "\"";
+        if (body.approve()) {
+            shares.add(ref, player, p.player().uuid(), clock.instant());
+            requests.approve(ref, player);
+            notifications.add(player, "[Overseer] " + p.player().name() + " gave you access to " + what + ".", clock.instant());
+        } else {
+            requests.deny(ref, player, clock.instant());
+            notifications.add(player, "[Overseer] Your access request for " + what + " was declined.", clock.instant());
+        }
         return Response.noContent();
     }
 

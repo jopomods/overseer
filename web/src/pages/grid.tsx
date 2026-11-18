@@ -1,7 +1,7 @@
 import { Link, useParams } from '@tanstack/react-router'
 import { ArrowLeft, Check, Pencil, UserPlus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { ApiError, useAddShare, useOverrides, useRemoveShare, useSetOverride, useShares, useSnapshot } from '@/api/hooks'
+import { ApiError, useAccessRequests, useAddShare, useDecideAccess, useOverrides, useRemoveShare, useSetOverride, useShares, useSnapshot } from '@/api/hooks'
 import { GridStateBadge } from '@/components/grid-state-badge'
 import { HistoryChart } from '@/components/history-chart'
 import { LiveBadge } from '@/components/live-badge'
@@ -142,6 +142,8 @@ function AccessSection({ resource }: { resource: string }) {
   const shares = useShares(resource, true)
   const add = useAddShare(resource)
   const remove = useRemoveShare(resource)
+  const requests = (useAccessRequests().data ?? []).filter((r) => r.resource === resource)
+  const decide = useDecideAccess()
   const [name, setName] = useState('')
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -154,7 +156,27 @@ function AccessSection({ resource }: { resource: string }) {
     <Section title={t('ae2.access')}>
       <Card className="min-w-0 gap-0 py-1" data-testid="grid-access">
         <p className="text-muted-foreground px-4 py-2.5 text-sm">{t('ae2.accessHint')}</p>
-        <ul className="divide-border border-border divide-y border-t">
+        {requests.length > 0 && (
+          <ul className="border-border bg-primary/5 divide-border divide-y border-t" data-testid="access-requests">
+            {requests.map((r) => (
+              <li key={r.player} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2">
+                <span className="min-w-0 flex-1 basis-32 truncate text-sm">
+                  <span className="font-medium">{r.name ?? r.player}</span>
+                  <span className="text-muted-foreground"> · {t('ae2.asks')}</span>
+                </span>
+                <div className="flex shrink-0 gap-1">
+                  <Button size="sm" disabled={decide.isPending} onClick={() => decide.mutate({ resource, player: r.player, approve: true })}>
+                    <Check /> {t('ae2.approve')}
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={decide.isPending} onClick={() => decide.mutate({ resource, player: r.player, approve: false })}>
+                    {t('ae2.deny')}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <ul className="divide-border border-border divide-y border-t" data-testid="share-list">
           {shares.data?.length === 0 && <li className="text-muted-foreground px-4 py-2.5 text-sm">{t('ae2.noShares')}</li>}
           {shares.data?.map((s) => (
             <li key={s.player} className="flex min-w-0 items-center gap-3 px-4 py-2">

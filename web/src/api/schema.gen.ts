@@ -353,6 +353,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/access/requestable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resources the caller cannot see but may ask access for
+         * @description Shareable resources with an owner that are hidden from the caller. Only an opaque
+         *     handle, the Overseer name and the owner's name are returned, never ids: ids contain
+         *     block positions.
+         */
+        get: operations["listRequestable"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/access/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pending requests on resources the caller may manage */
+        get: operations["listAccessRequests"];
+        put?: never;
+        /**
+         * Ask the owner for access
+         * @description The owner gets an in-game message. Asking again while pending is harmless; after a
+         *     denial the same player may ask again after 24 hours (409 before).
+         */
+        post: operations["requestAccess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/access/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve (creates a share) or decline a request
+         * @description Needs edit rights on the resource. The requester gets an in-game message.
+         */
+        post: operations["decideAccessRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/collectors": {
         parameters: {
             query?: never;
@@ -655,6 +719,25 @@ export interface components {
              */
             uptimeMillis: number;
             sessions: components["schemas"]["Session"][];
+        };
+        Requestable: {
+            provider: string;
+            /** @description Opaque, stable per server. */
+            handle: string;
+            /** @description Overseer name, if the owner set one. */
+            name?: string | null;
+            ownerName: string;
+            /** @enum {string} */
+            request: "none" | "pending" | "denied";
+        };
+        AccessRequest: {
+            resource: string;
+            resourceName?: string | null;
+            /** Format: uuid */
+            player: string;
+            name?: string | null;
+            /** Format: date-time */
+            requestedAt: string;
         };
         Share: {
             /** Format: uuid */
@@ -1238,6 +1321,126 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listRequestable: {
+        parameters: {
+            query: {
+                provider: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requestable resources. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Requestable"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listAccessRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pending requests, oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessRequest"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    requestAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    provider: string;
+                    handle: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Pending. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Declined recently. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    decideAccessRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    resource: string;
+                    /** Format: uuid */
+                    player: string;
+                    approve: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Decided. */
             204: {
                 headers: {
                     [name: string]: unknown;

@@ -1,10 +1,12 @@
 import { Link } from '@tanstack/react-router'
-import { Cpu, Package } from 'lucide-react'
-import { useOverrides, useSnapshot } from '@/api/hooks'
+import { Cpu, Lock, Package } from 'lucide-react'
+import { useAccessRequests, useOverrides, useRequestAccess, useRequestable, useSnapshot } from '@/api/hooks'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { GridStateBadge } from '@/components/grid-state-badge'
 import { LiveBadge } from '@/components/live-badge'
 import { useSession } from '@/components/session'
-import { PageHeader } from '@/components/stat'
+import { PageHeader, Section } from '@/components/stat'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatAe, formatAeRate, formatPos, grids, type Ae2Grid } from '@/lib/ae2'
@@ -19,6 +21,7 @@ export function Ae2Page() {
   const snapshot = useSnapshot('ae2', { pollMs: live === 'live' ? false : 5000 })
   const overrides = useOverrides('ae2').data
   const list = grids(snapshot.data, overrides)
+  const pending = useAccessRequests().data ?? []
 
   return (
     <>
@@ -36,15 +39,51 @@ export function Ae2Page() {
       ) : (
         <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="grid-list">
           {list.map((g) => (
-            <GridCard key={g.id} grid={g} />
+            <GridCard key={g.id} grid={g} requests={pending.filter((r) => r.resource === g.resource.ref.key).length} />
           ))}
         </div>
       )}
+      <OtherGrids />
     </>
   )
 }
 
-function GridCard({ grid: g }: { grid: Ae2Grid }) {
+/** Grids the viewer cannot see, with "ask for access" (ADR-0011). */
+function OtherGrids() {
+  const t = useT()
+  const requestable = useRequestable('ae2').data ?? []
+  const ask = useRequestAccess('ae2')
+  if (requestable.length === 0) return null
+  return (
+    <Section title={t('ae2.others')}>
+      <p className="text-muted-foreground mb-3 max-w-prose text-sm">{t('ae2.othersHint')}</p>
+      <Card className="min-w-0 py-1">
+        <ul className="divide-border divide-y" data-testid="requestable-list">
+          {requestable.map((r) => (
+            <li key={r.handle} className="flex min-w-0 items-center gap-3 px-4 py-2.5">
+              <Lock className="text-muted-foreground size-4 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{r.name ?? t('ae2.ownedBy', { owner: r.ownerName })}</p>
+                {r.name && <p className="text-muted-foreground truncate text-xs">{r.ownerName}</p>}
+              </div>
+              {r.request === 'none' ? (
+                <Button size="sm" variant="outline" className="shrink-0" disabled={ask.isPending} onClick={() => ask.mutate(r.handle)}>
+                  {t('ae2.requestAccess')}
+                </Button>
+              ) : (
+                <Badge variant={r.request === 'denied' ? 'destructive' : 'secondary'} className="shrink-0">
+                  {r.request === 'denied' ? t('ae2.declined') : t('ae2.requested')}
+                </Badge>
+              )}
+            </li>
+          ))}
+        </ul>
+      </Card>
+    </Section>
+  )
+}
+
+function GridCard({ grid: g, requests }: { grid: Ae2Grid; requests: number }) {
   const t = useT()
   const { locale } = usePreferences()
   const fill = g.powerMax > 0 ? Math.min(1, g.powerStored / g.powerMax) : 0
@@ -57,7 +96,10 @@ function GridCard({ grid: g }: { grid: Ae2Grid }) {
               <p className="truncate font-semibold">{g.name ?? t('ae2.unnamed', { pos: formatPos(g.pos) })}</p>
               <p className="text-muted-foreground truncate text-xs">{g.ownerName || t('common.unknown')}</p>
             </div>
-            <GridStateBadge state={g.state} />
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <GridStateBadge state={g.state} />
+              {requests > 0 && <Badge className="shrink-0">{t('ae2.pendingCount', { count: requests })}</Badge>}
+            </div>
           </div>
           <div className="min-w-0 space-y-1.5">
             <div className="tabular flex min-w-0 justify-between gap-3 text-xs">
