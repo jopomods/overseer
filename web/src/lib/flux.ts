@@ -1,6 +1,7 @@
 import type { Override, Resource, Snapshot } from '@/api/hooks'
 import type { FlowDetail } from './preferences'
 import { metric, ofType } from './snapshot'
+import { tierInName, withTier, type Tier } from './tiers'
 
 /**
  * Helpers for the Flux Networks provider (docs/modules/flux.md).
@@ -20,6 +21,10 @@ export interface FluxDevice {
   label: string
   /** The name as stored in Flux (with zone prefix and colour codes); may be empty. */
   name: string
+  /** Voltage tier at the end of the name, when the server uses tiers (lib/tiers.ts). */
+  tier?: Tier
+  /** The label without the tier, shown next to a coloured tier badge. */
+  title: string
   dimension: string
   pos: string
   loaded: boolean
@@ -83,7 +88,12 @@ export function networks(snapshot: Snapshot | undefined): FluxNetwork[] {
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
 }
 
-export function devices(snapshot: Snapshot | undefined, networkId: string, overrides: Override[] = []): FluxDevice[] {
+export function devices(
+  snapshot: Snapshot | undefined,
+  networkId: string,
+  overrides: Override[] = [],
+  tiers: Tier[] = [],
+): FluxDevice[] {
   const zoneOverrides = new Map(overrides.filter((o) => o.key === 'zone' && o.value).map((o) => [o.resource, o.value as string]))
   return ofType(snapshot, 'device')
     .filter((r) => r.attributes.network === networkId)
@@ -93,6 +103,8 @@ export function devices(snapshot: Snapshot | undefined, networkId: string, overr
       const override = zoneOverrides.get(r.ref.key)
       const zone = override ?? nameZone
       const pos = r.attributes.pos ?? ''
+      const label = rest || `${type} @ ${pos}`
+      const tier = tierInName(rest, tiers)
       return {
         resource: r,
         id: r.ref.id,
@@ -100,8 +112,10 @@ export function devices(snapshot: Snapshot | undefined, networkId: string, overr
         zone,
         zoneOverridden: override !== undefined,
         canEdit: r.canEdit === true,
-        label: rest || `${type} @ ${pos}`,
+        label,
         name: r.attributes.name ?? '',
+        tier,
+        title: tier ? withTier(rest, null, tiers) || tier.name : label,
         dimension: r.attributes.dimension ?? '',
         pos,
         loaded: r.attributes.loaded !== 'false',
@@ -160,6 +174,71 @@ export function parseHexColor(input: string): string | undefined {
  */
 export function namesFromPattern(pattern: string, current: string[]): string[] {
   return current.map((name, i) => pattern.replaceAll('{n}', String(i + 1)).replaceAll('{name}', name))
+}
+
+export interface PriorityGroup {
+  /** `surge` before every number: Flux serves surge devices first. */
+  priority: number | 'surge'
+  devices: FluxDevice[]
+  /** Sum of |transfer| (FE/t). */
+  transfer: number
+}
+
+/**
+ * The order in which Flux serves devices: points (and storages charging) receive energy from the
+ * highest priority down; plugs (and storages discharging) are drained the same way. Devices with
+ * the same priority share. Power surge goes before everything.
+ */
+export function priorityOrder(list: FluxDevice[], side: 'receive' | 'supply'): PriorityGroup[] {
+  const kinds: DeviceType[] = side === 'receive' ? ['point', 'storage'] : ['plug', 'storage']
+  const groups = new Map<number | 'surge', FluxDevice[]>()
+  for (const d of list) {
+    if (!kinds.includes(d.type)) continue
+    const key = d.surge ? 'surge' : d.priority
+    groups.set(key, [...(groups.get(key) ?? []), d])
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a === 'surge' ? -1 : b === 'surge' ? 1 : b - a))
+    .map(([priority, devs]) => ({
+      priority,
+      devices: [...devs].sort((x, y) => Math.abs(y.transfer) - Math.abs(x.transfer)),
+      transfer: devs.reduce((sum, d) => sum + Math.abs(d.transfer), 0),
+    }))
+}
+
+export interface TierSummary {
+  tier: Tier | null
+  devices: FluxDevice[]
+  generation: number
+  consumption: number
+}
+
+/** Generation (plugs) and consumption (points) per voltage tier, in tier order; no tier last. */
+export function tierSummaries(list: FluxDevice[], tiers: Tier[]): TierSummary[] {
+  const result: TierSummary[] = []
+  for (const tier of [...tiers, null]) {
+    const devs = list.filter((d) => (d.tier ?? null) === tier && d.type !== 'controller')
+    if (devs.length === 0) continue
+    result.push({
+      tier,
+      devices: devs,
+      generation: devs.filter((d) => d.type === 'plug').reduce((s, d) => s + Math.abs(d.transfer), 0),
+      consumption: devs.filter((d) => d.type === 'point').reduce((s, d) => s + Math.abs(d.transfer), 0),
+    })
+  }
+  return result
+}
+
+/**
+ * Hints for the recommended (never enforced) naming convention "Zone: Title Tier" (docs/modules/flux.md).
+ */
+export function nameHints(name: string, others: string[]): Array<'noZone' | 'duplicate'> {
+  const hints: Array<'noZone' | 'duplicate'> = []
+  const plain = name.replace(/§[0-9a-fk-or]/gi, '').trim()
+  if (plain === '') return hints
+  if (splitZone(plain).zone === null) hints.push('noZone')
+  if (others.some((o) => o.replace(/§[0-9a-fk-or]/gi, '').trim().toLowerCase() === plain.toLowerCase())) hints.push('duplicate')
+  return hints
 }
 
 export interface ZoneSummary {

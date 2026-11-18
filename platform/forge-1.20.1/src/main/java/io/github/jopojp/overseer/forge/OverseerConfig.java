@@ -20,6 +20,17 @@ public final class OverseerConfig {
     static final ForgeConfigSpec.BooleanValue FORCE_SECURE_COOKIES;
     static final ForgeConfigSpec.ConfigValue<String> PUBLIC_URL;
     static final ForgeConfigSpec.BooleanValue AE2_PLACER_ACCESS;
+    static final ForgeConfigSpec.EnumValue<EnergyTiers> ENERGY_TIERS;
+
+    /** Voltage tiers in device names (docs/modules/flux.md). */
+    public enum EnergyTiers {
+        /** GregTech tiers when a GregTech mod is installed, otherwise none. */
+        AUTO,
+        /** Always GregTech tiers (ULV ... MAX). */
+        GREGTECH,
+        /** No tiers. */
+        OFF
+    }
 
     static {
         var builder = new ForgeConfigSpec.Builder();
@@ -50,6 +61,12 @@ public final class OverseerConfig {
                         "Off by default: anyone could place a cable on a neighbour's network and watch it.")
                 .define("ae2PlacerAccess", false);
         builder.pop();
+        builder.comment("How the dashboard shows things").push("dashboard");
+        ENERGY_TIERS = builder.comment(
+                        "Voltage tiers at the end of Flux device names (\"Factory: Assembler MV\"): coloured, filterable.",
+                        "AUTO = GregTech tiers when GregTech (gtceu) is installed; GREGTECH = always; OFF = never.")
+                .defineEnum("energyTiers", EnergyTiers.AUTO);
+        builder.pop();
         SPEC = builder.build();
     }
 
@@ -63,6 +80,17 @@ public final class OverseerConfig {
     /** Read every collection, so a change applies without a restart. */
     public static boolean ae2PlacerAccess() {
         return SPEC.isLoaded() && AE2_PLACER_ACCESS.get();
+    }
+
+    /** The tier scheme for the dashboard: {@code gregtech} or {@code none}. Read every collection. */
+    public static String energyTiers() {
+        EnergyTiers mode = SPEC.isLoaded() ? ENERGY_TIERS.get() : EnergyTiers.AUTO;
+        boolean gregtech = switch (mode) {
+            case GREGTECH -> true;
+            case OFF -> false;
+            case AUTO -> net.minecraftforge.fml.ModList.get().isLoaded("gtceu");
+        };
+        return gregtech ? "gregtech" : "none";
     }
 
     public static String publicUrl() {

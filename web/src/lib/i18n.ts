@@ -391,6 +391,21 @@ const en = {
   'edit.rateLimited': 'Too many changes. Try again in a minute.',
   'edit.busy': 'The server did not get to it in time. Nothing was changed.',
   'edit.failed': 'The change failed.',
+  'naming.recommended': 'Recommended: Zone: Title, e.g. Factory: Assembler 2',
+  'naming.recommendedTier': 'Recommended: Zone: Title Tier, e.g. Factory: Assembler MV',
+  'naming.noZone': 'no zone yet',
+  'naming.duplicate': 'another device has this name',
+  'tier.label': 'Voltage tier',
+  'tier.none': 'No tier',
+  'tier.all': 'All tiers',
+  'tier.title': 'Energy by tier',
+  'priority.title': 'Order',
+  'priority.explain': 'Flux serves higher priorities first; devices with the same priority share. Power surge goes before everything.',
+  'priority.receive': 'Gets energy first',
+  'priority.supply': 'Gives energy first',
+  'priority.share': '{count} share',
+  'priority.alone': 'alone',
+  'priority.more': '+{count} more',
 } as const
 
 export type MessageKey = keyof typeof en
@@ -782,6 +797,21 @@ const de: Record<MessageKey, string> = {
   'edit.rateLimited': 'Zu viele Änderungen. Versuch es in einer Minute erneut.',
   'edit.busy': 'Der Server ist nicht rechtzeitig dazu gekommen. Es wurde nichts geändert.',
   'edit.failed': 'Die Änderung ist fehlgeschlagen.',
+  'naming.recommended': 'Empfohlen: Bereich: Titel, z. B. Fabrik: Assembler 2',
+  'naming.recommendedTier': 'Empfohlen: Bereich: Titel Tier, z. B. Fabrik: Assembler MV',
+  'naming.noZone': 'noch ohne Bereich',
+  'naming.duplicate': 'ein anderes Gerät heißt schon so',
+  'tier.label': 'Spannungs-Tier',
+  'tier.none': 'Ohne Tier',
+  'tier.all': 'Alle Tiers',
+  'tier.title': 'Energie nach Tier',
+  'priority.title': 'Reihenfolge',
+  'priority.explain': 'Flux bedient höhere Prioritäten zuerst; Geräte mit gleicher Priorität teilen sich. Power Surge geht vor allem anderen.',
+  'priority.receive': 'Bekommt zuerst Energie',
+  'priority.supply': 'Gibt zuerst Energie ab',
+  'priority.share': '{count} teilen sich',
+  'priority.alone': 'allein',
+  'priority.more': '+{count} weitere',
 }
 
 const messages: Record<Locale, Record<MessageKey, string>> = { en, de }

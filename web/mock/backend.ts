@@ -14,6 +14,8 @@ export interface MockOptions {
   linkStatuses?: Array<'pending' | 'confirmed' | 'expired'>
   /** Serve the last frames of the committed real-world recording instead of extreme data. */
   realistic?: boolean
+  /** Voltage tier scheme the server reports (server/server/main energyTiers); default gregtech. */
+  energyTiers?: 'gregtech' | 'none'
 }
 
 interface Frame {
@@ -98,6 +100,22 @@ export function fluxSnapshot() {
       metrics: { transfer: type === 'point' ? -9.2e18 / (i + 1) : 9.2e18 / (i + 1), buffer: 5e15 },
     }
   })
+  // Devices with GregTech voltage tiers at the end of their names.
+  for (const [n, name, type, transfer] of [
+    [0, 'Factory: Assembler MV', 'point', -2e17],
+    [1, 'Factory: Assembler 2 MV', 'point', -1e17],
+    [2, 'Fusion: Reactor ZPM', 'plug', 6e17],
+  ] as const) {
+    const id = `minecraft:overworld@-9${n},70,9`
+    devices.push({
+      ref: { provider: 'flux', type: 'device', id, key: `flux/device/${id}` },
+      attributes: {
+        network: '0', type, name, dimension: 'minecraft:overworld',
+        pos: `-9${n},70,9`, priority: String(10 + n), limit: '0', loaded: 'true', surge: 'false',
+      },
+      metrics: { transfer, buffer: 0 },
+    })
+  }
   // Two plugs with the same zone and name: grouped as "Twin ×2" in the device flow.
   for (const n of [0, 1]) {
     const id = `minecraft:overworld@-5${n},70,5`
@@ -606,11 +624,15 @@ export function createMockBackend(options: MockOptions = {}) {
   const json = (body: unknown, status = 200): MockResponse => ({ status, json: body })
 
   /** Current snapshot of a provider (also pushed over SSE by the dev server). */
+  const withTiers = (snap: LooseSnapshot): LooseSnapshot => ({
+    ...snap,
+    resources: snap.resources.map((r) =>
+      r.ref.key === 'server/server/main' ? { ...r, attributes: { ...r.attributes, energyTiers: options.energyTiers ?? 'gregtech' } } : r,
+    ),
+  })
   const snapshot = (provider: 'server' | 'flux' | 'ae2') =>
     provider === 'server'
-      ? options.realistic
-        ? realSnapshot('server')
-        : serverSnapshot()
+      ? withTiers((options.realistic ? realSnapshot('server') : serverSnapshot()) as LooseSnapshot)
       : provider === 'ae2'
         ? withEdit(ae2Snapshot(options.realistic, adopted))
         : withEdit(patchFlux(options.realistic ? realSnapshot('flux') : fluxSnapshot()))

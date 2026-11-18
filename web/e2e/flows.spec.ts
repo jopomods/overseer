@@ -44,7 +44,7 @@ test.describe('flows', () => {
     await page.getByTestId('network-list').getByRole('link').first().click()
     await expect(page.getByTestId('zones')).toContainText('Power plant')
     const rows = page.getByTestId('device-list').getByRole('listitem')
-    await expect(rows).toHaveCount(202)
+    await expect(rows).toHaveCount(205)
     await page.getByRole('tab', { name: /Storages/ }).click()
     await expect(rows).toHaveCount(50)
     await page.getByPlaceholder('Search devices').fill('Device 2')

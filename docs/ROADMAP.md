@@ -116,8 +116,10 @@ allowed for network owners and admins (Flux's rules) and server operators (ADR-0
   network; members add, remove, user/admin, transfer ownership. GameTests against Flux.
 - [x] UI: network settings, device editor with multi-select and rename by pattern, members,
   action log. Names at most 24 characters, like in game.
-- [ ] Priority view (order in which Flux serves devices) and the recommended naming convention
-  as a suggestion, never enforced
+- [x] Priority view (order in which Flux serves devices) and the recommended naming convention
+  (`Zone: Title Tier`) as a suggestion, never enforced
+- [x] Optional voltage tiers in names (GregTech when installed): badges in GregTech's colours,
+  filter, energy by tier, tier field in the device editor
 
 ## M3: GregTech CEu (GTCEu)
 

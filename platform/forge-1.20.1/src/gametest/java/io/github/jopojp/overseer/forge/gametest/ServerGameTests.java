@@ -32,6 +32,9 @@ public final class ServerGameTests {
         helper.assertTrue(snapshot.resources().containsKey(
                 new ResourceRef("server", "dimension", "minecraft:overworld")), "overworld");
         helper.assertTrue(snapshot.samples().stream().anyMatch(s -> s.metric().equals("tps")), "tps sample");
+        // No GregTech in the test server: AUTO means no voltage tiers.
+        String tiers = snapshot.resources().get(new ResourceRef("server", "server", "main")).get("energyTiers");
+        helper.assertTrue("none".equals(tiers), "energyTiers: " + tiers);
         helper.succeed();
     }
 

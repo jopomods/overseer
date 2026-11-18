@@ -15,7 +15,20 @@ import { Section, Stat } from '@/components/stat'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { devices, FLUX_ACTIONS, members, networks, zones, type DeviceType, type FluxDevice, type FluxNetwork } from '@/lib/flux'
+import {
+  devices,
+  FLUX_ACTIONS,
+  members,
+  networks,
+  tierSummaries,
+  zones,
+  type DeviceType,
+  type FluxDevice,
+  type FluxNetwork,
+} from '@/lib/flux'
+import { tiersOf, type Tier, type TierScheme } from '@/lib/tiers'
+import { PriorityOrder } from '@/components/priority-order'
+import { TierBadge } from '@/components/tier-badge'
 import { forecastEmpty, msUntilFull } from '@/lib/forecast'
 import { formatDuration, formatEnergy, formatNumber, formatRate } from '@/lib/format'
 import { useT } from '@/lib/i18n'
@@ -44,7 +57,13 @@ export function NetworkPage() {
   const allowed = useAllowedActions(networkKey, network !== undefined).data
   const [settingsOpen, setSettingsOpen] = useState(false)
   const overrides = useOverrides('flux').data
-  const deviceList = useMemo(() => devices(snapshot.data, networkId, overrides), [snapshot.data, networkId, overrides])
+  const server = useSnapshot('server').data
+  const scheme = server?.resources.find((r) => r.ref.key === 'server/server/main')?.attributes.energyTiers as TierScheme | undefined
+  const tiers = useMemo(() => tiersOf(scheme), [scheme])
+  const deviceList = useMemo(
+    () => devices(snapshot.data, networkId, overrides, tiers),
+    [snapshot.data, networkId, overrides, tiers],
+  )
   const memberList = members(snapshot.data, networkId)
 
   if (snapshot.isPending) return <Skeleton className="h-64" />
@@ -121,6 +140,11 @@ export function NetworkPage() {
       </Section>
 
       <ZonesSection devices={deviceList} />
+      <TiersSection devices={deviceList} tiers={tiers} />
+
+      <Section title={t('priority.title')}>
+        <PriorityOrder devices={deviceList} />
+      </Section>
 
       <Section title={t('energy.zoneHistory')}>
         <ZoneChart devices={deviceList} />
@@ -130,6 +154,7 @@ export function NetworkPage() {
         networkKey={networkKey}
         editable={allowed?.has(FLUX_ACTIONS.deviceEdit) === true}
         targets={allNetworks.filter((n) => n.id !== networkId && n.resource.canEdit)}
+        tiers={tiers}
       />
 
       <Section title={t('energy.members')}>
@@ -212,6 +237,31 @@ function BackLink() {
   )
 }
 
+/** Generation and consumption per voltage tier; only when the server uses tiers and names carry them. */
+function TiersSection({ devices: list, tiers }: { devices: FluxDevice[]; tiers: Tier[] }) {
+  const t = useT()
+  const { locale, energyUnit } = usePreferences()
+  if (tiers.length === 0 || !list.some((d) => d.tier)) return null
+  return (
+    <Section title={t('tier.title')}>
+      <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5" data-testid="tiers">
+        {tierSummaries(list, tiers).map((s) => (
+          <Card key={s.tier?.name ?? '-'} className="min-w-0 gap-2 py-3">
+            <CardContent className="min-w-0 space-y-1.5 px-3">
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                {s.tier ? <TierBadge tier={s.tier} className="text-xs" /> : <span className="text-muted-foreground truncate text-xs">{t('tier.none')}</span>}
+                <span className="text-muted-foreground shrink-0 text-xs">{t('energy.devices', { count: s.devices.length })}</span>
+              </div>
+              <p className="text-success tabular truncate text-sm font-semibold">+{formatRate(s.generation, energyUnit, locale)}</p>
+              <p className="text-primary tabular truncate text-sm font-semibold">−{formatRate(s.consumption, energyUnit, locale)}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
 /** Generation and consumption per zone (name prefix before ':'). */
 function ZonesSection({ devices: list }: { devices: FluxDevice[] }) {
   const t = useT()
@@ -253,14 +303,17 @@ function DevicesSection({
   networkKey,
   editable,
   targets,
+  tiers,
 }: {
   devices: FluxDevice[]
   networkKey: string
   editable: boolean
   targets: FluxNetwork[]
+  tiers: Tier[]
 }) {
   const t = useT()
   const [type, setType] = useState<DeviceType | 'all'>('all')
+  const [tierFilter, setTierFilter] = useState<string>('all')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   /** Devices in the open editor: the selection, or one device edited from its row. */
@@ -276,9 +329,11 @@ function DevicesSection({
   const shown = list.filter(
     (d) =>
       (type === 'all' || d.type === type) &&
+      (tierFilter === 'all' || (tierFilter === 'none' ? !d.tier : d.tier?.name === tierFilter)) &&
       (!q || `${d.zone ?? ''} ${plainText(d.label)} ${d.pos} ${d.dimension}`.toLowerCase().includes(q)),
   )
   const zoneNames = [...new Set(list.map((d) => d.zone).filter((z): z is string => !!z))].sort()
+  const usedTiers = tiers.filter((x) => list.some((d) => d.tier === x))
   const counts = Object.fromEntries(TYPES.map((ty) => [ty, list.filter((d) => d.type === ty).length]))
 
   return (
@@ -307,6 +362,28 @@ function DevicesSection({
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('energy.search')} className="pl-8" />
         </div>
       </div>
+      {usedTiers.length > 0 && (
+        <div className="bg-muted mb-3 flex w-fit max-w-full min-w-0 flex-wrap gap-1 rounded-lg p-1" role="tablist" data-testid="tier-filter">
+          {['all', ...usedTiers.map((x) => x.name), 'none'].map((key) => {
+            const tier = usedTiers.find((x) => x.name === key)
+            return (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={tierFilter === key}
+                onClick={() => setTierFilter(key)}
+                className={cn(
+                  'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap transition-colors',
+                  tierFilter === key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {tier ? <TierBadge tier={tier} /> : key === 'all' ? t('tier.all') : t('tier.none')}
+              </button>
+            )
+          })}
+        </div>
+      )}
       {editable && (
         <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2 text-sm" data-testid="device-selection">
           <Button
@@ -336,6 +413,9 @@ function DevicesSection({
               networkKey={networkKey}
               devices={list.filter((d) => editing.includes(d.id))}
               targets={targets}
+              tiers={tiers}
+              zoneNames={zoneNames}
+              otherNames={list.filter((d) => !editing.includes(d.id)).map((d) => d.name)}
               onDone={() => {
                 setEditing(undefined)
                 setSelected(new Set())
@@ -410,8 +490,9 @@ function DeviceRow({
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-center gap-2 text-sm font-medium">
           <span className="truncate">
-            <McText text={d.label} />
+            <McText text={d.title} />
           </span>
+          {d.tier && <TierBadge tier={d.tier} />}
           {d.zone && (
             <span className="text-muted-foreground hidden truncate text-xs font-normal sm:inline" title={d.zoneOverridden ? t('energy.zoneManual') : undefined}>
               {d.zone}
