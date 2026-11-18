@@ -497,6 +497,108 @@ export function createMockBackend(options: MockOptions = {}) {
     ? [{ resource: 'ae2/grid/minecraft:overworld@120,64,-340', player: '00000000-0000-0000-0000-00000000a1e7', name: 'Alex', grantedAt: now() }]
     : Array.from({ length: 6 }, (_, i) => ({ resource: 'ae2/grid/minecraft:overworld@0,64,-0', player: `uuid-share-${i}`, name: i === 0 ? LONG.slice(0, 16) : `Friend${i}`, grantedAt: now() }))
   let loggedInNow = false
+  // World actions (ADR-0016): attribute changes on top of the generated Flux snapshot, and the log.
+  // The mock lets every non-player act, as if they were an operator.
+  const fluxPatches = new Map<string, Record<string, string>>()
+  const memberPatches = new Map<string, { network: string; player: string; name: string; access: string } | null>()
+  const actionLog: Array<{
+    id: number; at: string; actor: string; actorName: string; operator: boolean; action: string; resource: string
+    status: string; message: string | null; changes: Array<{ resource: string; field: string; before: string | null; after: string | null }>
+  }> = []
+  type LooseSnapshot = {
+    provider: string
+    at: { wall: string; uptimeMillis: number; session: number }
+    resources: Array<{ ref: { provider: string; type: string; id: string; key: string }; attributes: Record<string, string>; metrics: Record<string, number> }>
+  }
+  const patchFlux = (snap: LooseSnapshot): LooseSnapshot => {
+    const resources = snap.resources
+      .filter((r) => memberPatches.get(r.ref.key) !== null)
+      .map((r) => {
+        const member = memberPatches.get(r.ref.key)
+        const attributes = { ...r.attributes, ...(fluxPatches.get(r.ref.key) ?? {}), ...(member ?? {}) } as Record<string, string>
+        return { ...r, attributes }
+      })
+    for (const [key, m] of memberPatches) {
+      if (m && !snap.resources.some((r) => r.ref.key === key)) {
+        const id = key.slice('flux/member/'.length)
+        resources.push({ ref: { provider: 'flux', type: 'member', id, key }, attributes: m, metrics: {} })
+      }
+    }
+    return { ...snap, resources }
+  }
+  const runFluxAction = (b: { type: string; resource: string; params?: Record<string, unknown> }): MockResponse => {
+    const params = b.params ?? {}
+    const current = patchFlux(options.realistic ? realSnapshot('flux') : fluxSnapshot())
+    const find = (key: string) => current.resources.find((r) => r.ref.key === key)
+    const network = find(b.resource)
+    if (!network || network.ref.type !== 'network') return json({ error: { code: 'not_found', message: 'Not found.' } }, 404)
+    const changes: Array<{ resource: string; field: string; before: string | null; after: string | null }> = []
+    const fail = (status: number, state: string, message: string): MockResponse => {
+      log(state, message, [])
+      return json({ status: state, message, changes: [] }, status)
+    }
+    const log = (state: string, message: string | null, list: typeof changes) =>
+      actionLog.unshift({ id: actionLog.length + 1, at: now(), actor: '00000000-0000-0000-0000-000000000001', actorName: options.realistic ? 'Developer' : 'Mock', operator: true, action: b.type, resource: b.resource, status: state, message, changes: list })
+    const set = (key: string, field: string, attribute: string, value: string) => {
+      const before = find(key)?.attributes[attribute] ?? null
+      if (before === value) return
+      fluxPatches.set(key, { ...(fluxPatches.get(key) ?? {}), [attribute]: value })
+      changes.push({ resource: key, field, before, after: value })
+    }
+    let message: string | null = null
+    if (b.type === 'flux.network.edit') {
+      if (typeof params.name === 'string' && (params.name.length > 24 || !params.name.trim())) return fail(400, 'invalid', 'Names have 1 to 24 characters.')
+      if (typeof params.name === 'string') set(b.resource, 'name', 'name', params.name)
+      if (typeof params.color === 'string') set(b.resource, 'color', 'color', params.color)
+      if (typeof params.security === 'string') set(b.resource, 'security', 'security', params.security)
+      if (typeof params.password === 'string') changes.push({ resource: b.resource, field: 'password', before: null, after: '***' })
+    } else if (b.type === 'flux.device.edit') {
+      const edits = (params.devices as Array<Record<string, unknown>>) ?? []
+      let skipped = 0
+      for (const e of edits) {
+        const key = `flux/device/${String(e.id)}`
+        const device = find(key)
+        if (!device) return fail(400, 'invalid', `Device ${String(e.id)} is not in this network.`)
+        if (typeof e.name === 'string' && e.name.length > 24) return fail(400, 'invalid', 'Names have at most 24 characters.')
+      }
+      for (const e of edits) {
+        const key = `flux/device/${String(e.id)}`
+        if (find(key)!.attributes.loaded === 'false') {
+          skipped++
+          continue
+        }
+        if (typeof e.name === 'string') set(key, 'name', 'name', e.name)
+        if (typeof e.priority === 'number') set(key, 'priority', 'priority', String(e.priority))
+        if (typeof e.limit === 'number') set(key, 'limit', 'limit', String(e.limit))
+        if (typeof e.disableLimit === 'boolean') set(key, 'disableLimit', 'disableLimit', String(e.disableLimit))
+        if (typeof e.surge === 'boolean') set(key, 'surge', 'surge', String(e.surge))
+        if (typeof e.chunkLoading === 'boolean') set(key, 'chunkLoading', 'forcedLoading', String(e.chunkLoading))
+      }
+      if (skipped === edits.length) return fail(409, 'unavailable', 'The devices are in unloaded chunks.')
+      if (skipped) message = `${skipped} devices were skipped: not loaded.`
+    } else if (b.type === 'flux.device.connect') {
+      for (const id of (params.devices as string[]) ?? []) set(`flux/device/${id}`, 'network', 'network', network.ref.id)
+    } else if (b.type === 'flux.member.edit') {
+      const role = String(params.role)
+      const existing = current.resources.find(
+        (r) => r.ref.type === 'member' && r.attributes.network === network.ref.id &&
+          (r.attributes.player === params.player || r.attributes.name.toLowerCase() === String(params.name ?? '').toLowerCase()),
+      )
+      const known = existing
+        ? { uuid: existing.attributes.player, name: existing.attributes.name }
+        : knownPlayers.get(String(params.name ?? '').toLowerCase())
+      if (!known) return fail(400, 'invalid', 'Unknown player. They must have joined this server at least once.')
+      const key = `flux/member/${network.ref.id}:${known.uuid}`
+      const before = existing?.attributes.access ?? null
+      if (role === 'remove') memberPatches.set(key, null)
+      else memberPatches.set(key, { network: network.ref.id, player: known.uuid, name: known.name, access: role })
+      changes.push({ resource: key, field: 'access', before, after: role === 'remove' ? null : role })
+    } else {
+      return json({ status: 'invalid', message: 'Unknown action.', changes: [] }, 400)
+    }
+    log('ok', message, changes)
+    return json({ status: 'ok', message, changes })
+  }
   const withEdit = (snapshot: { resources: Array<Record<string, unknown>> }) => ({
     ...snapshot,
     resources: snapshot.resources.map((r) => ({ ...r, canEdit: editable })),
@@ -511,7 +613,7 @@ export function createMockBackend(options: MockOptions = {}) {
         : serverSnapshot()
       : provider === 'ae2'
         ? withEdit(ae2Snapshot(options.realistic, adopted))
-        : withEdit(options.realistic ? realSnapshot('flux') : fluxSnapshot())
+        : withEdit(patchFlux(options.realistic ? realSnapshot('flux') : fluxSnapshot()))
 
   function handle({ method, url, body }: MockRequest): MockResponse {
     const path = url.pathname
@@ -706,6 +808,21 @@ export function createMockBackend(options: MockOptions = {}) {
         ])
       case '/api/v1/auth/logout':
         return { status: 204 }
+      case '/api/v1/actions/allowed': {
+        const resource = url.searchParams.get('resource') ?? ''
+        const types = editable && resource.startsWith('flux/network/')
+          ? ['flux.device.connect', 'flux.device.edit', 'flux.member.edit', 'flux.network.edit']
+          : []
+        return json({ resource, types })
+      }
+      case '/api/v1/actions': {
+        if (method === 'POST') {
+          if (!editable) return json({ status: 'denied', message: 'You may not change this.', changes: [] }, 403)
+          return runFluxAction(body as { type: string; resource: string; params?: Record<string, unknown> })
+        }
+        const resource = url.searchParams.get('resource')
+        return json(actionLog.filter((e) => !resource || e.resource === resource || e.changes.some((c) => c.resource === resource)))
+      }
       default:
         return json({ error: { code: 'not_found', message: path } }, 404)
     }

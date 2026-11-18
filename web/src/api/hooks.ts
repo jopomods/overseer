@@ -19,6 +19,9 @@ export type ResourceEvent = components['schemas']['Event']
 export type JobLine = components['schemas']['JobLine']
 export type Watch = components['schemas']['Watch']
 export type InventoryItem = components['schemas']['InventoryItem']
+export type ActionResult = components['schemas']['ActionResult']
+export type ActionChange = components['schemas']['ActionChange']
+export type ActionLogEntry = components['schemas']['ActionLogEntry']
 
 export interface InventoryQuery {
   q: string
@@ -76,6 +79,8 @@ export const keys = {
   watches: (resource: string) => ['watches', resource] as const,
   events: (resource: string, attributes: string[]) => ['events', resource, attributes.join(',')] as const,
   inventory: (resource: string, q: InventoryQuery) => ['inventory', resource, q.q, q.sort, q.kind ?? '', q.limit] as const,
+  allowedActions: (resource: string) => ['actions-allowed', resource] as const,
+  actionLog: (resource: string) => ['action-log', resource] as const,
   history: (resources: string[], metrics: string[], rangeMs: number) =>
     ['history', resources.join(','), metrics.join(','), rangeMs] as const,
 }
@@ -354,6 +359,62 @@ export function useLogout() {
   return useMutation({
     mutationFn: () => unwrap(api.POST('/api/v1/auth/logout')),
     onSettled: () => client.resetQueries(),
+  })
+}
+
+/** A world action the server did not apply (ADR-0016); `message` says why. */
+export class ActionFailed extends Error {
+  readonly status: number
+  readonly result?: ActionResult
+
+  constructor(status: number, message: string, result?: ActionResult) {
+    super(message)
+    this.status = status
+    this.result = result
+  }
+}
+
+/** World actions the viewer may run on a resource; the UI shows edit controls only for these. */
+export function useAllowedActions(resource: string, enabled = true) {
+  return useQuery({
+    queryKey: keys.allowedActions(resource),
+    queryFn: () => unwrap(api.GET('/api/v1/actions/allowed', { params: { query: { resource } } })),
+    retry,
+    enabled,
+    staleTime: 30_000,
+    select: (data) => new Set(data.types),
+  })
+}
+
+/**
+ * Runs a world action. Resolves with the result when it was applied (a message may still say
+ * that some devices were skipped); rejects with {@link ActionFailed} otherwise.
+ */
+export function useRunAction(provider: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async (action: { type: string; resource: string; params: Record<string, unknown> }) => {
+      const { data, error, response } = await api.POST('/api/v1/actions', { body: action })
+      if (response.ok && data) return data
+      const body = error as (ActionResult & { error?: { message?: string } }) | undefined
+      const message = body?.message ?? body?.error?.message ?? `${response.status}`
+      throw new ActionFailed(response.status, message, body?.status ? body : undefined)
+    },
+    onSettled: (_data, _error, action) => {
+      client.invalidateQueries({ queryKey: keys.snapshot(provider) })
+      client.invalidateQueries({ queryKey: keys.actionLog(action.resource) })
+    },
+  })
+}
+
+/** Changes made to a resource from the dashboard, newest first. */
+export function useActionLog(resource: string, enabled = true) {
+  return useQuery({
+    queryKey: keys.actionLog(resource),
+    queryFn: () => unwrap(api.GET('/api/v1/actions', { params: { query: { resource, limit: 50 } } })),
+    retry,
+    enabled,
+    refetchInterval: 30_000,
   })
 }
 

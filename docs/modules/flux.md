@@ -48,7 +48,17 @@ Changes apply within one collection interval (1 s).
 - `/energy`: one card per visible network (color, security, input/output, stored energy,
   device count).
 - `/energy/<networkId>`: charts of input/output and stored energy, totals and balance (input − output), zones, devices (filter by type,
-  search by name, zone, position, dimension; unloaded devices dimmed), members with access.
+  search by name, zone, position, dimension; unloaded devices dimmed), members with access,
+  and the change log (who changed what, from `GET /api/v1/actions`).
+- Editing (only shown where `GET /api/v1/actions/allowed` lists the action, ADR-0016):
+  - **Settings** on the network: name (counter against Flux's 24 characters, preview of colour
+    codes), colour (Flux's 14 presets, a colour picker or a hex code), security, password.
+  - **Devices**: tick devices (or "select shown" after filtering) and edit them together, or edit
+    one from its row. Empty fields and "keep" leave each device as it is; names of several
+    devices come from a pattern (`{n}` = number in the selection, `{name}` = current name) with a
+    preview. "Move to network" lists the other networks the viewer may edit. Unloaded devices in
+    the selection are named and skipped.
+  - **Members**: role (user/admin), make owner and remove with a confirmation, add by name.
 - Flux reports `transfer` positive for plugs (energy taken in) and negative for points (energy
   delivered), confirmed with real data. The UI shows magnitudes for plugs and points;
   storages show the signed value plus stored energy.
