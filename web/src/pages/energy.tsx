@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { ArrowDownToLine, ArrowUpFromLine, Battery } from 'lucide-react'
 import { useSnapshot } from '@/api/hooks'
 import { LiveBadge } from '@/components/live-badge'
+import { McText } from '@/components/mc-text'
 import { useSession } from '@/components/session'
 import { SecurityBadge } from '@/components/security-badge'
 import { PageHeader } from '@/components/stat'
@@ -53,7 +54,9 @@ function NetworkCard({ network: n, deviceCount }: { network: FluxNetwork; device
         <CardContent className="min-w-0 space-y-4 px-4">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: n.color }} />
-            <span className="min-w-0 flex-1 truncate font-semibold">{n.name}</span>
+            <span className="min-w-0 flex-1 truncate font-semibold">
+              <McText text={n.name} />
+            </span>
             <SecurityBadge security={n.security} />
           </div>
           <div className="tabular grid grid-cols-2 gap-3">

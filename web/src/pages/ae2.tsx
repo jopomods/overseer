@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { Cpu, Lock, Package } from 'lucide-react'
 import { useAccessRequests, useOverrides, useRegistration, useRequestAccess, useRequestable, useSnapshot } from '@/api/hooks'
 import { Input } from '@/components/ui/input'
+import { McText } from '@/components/mc-text'
 import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -154,7 +155,7 @@ function GridCard({ grid: g, requests }: { grid: Ae2Grid; requests: number }) {
         <CardContent className="min-w-0 space-y-4 px-4">
           <div className="flex min-w-0 items-start gap-2.5">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold">{g.name ?? t('ae2.unnamed', { pos: formatPos(g.pos) })}</p>
+              <p className="truncate font-semibold"><McText text={g.name ?? t('ae2.unnamed', { pos: formatPos(g.pos) })} /></p>
               <p className="text-muted-foreground truncate text-xs">{g.ownerName || t('common.unknown')}</p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">

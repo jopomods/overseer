@@ -3,6 +3,8 @@ import { ArrowLeft, BatteryCharging, Cable, Check, Cpu, Pencil, Plug, Search, X,
 import { useMemo, useState, type FormEvent } from 'react'
 import { useHistory, useOverrides, useSessions, useSetOverride, useSnapshot } from '@/api/hooks'
 import { Button } from '@/components/ui/button'
+import { McText } from '@/components/mc-text'
+import { plainText } from '@/lib/mc-text'
 import { EnergyFlow } from '@/components/energy-flow'
 import { HistoryChart } from '@/components/history-chart'
 import { ZoneChart } from '@/components/zone-chart'
@@ -59,7 +61,9 @@ export function NetworkPage() {
       <div className="mt-3 mb-5 flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex min-w-0 items-center gap-3">
           <span className="size-4 shrink-0 rounded-full" style={{ backgroundColor: network.color }} />
-          <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">{network.name}</h1>
+          <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
+            <McText text={network.name} />
+          </h1>
           <SecurityBadge security={network.security} />
         </div>
         <LiveBadge state={live} dataAt={snapshot.data?.at.wall} />
@@ -206,7 +210,7 @@ function DevicesSection({ devices: list }: { devices: FluxDevice[] }) {
   const shown = list.filter(
     (d) =>
       (type === 'all' || d.type === type) &&
-      (!q || `${d.zone ?? ''} ${d.label} ${d.pos} ${d.dimension}`.toLowerCase().includes(q)),
+      (!q || `${d.zone ?? ''} ${plainText(d.label)} ${d.pos} ${d.dimension}`.toLowerCase().includes(q)),
   )
   const zoneNames = [...new Set(list.map((d) => d.zone).filter((z): z is string => !!z))].sort()
   const counts = Object.fromEntries(TYPES.map((ty) => [ty, list.filter((d) => d.type === ty).length]))
@@ -271,7 +275,9 @@ function DeviceRow({ device: d, zoneNames }: { device: FluxDevice; zoneNames: st
       />
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-center gap-2 text-sm font-medium">
-          <span className="truncate">{d.label}</span>
+          <span className="truncate">
+            <McText text={d.label} />
+          </span>
           {d.zone && (
             <span className="text-muted-foreground hidden truncate text-xs font-normal sm:inline" title={d.zoneOverridden ? t('energy.zoneManual') : undefined}>
               {d.zone}
@@ -318,7 +324,7 @@ function ZoneEditor({ device, zoneNames, onDone }: { device: FluxDevice; zoneNam
   return (
     <li className="min-w-0 px-4 py-2.5" data-testid="zone-editor">
       <p className="text-muted-foreground mb-1.5 truncate text-xs">
-        {t('energy.editZone')}: <span className="text-foreground font-medium">{device.label}</span>
+        {t('energy.editZone')}: <span className="text-foreground font-medium"><McText text={device.label} /></span>
       </p>
       <form onSubmit={submit} className="flex min-w-0 flex-wrap gap-2">
         <Input

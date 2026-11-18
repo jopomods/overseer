@@ -14,6 +14,7 @@ import {
   useSnapshot,
 } from '@/api/hooks'
 import { GridStateBadge } from '@/components/grid-state-badge'
+import { McText } from '@/components/mc-text'
 import { CraftingSection } from '@/components/crafting-cpus'
 import { DrivesSection } from '@/components/drives-section'
 import { HistoryChart } from '@/components/history-chart'
@@ -63,7 +64,7 @@ export function GridPage() {
         ) : (
           <div className="flex min-w-0 items-center gap-3">
             <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
-              {grid.name ?? t('ae2.unnamed', { pos: formatPos(grid.pos) })}
+              <McText text={grid.name ?? t('ae2.unnamed', { pos: formatPos(grid.pos) })} />
             </h1>
             {grid.canEdit && (
               <Button variant="ghost" size="icon-sm" aria-label={t('ae2.rename')} onClick={() => setRenaming(true)}>

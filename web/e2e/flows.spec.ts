@@ -271,6 +271,16 @@ test.describe('flows', () => {
     await expect(page.getByTestId('profiler-top').getByRole('listitem').first()).toContainText('1.8 ms')
   })
 
+  test('no page shows raw colour codes', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    for (const path of ['/', '/energy', '/energy/1', '/ae2', '/ae2/minecraft:overworld@120,64,-340', '/server']) {
+      await page.goto(path)
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      await page.waitForTimeout(300)
+      expect(await page.locator('body').innerText(), path).not.toContain('§')
+    }
+  })
+
   test('players do not see the tick profiler', async ({ page }) => {
     await mockApi(page, { role: 'player', realistic: true })
     await page.goto('/server')

@@ -1,6 +1,8 @@
 import { useState, useSyncExternalStore } from 'react'
 import { ResponsiveContainer, Sankey, Tooltip } from 'recharts'
 import { Segmented } from '@/components/history-chart'
+import { McText } from '@/components/mc-text'
+import { plainText } from '@/lib/mc-text'
 import { Card, CardContent } from '@/components/ui/card'
 import { flowGraph, type FlowGraph, type FlowNodeKind, type FluxDevice } from '@/lib/flux'
 import { formatRate } from '@/lib/format'
@@ -157,7 +159,8 @@ function FlowNode({ x, y, width, height, index, payload, graph }: NodeProps & { 
   const toLeft = outer ? leftSide : !leftSide
   const labelX = toLeft ? x - 6 : x + width + 6
   const max = outer ? 24 : 16
-  const name = payload.name.length > max ? `${payload.name.slice(0, max - 1)}…` : payload.name
+  const plain = plainText(payload.name)
+  const name = plain.length > max ? `${plain.slice(0, max - 1)}…` : plain
   return (
     <g>
       <rect x={x} y={y} width={width} height={Math.max(height, 2)} fill={fill} rx={2} />
@@ -202,7 +205,9 @@ function FlowList({ graph }: { graph: FlowGraph }) {
   const bar = (name: string, value: number, color: string, small = false) => (
     <div key={name} className={small ? 'min-w-0 pl-3' : 'min-w-0'}>
       <div className={`tabular flex min-w-0 justify-between gap-3 ${small ? 'text-xs' : 'text-sm'}`}>
-        <span className={`min-w-0 truncate ${small ? 'text-muted-foreground' : ''}`}>{name}</span>
+        <span className={`min-w-0 truncate ${small ? 'text-muted-foreground' : ''}`}>
+          <McText text={name} />
+        </span>
         <span className="shrink-0 font-medium">{formatRate(value, energyUnit, locale)}</span>
       </div>
       <div className="bg-muted mt-1 h-1.5 overflow-hidden rounded-full">
