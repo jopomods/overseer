@@ -67,6 +67,16 @@ function Overview({ storage }: { storage: Storage }) {
         label={t('storage.series')}
         value={formatNumber(storage.providers.reduce((s, p) => s + p.series, 0), locale)}
       />
+      <Stat
+        label={t('storage.inventory')}
+        value={formatNumber(storage.providers.reduce((s, p) => s + p.inventoryChanges, 0), locale)}
+        hint={t('storage.inventoryHint')}
+      />
+      <Stat
+        label={t('storage.icons')}
+        value={formatNumber(storage.icons, locale)}
+        hint={formatBytes(storage.iconBytes, locale)}
+      />
     </div>
   )
 }
@@ -158,6 +168,7 @@ function Providers({ storage, onPurged }: { storage: Storage; onPurged: () => vo
                     [t('storage.raw'), p.raw],
                     [t('storage.minute'), p.minute],
                     [t('storage.hour'), p.hour],
+                    ...(p.inventoryChanges > 0 ? [[t('storage.inventory'), p.inventoryChanges] as const] : []),
                   ] as const
                 ).map(([label, value]) => (
                   <div key={label} className="min-w-0">

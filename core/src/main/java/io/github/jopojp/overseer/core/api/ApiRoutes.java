@@ -772,7 +772,8 @@ public final class ApiRoutes {
         }
         return Response.json(new Dtos.StorageDto(usage.fileBytes(), usage.walBytes(),
                 new Dtos.StorageSettingsDto(settings.rawMillis(), settings.minuteMillis(), settings.hourMillis(), settings.warnBytes()),
-                usage.providers().stream().map(u -> new Dtos.ProviderUsageDto(u.provider(), u.series(), u.raw(), u.minute(), u.hour())).toList()));
+                usage.providers().stream().map(u -> new Dtos.ProviderUsageDto(u.provider(), u.series(), u.raw(), u.minute(), u.hour(),
+                        u.inventoryChanges())).toList(), usage.icons(), usage.iconBytes()));
     }
 
     private Response storageSettings(Request r) throws Exception {

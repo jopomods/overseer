@@ -22,9 +22,10 @@ public final class StorageAdmin {
 
     private StorageAdmin() {}
 
-    public record ProviderUsage(String provider, long series, long raw, long minute, long hour) {}
+    /** @param inventoryChanges rows of per-minute inventory changes (ADR-0011) */
+    public record ProviderUsage(String provider, long series, long raw, long minute, long hour, long inventoryChanges) {}
 
-    public record Usage(long fileBytes, long walBytes, List<ProviderUsage> providers) {}
+    public record Usage(long fileBytes, long walBytes, List<ProviderUsage> providers, long icons, long iconBytes) {}
 
     /** Admin-editable settings; retention in server-uptime milliseconds, 0 = forever. */
     public record Settings(long rawMillis, long minuteMillis, long hourMillis, long warnBytes) {
@@ -40,13 +41,23 @@ public final class StorageAdmin {
         try (var st = reader.createStatement(); var rs = st.executeQuery("SELECT r.provider, COUNT(DISTINCT s.id),"
                 + " (SELECT COUNT(*) FROM sample x JOIN series y ON y.id = x.series_id JOIN resource z ON z.id = y.resource_id WHERE z.provider = r.provider),"
                 + " (SELECT COUNT(*) FROM sample_minute x JOIN series y ON y.id = x.series_id JOIN resource z ON z.id = y.resource_id WHERE z.provider = r.provider),"
-                + " (SELECT COUNT(*) FROM sample_hour x JOIN series y ON y.id = x.series_id JOIN resource z ON z.id = y.resource_id WHERE z.provider = r.provider)"
+                + " (SELECT COUNT(*) FROM sample_hour x JOIN series y ON y.id = x.series_id JOIN resource z ON z.id = y.resource_id WHERE z.provider = r.provider),"
+                + " (SELECT COUNT(*) FROM inventory_change x JOIN resource z ON z.id = x.resource_id WHERE z.provider = r.provider)"
                 + " FROM resource r LEFT JOIN series s ON s.resource_id = r.id GROUP BY r.provider ORDER BY r.provider")) {
             while (rs.next()) {
-                providers.add(new ProviderUsage(rs.getString(1), rs.getLong(2), rs.getLong(3), rs.getLong(4), rs.getLong(5)));
+                providers.add(new ProviderUsage(rs.getString(1), rs.getLong(2), rs.getLong(3), rs.getLong(4), rs.getLong(5),
+                        rs.getLong(6)));
             }
         }
-        return new Usage(size(file), size(Path.of(file + "-wal")), providers);
+        long icons = 0;
+        long iconBytes = 0;
+        try (var st = reader.createStatement(); var rs = st.executeQuery("SELECT COUNT(*), COALESCE(SUM(LENGTH(png)), 0) FROM icon")) {
+            if (rs.next()) {
+                icons = rs.getLong(1);
+                iconBytes = rs.getLong(2);
+            }
+        }
+        return new Usage(size(file), size(Path.of(file + "-wal")), providers, icons, iconBytes);
     }
 
     /** Settings stored in {@code meta}, falling back to the given defaults. */
@@ -87,6 +98,13 @@ public final class StorageAdmin {
                 if (beforeUptime != null) ps.setLong(2, beforeUptime);
                 deleted += ps.executeUpdate();
             }
+        }
+        // Inventory changes of the provider's resources go too; current amounts stay.
+        try (var ps = c.prepareStatement("DELETE FROM inventory_change WHERE resource_id IN"
+                + " (SELECT id FROM resource WHERE provider = ?)" + (beforeUptime == null ? "" : " AND bucket < ?"))) {
+            ps.setString(1, provider);
+            if (beforeUptime != null) ps.setLong(2, beforeUptime);
+            deleted += ps.executeUpdate();
         }
         c.commit();
         return deleted;

@@ -95,6 +95,16 @@ Delivered in slices (docs/modules/ae2.md):
   (with a mixin that completes Forge's broken block entity timer), timed or continuous runs,
   stacked chart by type and a live top list of single objects (admins only)
 
+## M2.6: Refinement from the first weeks (no new mod)
+
+- [x] Flux phantom devices no longer fail the collection
+- [x] Named and player CPUs first, automation CPUs folded away
+- [x] History for every inventory item; live chart ranges (5 and 15 min)
+- [x] Fill bar and full/empty time for Flux storages and AE2 power
+- [x] Tick profiler grouped by mod; job progress from AE2's scaled total (also after restarts)
+- [x] Storage page: inventory changes per module (purged too), icons; overview: deficits, running profiler
+- [ ] Collector cost history (Overseer's own tick time over time)
+
 ## M3: GregTech CEu (GTCEu)
 
 - Its own integration; scope to be defined (machine state, maintenance, energy buffers, ...)
@@ -102,6 +112,14 @@ Delivered in slices (docs/modules/ae2.md):
 ## M4: Tom's Storage
 
 - Second storage integration; the UI groups storage mods under "Storage" (ADR then)
+
+## Later milestones (no new mod, each on its own)
+
+- **Notifications:** watched items below target, grids without power, profiler findings; in-game
+  chat first, Discord webhook later.
+- **Flux in the dashboard:** edit network name, colour, priority and device names from the UI,
+  helping to keep a naming convention. Write access needs its own ADR (CSRF, who may change what,
+  doing it on the server thread).
 
 ## Backlog
 

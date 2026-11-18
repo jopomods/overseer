@@ -281,6 +281,15 @@ test.describe('flows', () => {
     }
   })
 
+  test('overview shows deficits and a running profiler', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/server')
+    await page.getByTestId('profiler').getByRole('button', { name: 'Continuously' }).click()
+    await page.goto('/')
+    await expect(page.getByText('1 below target')).toBeVisible()
+    await expect(page.getByTestId('profiler-running')).toBeVisible()
+  })
+
   test('players do not see the tick profiler', async ({ page }) => {
     await mockApi(page, { role: 'player', realistic: true })
     await page.goto('/server')

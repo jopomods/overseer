@@ -1717,7 +1717,7 @@ components:
 
     ProviderUsage:
       type: object
-      required: [provider, series, raw, minute, hour]
+      required: [provider, series, raw, minute, hour, inventoryChanges]
       properties:
         provider:
           type: string
@@ -1733,11 +1733,22 @@ components:
         hour:
           type: integer
           format: int64
+        inventoryChanges:
+          type: integer
+          format: int64
+          description: Per-minute inventory change rows (deleted by a purge too).
 
     Storage:
       type: object
-      required: [fileBytes, walBytes, settings, providers]
+      required: [fileBytes, walBytes, settings, providers, icons, iconBytes]
       properties:
+        icons:
+          type: integer
+          format: int64
+          description: Exported item icons stored.
+        iconBytes:
+          type: integer
+          format: int64
         fileBytes:
           type: integer
           format: int64

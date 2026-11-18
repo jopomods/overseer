@@ -635,9 +635,12 @@ export function createMockBackend(options: MockOptions = {}) {
           walBytes: 12_345_678,
           settings: { rawMillis: 48 * HOUR, minuteMillis: 14 * 24 * HOUR, hourMillis: 365 * 24 * HOUR, warnBytes: 2 * 1024 ** 3 },
           providers: [
-            { provider: 'flux', series: 1234, raw: 98_765_432, minute: 1_234_567, hour: 45_678 },
-            { provider: LONG.toLowerCase().slice(0, 40), series: 1, raw: 0, minute: 0, hour: 0 },
+            { provider: 'flux', series: 1234, raw: 98_765_432, minute: 1_234_567, hour: 45_678, inventoryChanges: 0 },
+            { provider: 'ae2', series: 46, raw: 45_838, minute: 5_593, hour: 80, inventoryChanges: 10_181 },
+            { provider: LONG.toLowerCase().slice(0, 40), series: 1, raw: 0, minute: 0, hour: 0, inventoryChanges: 0 },
           ],
+          icons: 8_571,
+          iconBytes: 6_123_456,
         })
       case '/api/v1/admin/storage/settings':
       case '/api/v1/admin/storage/vacuum':

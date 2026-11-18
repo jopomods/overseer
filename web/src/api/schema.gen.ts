@@ -1069,8 +1069,20 @@ export interface components {
             minute: number;
             /** Format: int64 */
             hour: number;
+            /**
+             * Format: int64
+             * @description Per-minute inventory change rows (deleted by a purge too).
+             */
+            inventoryChanges: number;
         };
         Storage: {
+            /**
+             * Format: int64
+             * @description Exported item icons stored.
+             */
+            icons: number;
+            /** Format: int64 */
+            iconBytes: number;
             /** Format: int64 */
             fileBytes: number;
             /** Format: int64 */
