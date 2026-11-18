@@ -8,12 +8,15 @@ export function Stat({
   value,
   hint,
   tone,
+  progress,
   className,
 }: {
   label: string
   value: ReactNode
   hint?: ReactNode
   tone?: 'good' | 'warn' | 'bad'
+  /** 0 to 100: a thin bar under the value, e.g. how full a store is. */
+  progress?: number
   className?: string
 }) {
   return (
@@ -30,6 +33,11 @@ export function Stat({
         >
           {value}
         </p>
+        {progress !== undefined && (
+          <div className="bg-muted mt-2 h-1 overflow-hidden rounded-full" role="progressbar" aria-valuenow={Math.round(progress)}>
+            <div className="bg-primary h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
+          </div>
+        )}
         {hint && <p className="text-muted-foreground mt-0.5 truncate text-xs">{hint}</p>}
       </CardContent>
     </Card>

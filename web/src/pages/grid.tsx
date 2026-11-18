@@ -28,9 +28,9 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cpus, drives, formatAe, formatAeRate, formatBuckets, formatPos, grids, shortDimension, type Ae2Grid } from '@/lib/ae2'
-import { formatBytes, formatNumber, formatSi } from '@/lib/format'
+import { formatBytes, formatDuration, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
-import { usePreferences } from '@/lib/preferences'
+import { usePreferences, type Locale } from '@/lib/preferences'
 
 /** One AE2 network: power, inventory totals, crafting CPUs, history. */
 export function GridPage() {
@@ -81,7 +81,8 @@ export function GridPage() {
         <Stat
           label={t('ae2.stored')}
           value={formatAe(grid.powerStored, locale)}
-          hint={`${formatNumber(fill * 100, locale, 0)} % · ${formatAe(grid.powerMax, locale)}`}
+          hint={`${formatNumber(fill * 100, locale, 0)} % · ${formatAe(grid.powerMax, locale)}${powerEta(grid, t, locale)}`}
+          progress={fill * 100}
         />
         <Stat
           label={t('ae2.usage')}
@@ -263,6 +264,17 @@ function UnregisterButton({ resource }: { resource: string }) {
       </Button>
     </div>
   )
+}
+
+/** " · full in ~X" / " · empty in ~X" from AE2's average injection and usage (AE per tick). */
+function powerEta(grid: Ae2Grid, t: ReturnType<typeof useT>, locale: Locale): string {
+  const perTick = grid.injection - grid.usage
+  if (Math.abs(perTick) < 0.01) return ''
+  if (perTick > 0) {
+    if (grid.powerStored >= grid.powerMax * 0.999) return ''
+    return ` · ${t('energy.fullIn', { time: formatDuration(((grid.powerMax - grid.powerStored) / perTick) * 50, locale) })}`
+  }
+  return ` · ${t('energy.emptyIn', { time: formatDuration((grid.powerStored / -perTick) * 50, locale) })}`
 }
 
 function Detail({ label, value }: { label: string; value: string }) {

@@ -93,6 +93,7 @@ export function fluxSnapshot() {
         network: '0', type, name, dimension: i === 5 ? `${LONG}:dimension` : 'minecraft:overworld',
         pos: `${i * 1000},64,-${i * 1000}`, priority: String(i % 5), limit: i % 2 ? '999999999999' : '0',
         loaded: String(i % 7 !== 0), surge: String(i % 11 === 0),
+        ...(type === 'storage' ? { capacity: String(4e16) } : {}),
       },
       metrics: { transfer: type === 'point' ? -9.2e18 / (i + 1) : 9.2e18 / (i + 1), buffer: 5e15 },
     }

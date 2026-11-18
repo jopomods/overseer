@@ -288,6 +288,12 @@ test.describe('flows', () => {
     await expect(page.getByTestId('profiler')).toHaveCount(0)
   })
 
+  test('stored energy shows how full the storages are', async ({ page }) => {
+    await mockApi(page)
+    await page.goto('/energy/0')
+    await expect(page.getByRole('progressbar').first()).toBeVisible()
+  })
+
   test('ME network contents are searchable and sortable', async ({ page }) => {
     await mockApi(page, { realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')
