@@ -71,7 +71,8 @@ Delivered in slices (docs/modules/ae2.md):
 - [x] M2c: explicit shares (view only) managed by owners on the grid page
 - [x] M2d: access requests (opaque handles, no positions), in-game chat notifications,
   allow/decline on the grid page, 24 h cool-down after a decline
-- [ ] Optional "placed a block in the grid" access (server setting, default off)
+- [x] M2l: optional view access for players who placed any part of a grid
+  (`access.ae2PlacerAccess`, default off)
 - [x] M2e: grids without controller: hidden for admins, adoptable in the UI, `/ov ae2 register`
 - [x] M2f: inventory scan every 10 s, stored as per-minute changes; contents list with search
   and 1 h / 24 h changes

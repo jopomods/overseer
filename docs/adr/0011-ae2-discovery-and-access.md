@@ -71,6 +71,9 @@ Overseer mandatory on every client, because blocks are synced to clients.
   channel, not an HTTP upload: the client is already authenticated as a player (operator check),
   no token is needed, and requests stay under the HTTP body limit. Exported icons are stored per
   stack key; the mod jar texture is a cheap fallback that is cached in memory, not stored.
+- 2026-11-18 (M2l): placer access is a server file setting, not a UI setting: it widens who sees
+  what, so only someone with access to the server files turns it on. Placers are read with the
+  inventory scan (walking all nodes every second would cost on large grids).
 
 ## Consequences
 
