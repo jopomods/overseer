@@ -111,7 +111,7 @@ Manage Flux Networks from the dashboard, so nobody has to walk to a Flux block. 
 allowed for network owners and admins (Flux's rules) and server operators (ADR-0016).
 
 - [x] World actions: one endpoint, server-thread queue, permission checks, action log (ADR-0016)
-- [ ] Flux actions: network name, colour (presets and hex), security, password; devices
+- [x] Flux actions: network name, colour (presets and hex), security, password; devices
   (single and several at once) name, priority, limit, bypass limit, surge, chunk loading,
   network; members add, remove, user/admin, transfer ownership. GameTests against Flux.
 - [ ] UI: network settings, device editor with multi-select and rename by pattern, members,

@@ -1,10 +1,17 @@
 package io.github.jopojp.overseer.forge.gametest;
 
 import com.mojang.authlib.GameProfile;
+import com.google.gson.JsonParser;
 import io.github.jopojp.overseer.core.Overseer;
+import io.github.jopojp.overseer.core.action.ActionHandler;
+import io.github.jopojp.overseer.core.action.ActionRequest;
+import io.github.jopojp.overseer.core.action.ActionResult;
+import io.github.jopojp.overseer.core.action.ActionResult.Status;
+import io.github.jopojp.overseer.core.action.Actor;
 import io.github.jopojp.overseer.core.provider.ProviderSnapshot;
 import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.core.time.Timestamp;
+import io.github.jopojp.overseer.forge.integration.flux.FluxActions;
 import io.github.jopojp.overseer.forge.integration.flux.FluxMapping;
 import io.github.jopojp.overseer.forge.integration.flux.FluxProvider;
 import java.time.Instant;
@@ -18,6 +25,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.registries.ForgeRegistries;
+import sonar.fluxnetworks.api.network.AccessLevel;
 import sonar.fluxnetworks.api.network.SecurityLevel;
 import sonar.fluxnetworks.common.connection.FluxNetwork;
 import sonar.fluxnetworks.common.connection.FluxNetworkData;
@@ -81,6 +89,109 @@ public final class FluxGameTests {
             FluxNetworkData.getInstance().deleteNetwork(network);
             helper.succeed();
         });
+    }
+
+    /** World actions (ADR-0016) through the provider, as the dashboard runs them. */
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
+    public static void fluxActionsChangeNetworksDevicesAndMembers(GameTestHelper helper) {
+        var owner = FakePlayerFactory.get(helper.getLevel(), new GameProfile(OWNER, "OverseerOwner"));
+        FluxNetwork network = FluxNetworkData.getInstance()
+                .createNetwork(owner, "Actions Grid", 0xFF7A00, SecurityLevel.PRIVATE, "");
+        FluxNetwork other = FluxNetworkData.getInstance()
+                .createNetwork(owner, "Other Grid", 0x00FF00, SecurityLevel.PRIVATE, "");
+        helper.assertTrue(network != null && other != null, "Flux refused to create the networks");
+        BlockPos plug = new BlockPos(0, 1, 0);
+        BlockPos point = new BlockPos(2, 1, 0);
+        BlockPos storage = new BlockPos(4, 1, 0);
+        connect(helper, plug, "flux_plug", network);
+        connect(helper, point, "flux_point", network);
+        connect(helper, storage, "basic_flux_storage", network);
+
+        helper.runAfterDelay(5, () -> {
+            var provider = new FluxProvider();
+            provider.collect(AT);
+            ActionHandler actions = provider.actions();
+            ResourceRef ref = FluxMapping.network(network.getNetworkID());
+            Actor ownerActor = new Actor(OWNER, "OverseerOwner", false);
+            Actor stranger = new Actor(STRANGER, "OverseerStranger", false);
+
+            helper.assertTrue(actions.canPerform(OWNER, ref, FluxActions.NETWORK_EDIT), "owner may edit");
+            helper.assertFalse(actions.canPerform(STRANGER, ref, FluxActions.NETWORK_EDIT), "stranger may not edit");
+
+            // Network settings, with Flux's own setters.
+            var edited = run(actions, ownerActor, FluxActions.NETWORK_EDIT, ref,
+                    "{\"name\":\"§aRenamed\",\"color\":\"#123456\",\"security\":\"encrypted\",\"password\":\"secret\"}");
+            expect(helper, edited, Status.OK);
+            helper.assertTrue("§aRenamed".equals(network.getNetworkName()), "name: " + network.getNetworkName());
+            helper.assertTrue((network.getNetworkColor() & 0xFFFFFF) == 0x123456, "colour");
+            helper.assertTrue(network.getSecurityLevel() == SecurityLevel.ENCRYPTED, "security");
+            helper.assertTrue(edited.changes().size() == 4, "changes: " + edited.changes());
+            expect(helper, run(actions, stranger, FluxActions.NETWORK_EDIT, ref, "{\"name\":\"Mine\"}"), Status.DENIED);
+            expect(helper, run(actions, new Actor(STRANGER, "OverseerStranger", true), FluxActions.NETWORK_EDIT, ref,
+                    "{\"name\":\"By an operator\"}"), Status.OK);
+            helper.assertTrue("By an operator".equals(network.getNetworkName()), "operators may edit");
+
+            // Devices: one bad entry (chunk loading on a storage) changes nothing at all.
+            String plugId = id(helper, plug);
+            String storageId = id(helper, storage);
+            expect(helper, run(actions, ownerActor, FluxActions.DEVICE_EDIT, ref, "{\"devices\":["
+                    + "{\"id\":\"" + plugId + "\",\"name\":\"Plug A\"},"
+                    + "{\"id\":\"" + storageId + "\",\"chunkLoading\":true}]}"), Status.INVALID);
+            var plugTile = (TileFluxDevice) helper.getBlockEntity(plug);
+            helper.assertTrue(plugTile.getCustomName().isEmpty(), "nothing may change on an invalid batch");
+            var devices = run(actions, ownerActor, FluxActions.DEVICE_EDIT, ref, "{\"devices\":["
+                    + "{\"id\":\"" + plugId + "\",\"name\":\"Plug A\",\"priority\":42,\"limit\":1000,\"surge\":true},"
+                    + "{\"id\":\"" + storageId + "\",\"disableLimit\":true}]}");
+            expect(helper, devices, Status.OK);
+            helper.assertTrue("Plug A".equals(plugTile.getCustomName()), "device name");
+            helper.assertTrue(plugTile.getRawPriority() == 42, "priority");
+            helper.assertTrue(plugTile.getRawLimit() == 1000, "limit");
+            helper.assertTrue(plugTile.getSurgeMode(), "surge");
+            helper.assertTrue(((TileFluxDevice) helper.getBlockEntity(storage)).getDisableLimit(), "bypass limit");
+            helper.assertTrue(devices.changes().size() == 5, "changes: " + devices.changes());
+
+            // Members: the stranger is offline and unknown to the server, named by the dashboard.
+            expect(helper, run(actions, ownerActor, FluxActions.MEMBER_EDIT, ref,
+                    "{\"player\":\"" + STRANGER + "\",\"name\":\"OverseerStranger\",\"role\":\"user\"}"), Status.OK);
+            helper.assertTrue("OverseerStranger".equals(network.getMemberByUUID(STRANGER).getCachedName()), "member name");
+            helper.assertTrue(network.getMemberByUUID(STRANGER) != null, "offline player added");
+            var outsider = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "Outsider"));
+            helper.assertTrue(network.canPlayerAccess(outsider, "secret"), "the password survives adding a member");
+            expect(helper, run(actions, ownerActor, FluxActions.MEMBER_EDIT, ref,
+                    "{\"player\":\"" + STRANGER + "\",\"role\":\"admin\"}"), Status.OK);
+            helper.assertTrue(network.getMemberByUUID(STRANGER).getAccessLevel() == AccessLevel.ADMIN, "promoted");
+            expect(helper, run(actions, stranger, FluxActions.MEMBER_EDIT, ref,
+                    "{\"player\":\"" + STRANGER + "\",\"role\":\"owner\"}"), Status.DENIED);
+            expect(helper, run(actions, ownerActor, FluxActions.MEMBER_EDIT, ref,
+                    "{\"player\":\"" + STRANGER + "\",\"role\":\"remove\"}"), Status.OK);
+            helper.assertTrue(network.getMemberByUUID(STRANGER) == null, "removed");
+            expect(helper, run(actions, ownerActor, FluxActions.MEMBER_EDIT, ref,
+                    "{\"name\":\"NobodyKnowsMe\",\"role\":\"user\"}"), Status.INVALID);
+
+            // Moving a device to another network.
+            var moved = run(actions, ownerActor, FluxActions.DEVICE_CONNECT, FluxMapping.network(other.getNetworkID()),
+                    "{\"devices\":[\"" + id(helper, point) + "\"]}");
+            expect(helper, moved, Status.OK);
+            helper.assertTrue(((TileFluxDevice) helper.getBlockEntity(point)).getNetworkID() == other.getNetworkID(),
+                    "device moved");
+
+            FluxNetworkData.getInstance().deleteNetwork(network);
+            FluxNetworkData.getInstance().deleteNetwork(other);
+            helper.succeed();
+        });
+    }
+
+    private static ActionResult run(ActionHandler actions, Actor actor, String type, ResourceRef target, String params) {
+        return actions.perform(actor, new ActionRequest(type, target, JsonParser.parseString(params).getAsJsonObject()));
+    }
+
+    private static void expect(GameTestHelper helper, ActionResult result, Status status) {
+        helper.assertTrue(result.status() == status, "expected " + status + ", got " + result);
+    }
+
+    private static String id(GameTestHelper helper, BlockPos relative) {
+        BlockPos at = helper.absolutePos(relative);
+        return helper.getLevel().dimension().location() + "@" + at.getX() + "," + at.getY() + "," + at.getZ();
     }
 
     private static void connect(GameTestHelper helper, BlockPos relative, String block, FluxNetwork network) {

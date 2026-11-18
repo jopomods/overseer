@@ -95,7 +95,11 @@ the last hour of history (`web/src/lib/forecast.ts`); changes below 1 %/h count 
 
 - `FluxMappingTest` (JUnit): mapping and access rules.
 - `FluxGameTests` (Forge GameTest, also in CI): creates a real network, places and
-  connects a plug, a point and a storage, collects, and checks resources and access.
+  connects a plug, a point and a storage, collects, and checks resources and access. A second
+  test runs every world action against real Flux: network settings, a batch of devices (one bad
+  entry changes nothing), members (an offline one too, the password survives), refusals, an
+  operator, and moving a device to another network.
+- `FluxActionsTest` (JUnit): parameters of every action and Flux's limits.
 
 ## Storage capacity and fill time
 
@@ -104,3 +108,22 @@ storage in an unloaded chunk is a "phantom" and cannot be asked; Overseer rememb
 it last saw while the server runs. When every storage's capacity is known, the network page shows
 how full the storages are (bar and percent) and, while charging, "full in ~X"; while emptying,
 "empty in ~X" (least-squares slope over the last hour of stored energy).
+
+## World actions (ADR-0016)
+
+Flux settings can be changed from the dashboard through `POST /api/v1/actions`. Every action
+targets a network (`resource: flux/network/<id>`). Allowed for the network's owner and admins and
+for server operators (who act with the owner's rights); everything else is refused and logged.
+`FluxActions` parses and checks the parameters (pure, unit-tested); `FluxWriter`, the only class
+that changes Flux state, applies them on the server thread with the same calls as Flux's own GUI
+packets and checks the permission again against live state.
+
+| Type | Parameters | Notes |
+|---|---|---|
+| `flux.network.edit` | `name`, `color` (`#rrggbb`), `security` (`public`, `encrypted`, `private`), `password` | Any subset. Names 1-24 characters (colour codes count), passwords 1-16. Clients are told like after an edit in game; devices get a block update for the new colour. |
+| `flux.device.edit` | `devices`: list of `{id, name?, priority?, limit?, disableLimit?, surge?, chunkLoading?}` | Up to 512 devices with their own values (the UI expands "same value for all" and rename patterns). Names 0-24 characters (empty shows the device type), priority -9999 to 9999, limit >= 0 FE/t. Only loaded devices can change: unloaded ones are skipped and named in the message; if all are unloaded the answer is `unavailable`. Any invalid entry (a device not in the network, chunk loading on a storage or switched off in Flux's config) changes nothing. |
+| `flux.device.connect` | `devices`: list of device ids | Connects loaded devices to the target network, like choosing it in the device's GUI. The caller must also be allowed to edit the device's current network or own the device. Whoever connects a device becomes its owner (Flux's rule). At most one controller per network. |
+| `flux.member.edit` | `player` (UUID) and/or `name`, `role` (`user`, `admin`, `owner`, `remove`) | Flux's own membership rules: admins may add and remove users, only the owner may make admins or hand the network over, the owner cannot be removed. Unlike Flux's GUI, players who are offline can be added too (by name from the server's profile cache, or by UUID with a name from the dashboard). |
+
+Changes report what Flux actually stored (read back after applying). Device ids are
+`<dimension>@x,y,z` as in the resources.
