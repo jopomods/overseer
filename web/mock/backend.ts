@@ -159,6 +159,35 @@ function gridResource(g: MockGrid) {
   }
 }
 
+function cpuResource(grid: string, id: string, attrs: Record<string, string>, metrics: Record<string, number> = {}) {
+  return {
+    ref: { provider: 'ae2', type: 'cpu', id, key: `ae2/cpu/${id}` },
+    attributes: { grid, name: '', storage: '65536', coProcessors: '4', mode: 'any', busy: String(Boolean(attrs.job)), job: '', jobKind: '', jobName: '', jobAmount: '', ...attrs },
+    metrics,
+  }
+}
+
+/** Crafting CPUs: realistic, one running job that advances in real time; extreme: many, long names. */
+function cpuResources(realistic: boolean) {
+  const t = (Date.now() / 1000) % 600
+  if (realistic) {
+    const grid = 'minecraft:overworld@120,64,-340'
+    return [
+      cpuResource(grid, 'minecraft:overworld@118,60,-338', { name: 'Circuits', storage: '262144', coProcessors: '16', job: 'item:gtceu:good_electronic_circuit', jobKind: 'item', jobName: 'Good Electronic Circuit', jobAmount: '64' },
+        { job_total: 1_280, job_progress: Math.round(1_280 * (t / 600)), job_elapsed: 30 + t }),
+      cpuResource(grid, 'minecraft:overworld@118,60,-332', { job: 'fluid:gtceu:polyethylene', jobKind: 'fluid', jobName: 'Polyethylene', jobAmount: '16000' },
+        { job_total: 48, job_progress: 6, job_elapsed: 4_210 }),
+      cpuResource(grid, 'minecraft:overworld@118,60,-326', {}),
+    ]
+  }
+  return Array.from({ length: 24 }, (_, i) =>
+    cpuResource('minecraft:overworld@0,64,-0', `minecraft:overworld@${i},${i},${i}`, i % 2
+      ? { name: `${LONG} ${i}`, storage: String(2 ** 40), coProcessors: '65536', job: `item:${LONG.toLowerCase()}:x${i}`, jobKind: 'item', jobName: `${LONG} ${i}`, jobAmount: String(Number.MAX_SAFE_INTEGER) }
+      : { name: i === 0 ? LONG : '' },
+    i % 2 ? { job_total: 9.2e18, job_progress: 4.6e18, job_elapsed: 987_654 } : {}),
+  )
+}
+
 /** AE2 grids. Extreme: 9 grids, huge numbers, every state; realistic: a typical base. */
 export function ae2Snapshot(realistic = false, adopted: Map<string, string> = new Map()) {
   const grids: MockGrid[] = realistic
@@ -201,7 +230,7 @@ export function ae2Snapshot(realistic = false, adopted: Map<string, string> = ne
   return {
     provider: 'ae2',
     at: { wall: now(), uptimeMillis: 123_456_789, session: 3 },
-    resources: [...grids, ...hidden].map(gridResource),
+    resources: [...[...grids, ...hidden].map(gridResource), ...cpuResources(realistic)],
   }
 }
 
@@ -238,6 +267,28 @@ function inventoryStacks(realistic: boolean): MockStack[] {
     change24h: i % 2 === 0 ? -i * 1_000_003 : i * 31,
   }))
   return [...base, ...many]
+}
+
+/** Job history of a CPU: three finished jobs, then the running one. */
+function eventsBody(url: URL) {
+  const at = (minutesAgo: number) => ({ wall: new Date(Date.now() - minutesAgo * 60_000).toISOString(), uptimeMillis: 123_456_789 - minutesAgo * 60_000, session: 3 })
+  const job = (minutesAgo: number, key: string, name: string, amount: string) => [
+    { at: at(minutesAgo), kind: 'attribute', attribute: 'job', value: key },
+    { at: at(minutesAgo), kind: 'attribute', attribute: 'jobAmount', value: amount },
+    { at: at(minutesAgo), kind: 'attribute', attribute: 'jobName', value: name },
+  ]
+  const idle = (minutesAgo: number) => job(minutesAgo, '', '', '')
+  if (!url.searchParams.get('resource')?.startsWith('ae2/cpu/')) return []
+  return [
+    ...job(2, 'item:gtceu:good_electronic_circuit', 'Good Electronic Circuit', '64'),
+    ...idle(9),
+    ...job(31, 'item:gtceu:steel_ingot', 'Steel Ingot', '512'),
+    ...idle(40),
+    ...job(44, 'item:ae2:logic_processor', 'Logic Processor', '16'),
+    ...idle(95),
+    ...job(130, 'item:gtceu:basic_electronic_circuit', 'Basic Electronic Circuit', '128'),
+    { at: at(600), kind: 'added' },
+  ]
 }
 
 function inventoryBody(url: URL, realistic: boolean) {
@@ -488,6 +539,8 @@ export function createMockBackend(options: MockOptions = {}) {
         return json(sessionsBody())
       case '/api/v1/history':
         return json(historyBody(url))
+      case '/api/v1/events':
+        return json(eventsBody(url))
       case '/api/v1/inventory':
         return json(inventoryBody(url, options.realistic === true))
       case '/api/v1/me/credentials':

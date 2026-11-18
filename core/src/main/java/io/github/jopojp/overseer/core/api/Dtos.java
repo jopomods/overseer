@@ -49,6 +49,8 @@ public final class Dtos {
     /** One key of an inventory: current amount and net changes over the last hour and day. */
     public record InventoryItem(String key, String kind, String name, long amount, long change1h, long change24h) {}
 
+    public record Event(TimestampDto at, String kind, String attribute, String value) {}
+
     public record Inventory(String resource, TimestampDto scannedAt, int total, List<InventoryItem> items) {}
 
     public record Resource(Ref ref, Map<String, String> attributes, Map<String, Double> metrics, boolean canEdit) {}

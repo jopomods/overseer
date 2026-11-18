@@ -21,6 +21,8 @@ import java.util.UUID;
  *   <li>admins and super admins see everything;</li>
  *   <li>otherwise the provider's {@link AccessPolicy} decides per resource;</li>
  *   <li>for providers with {@link Capability#SHARING}, Overseer shares also grant viewing;</li>
+ *   <li>a part of another resource ({@link AccessPolicy#parent}) is visible and editable
+ *       exactly like its parent;</li>
  *   <li>resources of unknown providers are never visible to non-admins.</li>
  * </ol>
  * Thread-safe as long as the policies are.
@@ -59,6 +61,8 @@ public final class AccessService {
         AccessPolicy policy = policies.get(resource.provider());
         if (policy == null) return false;
         try {
+            ResourceRef parent = policy.parent(resource);
+            if (parent != null && !parent.equals(resource)) return canView(principal, parent);
             UUID player = principal.player().uuid();
             if (policy.canView(player, resource)) return true;
             return sharing.contains(resource.provider()) && shares.isShared(resource, player);
@@ -77,6 +81,8 @@ public final class AccessService {
         if (!canView(principal, resource)) return false;
         AccessPolicy policy = policies.get(resource.provider());
         try {
+            ResourceRef parent = policy == null ? null : policy.parent(resource);
+            if (parent != null && !parent.equals(resource)) return canEdit(principal, parent);
             return policy != null && policy.canEdit(principal.player().uuid(), resource);
         } catch (RuntimeException e) {
             return false;

@@ -15,6 +15,7 @@ export type Share = components['schemas']['Share']
 export type Requestable = components['schemas']['Requestable']
 export type AccessRequest = components['schemas']['AccessRequest']
 export type Inventory = components['schemas']['Inventory']
+export type ResourceEvent = components['schemas']['Event']
 export type InventoryItem = components['schemas']['InventoryItem']
 
 export interface InventoryQuery {
@@ -69,6 +70,7 @@ export const keys = {
   shares: (resource: string) => ['shares', resource] as const,
   requestable: (provider: string) => ['requestable', provider] as const,
   accessRequests: ['access-requests'] as const,
+  events: (resource: string, attributes: string[]) => ['events', resource, attributes.join(',')] as const,
   inventory: (resource: string, q: InventoryQuery) => ['inventory', resource, q.q, q.sort, q.kind ?? '', q.limit] as const,
   history: (resources: string[], metrics: string[], rangeMs: number) =>
     ['history', resources.join(','), metrics.join(','), rangeMs] as const,
@@ -156,6 +158,18 @@ export function useInventory(resource: string, query: InventoryQuery) {
       ),
     placeholderData: keepPreviousData,
     refetchInterval: 10_000,
+    retry,
+  })
+}
+
+/** Recorded changes of a resource, newest first; e.g. the jobs of a crafting CPU. */
+export function useEvents(resource: string, attributes: string[], enabled: boolean, pollMs: number | false = false) {
+  return useQuery({
+    queryKey: keys.events(resource, attributes),
+    queryFn: () =>
+      unwrap(api.GET('/api/v1/events', { params: { query: { resource, attribute: attributes, limit: 200 } } })),
+    enabled,
+    refetchInterval: pollMs,
     retry,
   })
 }

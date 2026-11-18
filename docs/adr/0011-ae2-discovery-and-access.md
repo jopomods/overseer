@@ -50,6 +50,12 @@ Overseer mandatory on every client, because blocks are synced to clients.
   keys constantly, and the views need hours and days, not seconds. The live list comes from the
   newest scan in memory (`InventoryState`), the changes from the database. Hourly rollups for
   longer windows and the forecast come with the deficit view.
+- 2026-11-18 (M2g): crafting CPUs are resources of type `cpu`, id = lowest corner of the
+  multiblock (add-on CPUs without one: `<grid id>#<index>`). The running job is in attributes
+  (`job`, `jobName`, `jobAmount`), so starts and ends are events and form the job history; a
+  job that resumes after a restart changes nothing. Progress, total and elapsed time are
+  metrics because they change every second. CPUs inherit access from their grid
+  (`AccessPolicy.parent`, ADR-0008).
 
 ## Consequences
 

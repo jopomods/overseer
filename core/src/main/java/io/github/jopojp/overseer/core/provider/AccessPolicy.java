@@ -21,6 +21,15 @@ public interface AccessPolicy {
         return false;
     }
 
+    /**
+     * The resource this one belongs to, e.g. the ME network of a crafting CPU. Access to a
+     * part is exactly access to its parent: viewing, editing and shares (ADR-0008). Default:
+     * none.
+     */
+    default ResourceRef parent(ResourceRef resource) {
+        return null;
+    }
+
     /** For providers without per-resource rules: everyone who is logged in may view. */
     AccessPolicy ALLOW_AUTHENTICATED = (player, resource) -> true;
 }

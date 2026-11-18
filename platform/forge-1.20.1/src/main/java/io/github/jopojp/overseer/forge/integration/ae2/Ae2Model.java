@@ -32,7 +32,39 @@ public final class Ae2Model {
      */
     public record Storage(int itemTypes, long items, int fluidTypes, long fluids, int otherTypes) {}
 
-    public record Crafting(int cpus, int busy, long storage, int coProcessors) {}
+    /** @param list the CPUs one by one; empty when not read */
+    public record Crafting(int cpus, int busy, long storage, int coProcessors, List<Cpu> list) {
+        public Crafting {
+            list = List.copyOf(list);
+        }
+
+        public Crafting(int cpus, int busy, long storage, int coProcessors) {
+            this(cpus, busy, storage, coProcessors, List.of());
+        }
+    }
+
+    /**
+     * One crafting CPU (ADR-0011).
+     *
+     * @param id   {@code dimension@x,y,z} of the lowest corner of the multiblock; stable while
+     *             the CPU stands. CPUs that are no multiblock (add-ons) get
+     *             {@code <grid id>#<index>}, which may change.
+     * @param name custom name (renamed in an anvil), {@code null} if none
+     * @param mode AE2 CPU selection mode, lower case
+     * @param job  the running job, {@code null} when idle
+     */
+    public record Cpu(String id, String name, long storage, int coProcessors, String mode, Job job) {}
+
+    /**
+     * A crafting job.
+     *
+     * @param key         stack key of the requested output (see {@code Stack})
+     * @param amount      requested amount
+     * @param totalItems  items the whole job crafts (AE2's count, all steps)
+     * @param progress    items of those done
+     */
+    public record Job(String key, String kind, String name, long amount, long totalItems, long progress,
+            long elapsedNanos) {}
 
     /**
      * A grid with at least one controller, identified by its controller (ADR-0011).

@@ -3,6 +3,7 @@ package io.github.jopojp.overseer.forge.integration.ae2;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IInWorldGridNodeHost;
+import appeng.api.networking.crafting.CraftingJobStatus;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.pathing.IPathingService;
@@ -13,6 +14,7 @@ import appeng.blockentity.networking.ControllerBlockEntity;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.Grid;
 import appeng.me.InWorldGridNode;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.ControllerState;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Crafting;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Energy;
@@ -31,6 +33,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -59,14 +62,17 @@ final class Ae2Reader {
     static final int HIDDEN_MIN_NODES = 5;
 
     static List<Ae2Model.Grid> readAll(MinecraftServer server, Map<String, UUID> registrations) {
-        return readAll(server, registrations, null);
+        return readAll(server, registrations, new StackCache(), false);
     }
 
     /**
      * @param registrations registered grid positions ({@code dimension@x,y,z}) and their owners
-     * @param scan          copies the full inventory of identified grids when not {@code null}
+     * @param keys          ids and names of AE2 keys, kept between collections
+     * @param scanInventory copy the full inventory of identified grids
      */
-    static List<Ae2Model.Grid> readAll(MinecraftServer server, Map<String, UUID> registrations, StackCache scan) {
+    static List<Ae2Model.Grid> readAll(MinecraftServer server, Map<String, UUID> registrations, StackCache keys,
+            boolean scanInventory) {
+        StackCache scan = scanInventory ? keys : null;
         var registered = registeredGrids(server, registrations);
         var result = new ArrayList<Ae2Model.Grid>();
         for (Grid grid : TickHandler.instance().getGridList()) {
@@ -80,17 +86,17 @@ final class Ae2Reader {
                 IGridNode node = id.getMainNode().getNode();
                 result.add(read(server, grid, dimension(id.getLevel()), id.getBlockPos(),
                         node == null ? null : node.getOwningPlayerProfileId(), controllers.size(), Kind.CONTROLLER,
-                        scan));
+                        scan, keys));
                 continue;
             }
             var registration = registered.get(grid);
             if (registration != null) {
                 result.add(read(server, grid, registration.dimension(), registration.pos(), registration.owner(), 0,
-                        Kind.REGISTERED, scan));
+                        Kind.REGISTERED, scan, keys));
             } else if (grid.size() >= HIDDEN_MIN_NODES) {
                 var lowest = lowestNode(grid);
                 if (lowest != null) {
-                    result.add(read(server, grid, lowest.dimension(), lowest.pos(), null, 0, Kind.HIDDEN, null));
+                    result.add(read(server, grid, lowest.dimension(), lowest.pos(), null, 0, Kind.HIDDEN, null, keys));
                 }
             }
         }
@@ -155,7 +161,7 @@ final class Ae2Reader {
     }
 
     private static Ae2Model.Grid read(MinecraftServer server, Grid grid, String dimension, BlockPos pos, UUID owner,
-            int controllers, Kind kind, StackCache scan) {
+            int controllers, Kind kind, StackCache scan, StackCache keys) {
 
         IEnergyService e = grid.getEnergyService();
         var energy = new Energy(e.getStoredPower(), e.getMaxStoredPower(), e.getAvgPowerUsage(),
@@ -188,18 +194,23 @@ final class Ae2Reader {
         int busy = 0;
         long cpuStorage = 0;
         int coProcessors = 0;
+        var cpuList = new ArrayList<Ae2Model.Cpu>();
+        String gridId = dimension + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ();
         for (ICraftingCPU cpu : grid.getCraftingService().getCpus()) {
             cpus++;
             if (cpu.isBusy()) busy++;
             cpuStorage += cpu.getAvailableStorage();
             coProcessors += cpu.getCoProcessors();
+            if (kind != Kind.HIDDEN) cpuList.add(cpu(cpu, gridId, cpus - 1, keys));
         }
+        // Stable order: by id, so the UI does not reshuffle.
+        cpuList.sort(Comparator.comparing(Ae2Model.Cpu::id));
 
         IPathingService pathing = grid.getPathingService();
         return new Ae2Model.Grid(dimension, pos.getX(), pos.getY(), pos.getZ(), owner,
                 ownerName(server, owner), grid.size(), controllers,
                 ControllerState.valueOf(pathing.getControllerState().name()), pathing.isNetworkBooting(),
-                pathing.getUsedChannels(), energy, storage, new Crafting(cpus, busy, cpuStorage, coProcessors), kind,
+                pathing.getUsedChannels(), energy, storage, new Crafting(cpus, busy, cpuStorage, coProcessors, cpuList), kind,
                 inventory);
     }
 
@@ -247,6 +258,24 @@ final class Ae2Reader {
             String id = prefix + key.getId();
             return tag == null || tag.isEmpty() ? id : id + "#" + Integer.toHexString(tag.hashCode());
         }
+    }
+
+    private static Ae2Model.Cpu cpu(ICraftingCPU cpu, String gridId, int index, StackCache keys) {
+        String id = gridId + "#" + index;
+        if (cpu instanceof CraftingCPUCluster cluster && cluster.getLevel() != null) {
+            BlockPos min = cluster.getBoundsMin();
+            id = dimension(cluster.getLevel()) + "@" + min.getX() + "," + min.getY() + "," + min.getZ();
+        }
+        Component name = cpu.getName();
+        Ae2Model.Job job = null;
+        CraftingJobStatus status = cpu.getJobStatus();
+        if (status != null && status.crafting() != null) {
+            Stack what = keys.stack(status.crafting().what(), status.crafting().amount());
+            job = new Ae2Model.Job(what.key(), what.kind(), what.name(), what.amount(), status.totalItems(),
+                    status.progress(), status.elapsedTimeNanos());
+        }
+        return new Ae2Model.Cpu(id, name == null ? null : name.getString(), cpu.getAvailableStorage(),
+                cpu.getCoProcessors(), cpu.getSelectionMode().name().toLowerCase(java.util.Locale.ROOT), job);
     }
 
     private static String dimension(Level level) {

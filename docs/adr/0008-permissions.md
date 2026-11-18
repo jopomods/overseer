@@ -36,6 +36,10 @@ zones. Dashboard admins may always edit; device tokens never. Edit rights never 
 rights. Snapshots carry a per-viewer `canEdit` flag so the UI only shows edit controls
 where a save would succeed.
 
+Parts of a resource (e.g. the crafting CPUs of an ME network) name their parent through
+`AccessPolicy.parent`. Core then checks the parent instead: viewing, editing and shares of
+the parent apply to the part, so providers cannot get these rules out of sync.
+
 ## Consequences
 
 - Permission tests are part of CI for every provider.

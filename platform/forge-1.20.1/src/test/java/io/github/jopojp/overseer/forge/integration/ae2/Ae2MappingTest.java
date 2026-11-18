@@ -80,6 +80,34 @@ class Ae2MappingTest {
     }
 
     @Test
+    void cpusAreResourcesWithJobsAndFollowTheirGrid() {
+        Grid g = grid(OWNER, 10);
+        var job = new Ae2Model.Job("item:gtceu:good_electronic_circuit", "item", "Good Electronic Circuit", 64, 1_200,
+                300, 90_000_000_000L);
+        var cpus = List.of(new Ae2Model.Cpu("minecraft:overworld@1,2,3", "Circuits", 65_536, 4, "any", job),
+                new Ae2Model.Cpu("minecraft:overworld@5,2,3", null, 1_024, 0, "any", null));
+        var withCpus = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(),
+                g.controllers(), g.state(), false, g.channels(), g.energy(), g.storage(),
+                new Ae2Model.Crafting(2, 1, 66_560, 4, cpus));
+        var snapshot = Ae2Mapping.snapshot(AT, List.of(withCpus));
+        var busy = Ae2Mapping.cpu("minecraft:overworld@1,2,3");
+        var idle = Ae2Mapping.cpu("minecraft:overworld@5,2,3");
+        var attrs = snapshot.resources().get(busy);
+        assertEquals("minecraft:overworld@10,64,0", attrs.get("grid"));
+        assertEquals("Circuits", attrs.get("name"));
+        assertEquals("item:gtceu:good_electronic_circuit", attrs.get("job"));
+        assertEquals("64", attrs.get("jobAmount"));
+        assertEquals("", snapshot.resources().get(idle).get("job"));
+        assertTrue(snapshot.samples().stream().anyMatch(s -> s.resource().equals(busy)
+                && s.metric().equals("job_elapsed") && s.value() == 90));
+        assertFalse(snapshot.samples().stream().anyMatch(s -> s.resource().equals(idle)), "idle CPUs have no samples");
+
+        var access = Ae2Mapping.AccessIndex.of(List.of(withCpus));
+        assertEquals(Ae2Mapping.grid("minecraft:overworld@10,64,0"), access.parent(busy));
+        assertEquals(null, access.parent(Ae2Mapping.cpu("minecraft:overworld@9,9,9")));
+    }
+
+    @Test
     void hiddenGridsHaveNoHistoryAndNoOwner() {
         Grid g = grid(null, 10);
         var hidden = new Grid(g.dimension(), g.x(), g.y(), g.z(), null, null, g.nodes(), 0, g.state(), false,

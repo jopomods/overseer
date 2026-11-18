@@ -54,6 +54,45 @@ class AccessServiceTest {
     }
 
     @Test
+    void partsFollowTheirParentIncludingShares() {
+        var grid = new ResourceRef("ae2", "grid", "g");
+        var cpu = new ResourceRef("ae2", "cpu", "c");
+        var orphan = new ResourceRef("ae2", "cpu", "o");
+        var steve = UUID.fromString("00000000-0000-0000-0000-0000000057e7");
+        var ae2 = new FakeProvider("ae2", 1, 1, new FakeTime())
+                .capability(io.github.jopojp.overseer.core.provider.Capability.SHARING)
+                .policy(new io.github.jopojp.overseer.core.provider.AccessPolicy() {
+                    @Override
+                    public boolean canView(UUID player, ResourceRef ref) {
+                        return player.equals(ALEX) && ref.equals(grid);
+                    }
+
+                    @Override
+                    public boolean canEdit(UUID player, ResourceRef ref) {
+                        return canView(player, ref);
+                    }
+
+                    @Override
+                    public ResourceRef parent(ResourceRef ref) {
+                        return ref.equals(cpu) ? grid : null;
+                    }
+                });
+        Shares shares = new Shares() {
+            @Override
+            public boolean isShared(ResourceRef ref, UUID player) {
+                return ref.equals(grid) && player.equals(steve);
+            }
+        };
+        var service = new AccessService(List.of(ae2), shares);
+        assertTrue(service.canView(as(Role.PLAYER), cpu));
+        assertTrue(service.canEdit(as(Role.PLAYER), cpu));
+        assertFalse(service.canView(as(Role.PLAYER), orphan));
+        var shared = new Principal(new PlayerRef(steve, "Steve"), Role.PLAYER, 2, false);
+        assertTrue(service.canView(shared, cpu), "a share of the grid covers its CPUs");
+        assertFalse(service.canEdit(shared, cpu));
+    }
+
+    @Test
     void throwingPolicyDenies() {
         var broken = new FakeProvider("broken", 1, 1, new FakeTime()).policy((p, r) -> {
             throw new IllegalStateException("boom");

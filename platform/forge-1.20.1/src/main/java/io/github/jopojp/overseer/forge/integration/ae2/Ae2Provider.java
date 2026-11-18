@@ -25,7 +25,7 @@ public final class Ae2Provider implements DataProvider {
     private static final ProviderDescriptor DESCRIPTOR = new ProviderDescriptor(Ae2Mapping.PROVIDER,
             "Applied Energistics 2", Set.of(Capability.METRICS, Capability.EVENTS, Capability.INVENTORY, Capability.ACCESS_CONTROL,
                     Capability.SHARING),
-            Ae2Mapping.METRICS, 20, TimeUnit.MILLISECONDS.toNanos(2));
+            Ae2Mapping.ALL_METRICS, 20, TimeUnit.MILLISECONDS.toNanos(2));
 
     private final MinecraftServer server;
     private final Teams teams;
@@ -55,7 +55,7 @@ public final class Ae2Provider implements DataProvider {
     @Override
     public ProviderSnapshot collect(Timestamp at) {
         boolean scan = collections++ % SCAN_EVERY == 0;
-        List<Ae2Model.Grid> grids = Ae2Reader.readAll(server, registrations.get(), scan ? stacks : null);
+        List<Ae2Model.Grid> grids = Ae2Reader.readAll(server, registrations.get(), stacks, scan);
         access = Ae2Mapping.AccessIndex.of(grids, teams::teammates);
         return Ae2Mapping.snapshot(at, grids);
     }
@@ -71,6 +71,11 @@ public final class Ae2Provider implements DataProvider {
             @Override
             public boolean canEdit(UUID player, ResourceRef resource) {
                 return access.canEdit(player, resource);
+            }
+
+            @Override
+            public ResourceRef parent(ResourceRef resource) {
+                return access.parent(resource);
             }
         };
     }

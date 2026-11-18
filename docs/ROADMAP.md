@@ -78,7 +78,9 @@ Delivered in slices (docs/modules/ae2.md):
 - [ ] Watchlist every second; measure the scan cost on a real server (spread over ticks only
   if needed)
 - [ ] Changes view, deficit view with forecast
-- [ ] Crafting CPUs (named first), jobs with progress and history; drive and cell usage
+- [x] M2g: crafting CPUs live (busy first), jobs with progress, elapsed time, estimate and
+  history; cards expand to details and recent jobs
+- [ ] Job details (what the job waits for, what is stored or pending); drive and cell usage
 - [ ] Item icons: optional client exporter (atlas upload) + jar texture fallback, cached by
   item id + NBT hash
 
