@@ -82,6 +82,28 @@ Cost: AE2 keeps the network inventory cached; the reader only iterates it to cou
 one pass over the item types per grid and second. Measure with the collector page before
 raising the interval.
 
+## Crafting CPUs
+
+Each CPU is a resource `ae2/cpu/<dimension>@x,y,z` (lowest corner of the multiblock), visible
+and editable exactly like its grid (shares included). CPUs of hidden grids are not reported.
+
+| Attribute | Meaning |
+|---|---|
+| `grid` | Id of the grid |
+| `name` | Name from an anvil, empty if none |
+| `storage`, `coProcessors` | Bytes, co-processor count |
+| `mode` | `any`, `player_only`, `machine_only` (AE2 selection mode) |
+| `busy`, `job`, `jobKind`, `jobName`, `jobAmount` | Running job: stack key, kind, name and requested amount; empty when idle |
+
+| Metric (while busy) | |
+|---|---|
+| `job_total`, `job_progress` | Items the whole job crafts (all steps) and how many are done |
+| `job_elapsed` | Seconds since the job started; AE2 keeps counting across restarts |
+
+The job history comes from the attribute events (`GET /api/v1/events?resource=…&attribute=job`).
+A job that resumes after a restart has the same attributes, so it is not recorded twice. The UI
+estimates the remaining time from the average pace so far.
+
 ## Contents (inventory scan)
 
 Every 10th collection (every 10 s) the reader also copies the full cached inventory of each
