@@ -67,7 +67,10 @@ public final class Ae2Mapping {
             attrs.put("cpuStorage", Long.toString(g.crafting().storage()));
             attrs.put("coProcessors", Integer.toString(g.crafting().coProcessors()));
             attrs.put("idlePower", Double.toString(g.energy().idle()));
+            attrs.put("kind", g.kind().name().toLowerCase(Locale.ROOT));
             resources.put(ref, attrs);
+            // Hidden grids change their id whenever the grid changes: no history for them.
+            if (g.kind() == Ae2Model.Kind.HIDDEN) continue;
 
             samples.add(new Sample(ref, POWER_STORED.key(), g.energy().stored()));
             samples.add(new Sample(ref, POWER_MAX.key(), g.energy().max()));

@@ -58,6 +58,18 @@ class Ae2MappingTest {
     }
 
     @Test
+    void hiddenGridsHaveNoHistoryAndNoOwner() {
+        Grid g = grid(null, 10);
+        var hidden = new Grid(g.dimension(), g.x(), g.y(), g.z(), null, null, g.nodes(), 0, g.state(), false,
+                g.channels(), g.energy(), g.storage(), g.crafting(), Ae2Model.Kind.HIDDEN);
+        var snapshot = Ae2Mapping.snapshot(AT, List.of(hidden));
+        var ref = Ae2Mapping.grid("minecraft:overworld@10,64,0");
+        assertEquals("hidden", snapshot.resources().get(ref).get("kind"));
+        assertTrue(snapshot.samples().isEmpty());
+        assertFalse(Ae2Mapping.AccessIndex.of(List.of(hidden)).canView(OWNER, ref));
+    }
+
+    @Test
     void ownersTeamSeesButDoesNotEdit() {
         UUID mate = UUID.fromString("00000000-0000-0000-0000-0000000000b2");
         var access = Ae2Mapping.AccessIndex.of(List.of(grid(OWNER, 10)),

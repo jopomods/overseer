@@ -10,6 +10,13 @@ import java.util.UUID;
 public final class Ae2Model {
     private Ae2Model() {}
 
+    /**
+     * How a grid is identified (ADR-0011): by its controller, by a position a player registered
+     * ({@code /ov ae2 register}) or an admin adopted, or not at all (hidden: no controller, not
+     * registered; id is its lowest node and changes with the grid, admins only).
+     */
+    public enum Kind { CONTROLLER, REGISTERED, HIDDEN }
+
     /** AE2 controller states, mirrored by name. */
     public enum ControllerState { NO_CONTROLLER, CONTROLLER_ONLINE, CONTROLLER_CONFLICT }
 
@@ -48,9 +55,17 @@ public final class Ae2Model {
             int channels,
             Energy energy,
             Storage storage,
-            Crafting crafting) {
+            Crafting crafting,
+            Kind kind) {
 
-        /** Stable id: dimension and position of the identifying controller (ADR-0005, ADR-0011). */
+        public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,
+                ControllerState state, boolean booting, int channels, Energy energy, Storage storage,
+                Crafting crafting) {
+            this(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy, storage,
+                    crafting, Kind.CONTROLLER);
+        }
+
+        /** Dimension and position of the identifying controller or registered block (ADR-0005, ADR-0011). */
         public String id() {
             return dimension + "@" + x + "," + y + "," + z;
         }

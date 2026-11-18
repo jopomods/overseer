@@ -1,6 +1,8 @@
 package io.github.jopojp.overseer.forge.integration.ae2;
 
+import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.pathing.IPathingService;
@@ -10,17 +12,26 @@ import appeng.api.stacks.AEKey;
 import appeng.blockentity.networking.ControllerBlockEntity;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.Grid;
+import appeng.me.InWorldGridNode;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.ControllerState;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Crafting;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Energy;
+import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Kind;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Storage;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 
 /**
@@ -28,7 +39,9 @@ import net.minecraft.world.level.Level;
  * only. Copies everything into {@link Ae2Model}; no AE2 object escapes.
  *
  * <p>AE2 has no public list of grids; {@link TickHandler#getGridList()} is the internal one
- * every grid registers with. Grids without a controller are skipped (ADR-0011).
+ * every grid registers with. Grids without a controller are found through registrations, or
+ * reported as hidden from {@link #HIDDEN_MIN_NODES} nodes on (ADR-0011). Node positions come
+ * from the internal {@code InWorldGridNode}.
  */
 final class Ae2Reader {
     private static final Comparator<ControllerBlockEntity> LOWEST = Comparator
@@ -39,7 +52,12 @@ final class Ae2Reader {
 
     private Ae2Reader() {}
 
-    static List<Ae2Model.Grid> readAll(MinecraftServer server) {
+    /** Grids without a controller and registration show up (hidden) from this size on. */
+    static final int HIDDEN_MIN_NODES = 5;
+
+    /** @param registrations registered grid positions ({@code dimension@x,y,z}) and their owners */
+    static List<Ae2Model.Grid> readAll(MinecraftServer server, Map<String, UUID> registrations) {
+        var registered = registeredGrids(server, registrations);
         var result = new ArrayList<Ae2Model.Grid>();
         for (Grid grid : TickHandler.instance().getGridList()) {
             if (grid == null || grid.isEmpty()) continue;
@@ -48,16 +66,85 @@ final class Ae2Reader {
                     .filter(c -> c.getLevel() != null && !c.isRemoved())
                     .min(LOWEST)
                     .orElse(null);
-            if (id == null) continue;
-            result.add(read(server, grid, id, controllers.size()));
+            if (id != null) {
+                IGridNode node = id.getMainNode().getNode();
+                result.add(read(server, grid, dimension(id.getLevel()), id.getBlockPos(),
+                        node == null ? null : node.getOwningPlayerProfileId(), controllers.size(), Kind.CONTROLLER));
+                continue;
+            }
+            var registration = registered.get(grid);
+            if (registration != null) {
+                result.add(read(server, grid, registration.dimension(), registration.pos(), registration.owner(), 0,
+                        Kind.REGISTERED));
+            } else if (grid.size() >= HIDDEN_MIN_NODES) {
+                var lowest = lowestNode(grid);
+                if (lowest != null) {
+                    result.add(read(server, grid, lowest.dimension(), lowest.pos(), null, 0, Kind.HIDDEN));
+                }
+            }
         }
         return result;
     }
 
-    private static Ae2Model.Grid read(MinecraftServer server, Grid grid, ControllerBlockEntity id, int controllers) {
-        BlockPos pos = id.getBlockPos();
-        IGridNode node = id.getMainNode().getNode();
-        UUID owner = node == null ? null : node.getOwningPlayerProfileId();
+    private record Located(String dimension, BlockPos pos, UUID owner) {}
+
+    /** Finds the grid at each registered position. Never loads chunks. */
+    private static Map<Grid, Located> registeredGrids(MinecraftServer server, Map<String, UUID> registrations) {
+        var result = new IdentityHashMap<Grid, Located>();
+        registrations.forEach((id, owner) -> {
+            int at = id.lastIndexOf('@');
+            if (at < 0) return;
+            String dimension = id.substring(0, at);
+            String[] xyz = id.substring(at + 1).split(",");
+            ResourceLocation location = ResourceLocation.tryParse(dimension);
+            if (xyz.length != 3 || location == null) return;
+            BlockPos pos;
+            try {
+                pos = new BlockPos(Integer.parseInt(xyz[0]), Integer.parseInt(xyz[1]), Integer.parseInt(xyz[2]));
+            } catch (NumberFormatException e) {
+                return;
+            }
+            ServerLevel level = server.getLevel(ResourceKey.create(Registries.DIMENSION, location));
+            if (level == null || !level.hasChunkAt(pos)) return;
+            IGridNode node = nodeAt(level, pos);
+            if (node != null && node.getGrid() instanceof Grid grid) result.putIfAbsent(grid, new Located(dimension, pos, owner));
+        });
+        return result;
+    }
+
+    /** The grid node of the block (or cable bus) at a position, if any. Server thread, loaded chunk. */
+    static IGridNode nodeAt(Level level, BlockPos pos) {
+        IInWorldGridNodeHost host = GridHelper.getNodeHost(level, pos);
+        if (host == null) return null;
+        IGridNode node = host.getGridNode(null);
+        for (int i = 0; node == null && i < DIRECTIONS.length; i++) node = host.getGridNode(DIRECTIONS[i]);
+        return node;
+    }
+
+    private static final Direction[] DIRECTIONS = Direction.values();
+
+    /** Lowest in-world node: a position that belongs to the grid, for hidden grids. */
+    private static Located lowestNode(Grid grid) {
+        Located best = null;
+        for (IGridNode node : grid.getNodes()) {
+            if (!(node instanceof InWorldGridNode inWorld) || node.getLevel() == null) continue;
+            var candidate = new Located(dimension(node.getLevel()), inWorld.getLocation(), null);
+            if (best == null || compare(candidate, best) < 0) best = candidate;
+        }
+        return best;
+    }
+
+    private static int compare(Located a, Located b) {
+        int c = a.dimension().compareTo(b.dimension());
+        if (c != 0) return c;
+        c = Integer.compare(a.pos().getX(), b.pos().getX());
+        if (c != 0) return c;
+        c = Integer.compare(a.pos().getY(), b.pos().getY());
+        return c != 0 ? c : Integer.compare(a.pos().getZ(), b.pos().getZ());
+    }
+
+    private static Ae2Model.Grid read(MinecraftServer server, Grid grid, String dimension, BlockPos pos, UUID owner,
+            int controllers, Kind kind) {
 
         IEnergyService e = grid.getEnergyService();
         var energy = new Energy(e.getStoredPower(), e.getMaxStoredPower(), e.getAvgPowerUsage(),
@@ -95,10 +182,10 @@ final class Ae2Reader {
         }
 
         IPathingService pathing = grid.getPathingService();
-        return new Ae2Model.Grid(dimension(id.getLevel()), pos.getX(), pos.getY(), pos.getZ(), owner,
+        return new Ae2Model.Grid(dimension, pos.getX(), pos.getY(), pos.getZ(), owner,
                 ownerName(server, owner), grid.size(), controllers,
                 ControllerState.valueOf(pathing.getControllerState().name()), pathing.isNetworkBooting(),
-                pathing.getUsedChannels(), energy, storage, new Crafting(cpus, busy, cpuStorage, coProcessors));
+                pathing.getUsedChannels(), energy, storage, new Crafting(cpus, busy, cpuStorage, coProcessors), kind);
     }
 
     private static String dimension(Level level) {

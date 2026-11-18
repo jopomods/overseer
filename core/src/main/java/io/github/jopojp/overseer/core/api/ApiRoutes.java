@@ -283,7 +283,7 @@ public final class ApiRoutes {
         }
     }
 
-    static final int MAX_OVERRIDE_LENGTH = 48;
+    public static final int MAX_OVERRIDE_LENGTH = 48;
 
     private Response listOverrides(Request r) throws SQLException {
         Principal p = principal(r);
