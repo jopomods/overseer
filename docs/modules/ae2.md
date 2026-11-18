@@ -114,6 +114,13 @@ crafting status screen: per key `stored` (in the CPU), `active` (sent to machine
 `ProviderSnapshot.jobs`, are kept in memory only and served by `GET /api/v1/jobs?resource=…`
 (404 while idle). Nothing of it is stored.
 
+## Infinity cells
+
+Add-on infinity cells report the largest 32-bit number (2,147,483,647 items, or as many buckets
+for fluids). The UI shows such amounts as ∞. A crafting job that draws from one gets AE2's total
+inflated by it, so its card shows "progress unknown" instead of a misleading percentage and
+estimate; the job lines in the expanded card stay exact.
+
 ## Icons
 
 Icons are keyed by stack key (`GET /api/v1/icon?key=…`): exported exact key, then the base key
