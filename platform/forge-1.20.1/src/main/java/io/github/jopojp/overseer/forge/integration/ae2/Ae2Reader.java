@@ -18,9 +18,11 @@ import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Crafting;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Energy;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Kind;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Model.Storage;
+import io.github.jopojp.overseer.core.provider.Stack;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +30,7 @@ import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -55,8 +58,15 @@ final class Ae2Reader {
     /** Grids without a controller and registration show up (hidden) from this size on. */
     static final int HIDDEN_MIN_NODES = 5;
 
-    /** @param registrations registered grid positions ({@code dimension@x,y,z}) and their owners */
     static List<Ae2Model.Grid> readAll(MinecraftServer server, Map<String, UUID> registrations) {
+        return readAll(server, registrations, null);
+    }
+
+    /**
+     * @param registrations registered grid positions ({@code dimension@x,y,z}) and their owners
+     * @param scan          copies the full inventory of identified grids when not {@code null}
+     */
+    static List<Ae2Model.Grid> readAll(MinecraftServer server, Map<String, UUID> registrations, StackCache scan) {
         var registered = registeredGrids(server, registrations);
         var result = new ArrayList<Ae2Model.Grid>();
         for (Grid grid : TickHandler.instance().getGridList()) {
@@ -69,17 +79,18 @@ final class Ae2Reader {
             if (id != null) {
                 IGridNode node = id.getMainNode().getNode();
                 result.add(read(server, grid, dimension(id.getLevel()), id.getBlockPos(),
-                        node == null ? null : node.getOwningPlayerProfileId(), controllers.size(), Kind.CONTROLLER));
+                        node == null ? null : node.getOwningPlayerProfileId(), controllers.size(), Kind.CONTROLLER,
+                        scan));
                 continue;
             }
             var registration = registered.get(grid);
             if (registration != null) {
                 result.add(read(server, grid, registration.dimension(), registration.pos(), registration.owner(), 0,
-                        Kind.REGISTERED));
+                        Kind.REGISTERED, scan));
             } else if (grid.size() >= HIDDEN_MIN_NODES) {
                 var lowest = lowestNode(grid);
                 if (lowest != null) {
-                    result.add(read(server, grid, lowest.dimension(), lowest.pos(), null, 0, Kind.HIDDEN));
+                    result.add(read(server, grid, lowest.dimension(), lowest.pos(), null, 0, Kind.HIDDEN, null));
                 }
             }
         }
@@ -144,7 +155,7 @@ final class Ae2Reader {
     }
 
     private static Ae2Model.Grid read(MinecraftServer server, Grid grid, String dimension, BlockPos pos, UUID owner,
-            int controllers, Kind kind) {
+            int controllers, Kind kind, StackCache scan) {
 
         IEnergyService e = grid.getEnergyService();
         var energy = new Energy(e.getStoredPower(), e.getMaxStoredPower(), e.getAvgPowerUsage(),
@@ -155,8 +166,11 @@ final class Ae2Reader {
         int otherTypes = 0;
         long items = 0;
         long fluids = 0;
-        for (Object2LongMap.Entry<AEKey> entry : grid.getStorageService().getCachedInventory()) {
+        var cached = grid.getStorageService().getCachedInventory();
+        List<Stack> inventory = scan == null ? null : new ArrayList<>(cached.size());
+        for (Object2LongMap.Entry<AEKey> entry : cached) {
             AEKey key = entry.getKey();
+            if (inventory != null && entry.getLongValue() > 0) inventory.add(scan.stack(key, entry.getLongValue()));
             if (key instanceof AEItemKey) {
                 itemTypes++;
                 items = saturatedAdd(items, entry.getLongValue());
@@ -185,7 +199,54 @@ final class Ae2Reader {
         return new Ae2Model.Grid(dimension, pos.getX(), pos.getY(), pos.getZ(), owner,
                 ownerName(server, owner), grid.size(), controllers,
                 ControllerState.valueOf(pathing.getControllerState().name()), pathing.isNetworkBooting(),
-                pathing.getUsedChannels(), energy, storage, new Crafting(cpus, busy, cpuStorage, coProcessors), kind);
+                pathing.getUsedChannels(), energy, storage, new Crafting(cpus, busy, cpuStorage, coProcessors), kind,
+                inventory);
+    }
+
+    /**
+     * Ids and names of AE2 keys, computed once per key: building them for every key on every
+     * scan would cost more than the scan itself. Server thread only.
+     */
+    static final class StackCache {
+        private static final int MAX_KEYS = 100_000;
+        private final Map<AEKey, Stack> known = new HashMap<>();
+
+        Stack stack(AEKey key, long amount) {
+            Stack template = known.get(key);
+            if (template == null) {
+                if (known.size() >= MAX_KEYS) known.clear();
+                template = new Stack(id(key), kind(key), key.getDisplayName().getString(), 0);
+                known.put(key, template);
+            }
+            return new Stack(template.key(), template.kind(), template.name(), amount);
+        }
+
+        private static String kind(AEKey key) {
+            if (key instanceof AEItemKey) return "item";
+            if (key instanceof AEFluidKey) return "fluid";
+            return "other";
+        }
+
+        /**
+         * {@code item:<id>} or {@code fluid:<id>}, plus {@code #<hash>} of the NBT. The NBT hash is
+         * order-independent and stable across restarts. Other key types:
+         * {@code other:<type id>/<id>}.
+         */
+        static String id(AEKey key) {
+            CompoundTag tag = null;
+            String prefix;
+            if (key instanceof AEItemKey item) {
+                prefix = "item:";
+                tag = item.getTag();
+            } else if (key instanceof AEFluidKey fluid) {
+                prefix = "fluid:";
+                tag = fluid.getTag();
+            } else {
+                prefix = "other:" + key.getType().getId() + "/";
+            }
+            String id = prefix + key.getId();
+            return tag == null || tag.isEmpty() ? id : id + "#" + Integer.toHexString(tag.hashCode());
+        }
     }
 
     private static String dimension(Level level) {

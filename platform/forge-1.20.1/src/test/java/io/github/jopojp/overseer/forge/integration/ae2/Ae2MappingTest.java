@@ -57,6 +57,28 @@ class Ae2MappingTest {
         assertTrue(snapshot.samples().stream().anyMatch(s -> s.metric().equals("power_max")));
     }
 
+    private static Grid scanned(Grid g, boolean booting, Ae2Model.Kind kind) {
+        return new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(), g.controllers(),
+                g.state(), booting, g.channels(), g.energy(), g.storage(), g.crafting(), kind,
+                List.of(new io.github.jopojp.overseer.core.provider.Stack("item:minecraft:iron_ingot", "item",
+                        "Iron Ingot", 64)));
+    }
+
+    @Test
+    void scannedInventoriesGoIntoTheSnapshotOnlyWhenReal() {
+        Grid g = grid(OWNER, 10);
+        var snapshot = Ae2Mapping.snapshot(AT, List.of(g));
+        assertTrue(snapshot.inventories().isEmpty(), "not scanned this time");
+
+        snapshot = Ae2Mapping.snapshot(AT, List.of(scanned(g, false, Ae2Model.Kind.CONTROLLER)));
+        var ref = Ae2Mapping.grid("minecraft:overworld@10,64,0");
+        assertEquals(64, snapshot.inventories().get(ref).get(0).amount());
+
+        snapshot = Ae2Mapping.snapshot(AT, List.of(scanned(g, true, Ae2Model.Kind.CONTROLLER),
+                scanned(grid(null, 20), false, Ae2Model.Kind.HIDDEN)));
+        assertTrue(snapshot.inventories().isEmpty(), "booting and hidden grids have no inventory history");
+    }
+
     @Test
     void hiddenGridsHaveNoHistoryAndNoOwner() {
         Grid g = grid(null, 10);

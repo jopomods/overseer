@@ -1,5 +1,7 @@
 package io.github.jopojp.overseer.forge.integration.ae2;
 
+import io.github.jopojp.overseer.core.provider.Stack;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -40,6 +42,7 @@ public final class Ae2Model {
      * @param ownerName  last known name of the owner, may be {@code null}
      * @param nodes      number of grid nodes (cables, machines, parts)
      * @param channels   channels in use
+     * @param inventory  full contents when scanned this time (every 10 s), otherwise {@code null}
      */
     public record Grid(
             String dimension,
@@ -56,7 +59,19 @@ public final class Ae2Model {
             Energy energy,
             Storage storage,
             Crafting crafting,
-            Kind kind) {
+            Kind kind,
+            List<Stack> inventory) {
+
+        public Grid {
+            if (inventory != null) inventory = List.copyOf(inventory);
+        }
+
+        public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,
+                ControllerState state, boolean booting, int channels, Energy energy, Storage storage,
+                Crafting crafting, Kind kind) {
+            this(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy, storage,
+                    crafting, kind, null);
+        }
 
         public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,
                 ControllerState state, boolean booting, int channels, Energy energy, Storage storage,

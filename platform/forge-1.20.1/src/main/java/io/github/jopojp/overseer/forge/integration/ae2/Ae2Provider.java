@@ -23,7 +23,7 @@ import net.minecraft.server.MinecraftServer;
  */
 public final class Ae2Provider implements DataProvider {
     private static final ProviderDescriptor DESCRIPTOR = new ProviderDescriptor(Ae2Mapping.PROVIDER,
-            "Applied Energistics 2", Set.of(Capability.METRICS, Capability.EVENTS, Capability.ACCESS_CONTROL,
+            "Applied Energistics 2", Set.of(Capability.METRICS, Capability.EVENTS, Capability.INVENTORY, Capability.ACCESS_CONTROL,
                     Capability.SHARING),
             Ae2Mapping.METRICS, 20, TimeUnit.MILLISECONDS.toNanos(2));
 
@@ -31,6 +31,8 @@ public final class Ae2Provider implements DataProvider {
     private final Teams teams;
     private final Supplier<Map<String, UUID>> registrations;
     private volatile Ae2Mapping.AccessIndex access = Ae2Mapping.AccessIndex.EMPTY;
+    private final Ae2Reader.StackCache stacks = new Ae2Reader.StackCache();
+    private long collections;
 
     /**
      * @param registrations registered grids ({@code dimension@x,y,z} to owner), read every
@@ -42,6 +44,9 @@ public final class Ae2Provider implements DataProvider {
         this.registrations = registrations;
     }
 
+    /** Full inventory scan every 10th collection: every 10 s (ADR-0011). */
+    static final int SCAN_EVERY = 10;
+
     @Override
     public ProviderDescriptor descriptor() {
         return DESCRIPTOR;
@@ -49,7 +54,8 @@ public final class Ae2Provider implements DataProvider {
 
     @Override
     public ProviderSnapshot collect(Timestamp at) {
-        List<Ae2Model.Grid> grids = Ae2Reader.readAll(server, registrations.get());
+        boolean scan = collections++ % SCAN_EVERY == 0;
+        List<Ae2Model.Grid> grids = Ae2Reader.readAll(server, registrations.get(), scan ? stacks : null);
         access = Ae2Mapping.AccessIndex.of(grids, teams::teammates);
         return Ae2Mapping.snapshot(at, grids);
     }
