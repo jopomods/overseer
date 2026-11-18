@@ -257,6 +257,27 @@ test.describe('flows', () => {
     await expect(row.locator('span[style*="color"]')).toHaveCount(0)
   })
 
+  test('admins run the tick profiler and see the most expensive types', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/server')
+    const profiler = page.getByTestId('profiler')
+    await expect(page.getByTestId('profiler-status')).toHaveText('Off')
+    await profiler.getByRole('radio', { name: '5 min', exact: true }).click()
+    await profiler.getByRole('button', { name: 'Measure 5 min' }).click()
+    await expect(page.getByTestId('profiler-status')).toContainText('Measuring until')
+    await profiler.getByRole('button', { name: 'Stop' }).click()
+    await expect(page.getByTestId('profiler-status')).toHaveText('Off')
+    await expect(page.getByTestId('profiler-chart')).toContainText('Large Chemical Reactor')
+    await expect(page.getByTestId('profiler-top').getByRole('listitem').first()).toContainText('1.8 ms')
+  })
+
+  test('players do not see the tick profiler', async ({ page }) => {
+    await mockApi(page, { role: 'player', realistic: true })
+    await page.goto('/server')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(page.getByTestId('profiler')).toHaveCount(0)
+  })
+
   test('ME network contents are searchable and sortable', async ({ page }) => {
     await mockApi(page, { realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')

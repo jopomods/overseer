@@ -11,6 +11,7 @@ import { useT } from '@/lib/i18n'
 import { usePreferences } from '@/lib/preferences'
 import { find, metric, ofType } from '@/lib/snapshot'
 import { tpsTone } from '@/lib/tone'
+import { ProfilerSection } from '@/components/profiler-section'
 
 export function ServerPage() {
   const t = useT()
@@ -92,6 +93,7 @@ export function ServerPage() {
 
       {isAdmin && (
         <>
+          <ProfilerSection />
           <Section title={t('server.dimensions')} aside={<Badge variant="secondary">{t('common.adminOnly')}</Badge>}>
             <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {dimensions.map((d) => (

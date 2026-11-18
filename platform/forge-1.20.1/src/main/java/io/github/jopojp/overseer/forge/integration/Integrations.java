@@ -29,6 +29,8 @@ public final class Integrations {
         var providers = new ArrayList<DataProvider>();
         Teams teams = Teams.detect();
         providers.add(new ServerProvider(server));
+        providers.add(new io.github.jopojp.overseer.forge.integration.profiler.ProfilerProvider(
+                () -> ServerLifecycle.runtime().map(r -> r.profiler().current()).orElse(null)));
         optional(providers, "fluxnetworks", () -> new io.github.jopojp.overseer.forge.integration.flux.FluxProvider());
         optional(providers, "ae2", () -> new io.github.jopojp.overseer.forge.integration.ae2.Ae2Provider(server, teams,
                 () -> registrations("ae2"), () -> watches("ae2"))

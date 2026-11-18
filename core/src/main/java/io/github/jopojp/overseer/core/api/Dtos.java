@@ -59,6 +59,13 @@ public final class Dtos {
 
     public record Job(String resource, TimestampDto at, List<JobLine> lines) {}
 
+    public record Details(String resource, TimestampDto at, List<Map<String, String>> rows) {}
+
+    /** mode: off, timed, continuous; until: end of a timed run; active: measuring right now. */
+    public record Profiler(String mode, Instant until, int intervalSeconds, boolean active) {}
+
+    public record SetProfiler(String mode, Long durationSeconds, Integer intervalSeconds) {}
+
     public record Event(TimestampDto at, String kind, String attribute, String value) {}
 
     public record Inventory(String resource, TimestampDto scannedAt, int total, List<InventoryItem> items) {}

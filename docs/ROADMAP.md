@@ -91,9 +91,9 @@ Delivered in slices (docs/modules/ae2.md):
 
 - [x] 0.4.1/0.4.2: stable Sankey, storage colours, no page jumps, infinity cells as ∞, CPU
   numbers as in game, colour codes in names (default on, account setting)
-- [ ] Tick profiling ("what costs tick time"): block entity and entity timings via Forge's
-  `TimeTracker`, started from the dashboard for a chosen duration or kept running at a chosen
-  interval; top list and a stacked chart by block type over time (admins only)
+- [x] Tick profiler (ADR-0014): block entity and entity timings via Forge's `TimeTracker`
+  (with a mixin that completes Forge's broken block entity timer), timed or continuous runs,
+  stacked chart by type and a live top list of single objects (admins only)
 
 ## M3: GregTech CEu (GTCEu)
 

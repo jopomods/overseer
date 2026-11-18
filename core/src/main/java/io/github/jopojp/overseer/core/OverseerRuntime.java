@@ -85,6 +85,7 @@ public final class OverseerRuntime implements AutoCloseable {
     private RegistrationStore registrations;
     private io.github.jopojp.overseer.core.storage.WatchStore watches;
     private io.github.jopojp.overseer.core.storage.IconStore icons;
+    private io.github.jopojp.overseer.core.storage.ProfilerStore profiler;
     private java.util.function.Function<String, byte[]> iconFallback;
     private OverrideStore overrides;
     private Clock wall;
@@ -158,6 +159,8 @@ public final class OverseerRuntime implements AutoCloseable {
         resources.push(watches);
         icons = new io.github.jopojp.overseer.core.storage.IconStore(db.openControlWriter(), iconFallback);
         resources.push(icons);
+        profiler = new io.github.jopojp.overseer.core.storage.ProfilerStore(db.openControlWriter());
+        resources.push(profiler);
         this.overrides = overrides;
         this.wall = wall;
 
@@ -165,7 +168,7 @@ public final class OverseerRuntime implements AutoCloseable {
         resources.push(sse);
 
         var router = new ApiRoutes(config.version(), auth, access, latest, inventories, queue, descriptors, scheduler::status, wall,
-                db, clock::uptimeMillis, overrides, shares, requests, notifications, registrations, watches, icons, writer)
+                db, clock::uptimeMillis, overrides, shares, requests, notifications, registrations, watches, icons, profiler, writer)
                 .register(new Router());
         http = new HttpServer(config.http(), router,
                 new StaticFiles(config.webRoot(), OverseerRuntime.class.getClassLoader()), sse);
@@ -194,6 +197,11 @@ public final class OverseerRuntime implements AutoCloseable {
     /** Resources registered in Overseer (e.g. AE2 grids without a controller). */
     public RegistrationStore registrations() {
         return registrations;
+    }
+
+    /** Tick profiler settings; the platform reads them every collection. */
+    public io.github.jopojp.overseer.core.storage.ProfilerStore profiler() {
+        return profiler;
     }
 
     /** Item icons; the platform stores exported ones here. */

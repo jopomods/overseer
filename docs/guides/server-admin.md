@@ -44,6 +44,15 @@ super admin).
 | `/ov sessions revoke <player>` | ops | Logs the player out of every browser session. Device tokens stay. |
 | `/ovicons export` | ops, **client** | Only with Overseer also installed on your client: renders every item and fluid icon and sends them to the server. See below. |
 
+### Tick profiler
+
+The server page has a "Tick profiler" section (admins only). Pick a duration and start, or let it
+measure continuously every few seconds. It shows which block and entity types cost the most tick
+time over time, and the most expensive single machines with their position. It uses Forge's own
+timers (the ones behind `/forge track`); Overseer fixes Forge 1.20.1's block entity timer with a
+small mixin, so `/forge track start te` works again too. Measuring costs a little tick time
+itself: prefer timed runs while you look for lag.
+
 ### Item icons
 
 A dedicated server cannot render items, and it has no vanilla textures. Without an export the

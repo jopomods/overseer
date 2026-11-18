@@ -50,7 +50,7 @@ public final class ServerGameTests {
 
         var providers = Integrations.providers(helper.getLevel().getServer());
         Set<String> ids = providers.stream().map(p -> p.descriptor().id()).collect(Collectors.toSet());
-        Set<String> expected = bare ? Set.of("server") : Set.of("server", "flux", "ae2");
+        Set<String> expected = bare ? Set.of("server", "profiler") : Set.of("server", "profiler", "flux", "ae2");
         helper.assertTrue(ids.equals(expected), "providers " + ids + ", expected " + expected);
         for (DataProvider provider : providers) provider.collect(AT);
         helper.succeed();
