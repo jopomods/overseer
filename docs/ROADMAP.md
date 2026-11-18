@@ -141,7 +141,8 @@ allowed for network owners and admins (Flux's rules) and server operators (ADR-0
 - Notifications (push, Discord webhook)
 - Custom dashboard widgets
 - Actions for other mods (AE2, GTCEu) on top of the world actions of ADR-0016
-- More loaders and versions (NeoForge, Fabric) via Stonecutter, only when needed
+- More loaders and versions (NeoForge, Fabric, older ones such as 1.7.10 for GT New Horizons) via
+  Stonecutter, only when needed; the GregTech voltage tiers already match GTNH
 - Public release (GitHub, Modrinth/CurseForge, MIT license)
 - Final logo
 - Upgrade web to TypeScript 7 once `openapi-typescript` supports it (pinned to 5.9, see ADR-0009)
