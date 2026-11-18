@@ -131,3 +131,18 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 }
+
+// GameTests need no real terrain: a flat world skips most of the spawn-area generation,
+// which dominated the GameTest run time in CI.
+val gameTestServerProperties by tasks.registering {
+    val file = project.file("run/gametest/server.properties")
+    outputs.file(file)
+    doLast {
+        file.parentFile.mkdirs()
+        // In .properties files the colon must be escaped: minecraft\:flat
+        file.writeText("level-type=minecraft\\:flat\ngenerate-structures=false\n")
+    }
+}
+tasks.matching { it.name == "prepareGameTestServerRun" }.configureEach {
+    dependsOn(gameTestServerProperties)
+}

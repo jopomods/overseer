@@ -43,10 +43,12 @@ builds resources and access rules (unit-tested), a thin `*Provider`, a factory e
 
 cd web
 npm run dev          # UI dev server, proxies /api to 127.0.0.1:8765 (override: OVERSEER_API)
+npm run dev:mock     # UI without any server: realistic data from fixtures/recordings, live updates
+npm run dev:mock:extreme   # same with extreme data (long names, 200 devices)
 npm run typecheck
 npm run lint
 npm run gen:api      # regenerate src/api/schema.gen.ts from api/openapi.yaml
-npm run test:e2e     # Playwright layout + flow tests at 360-1920 px (port 4391), API mocked in e2e/mock-api.ts
+npm run test:e2e     # Playwright layout + flow tests at 360-1920 px (port 4391), API mocked by web/mock/backend.ts
 node e2e/screenshots.manual.ts <dir>   # PNGs of key pages for visual review (needs `npm run preview -- --port 4391`)
 ```
 

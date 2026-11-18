@@ -57,6 +57,10 @@ Implementation notes (M1a):
 - Live data: one `EventSource` per tab updates the TanStack Query cache; closed while the tab
   is hidden; pages poll every 5 s while it is down.
 
+- Mock backend (`web/mock/backend.ts`) is shared by Playwright and the Vite dev server
+  (`npm run dev:mock`, `dev:mock:extreme`), so the UI can be developed and demoed without
+  Minecraft, Java or the simulator.
+
 ## Consequences
 
 - Every new page must be added to `web/e2e/layout.spec.ts`.

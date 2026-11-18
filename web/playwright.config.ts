@@ -17,6 +17,8 @@ const viewports = [
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // CI runners have few cores but the tests mostly wait on the browser; more workers pay off.
+  workers: process.env.CI ? 4 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
