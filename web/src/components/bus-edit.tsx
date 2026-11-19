@@ -130,7 +130,7 @@ export function BusEditor({ grid, bus, onDone }: { grid: string; bus: Ae2Bus; on
 }
 
 /** Search the network's contents and add a match to the filter. */
-function AddFilter({ grid, exclude, onAdd }: { grid: string; exclude: string[]; onAdd: (f: FilterEntry) => void }) {
+export function AddFilter({ grid, exclude, onAdd }: { grid: string; exclude: string[]; onAdd: (f: FilterEntry) => void }) {
   const t = useT()
   const [query, setQuery] = useState('')
   const [q, setQ] = useState('')

@@ -186,10 +186,10 @@ function cpuResource(grid: string, id: string, attrs: Record<string, string>, me
   }
 }
 
-function driveResource(grid: string, id: string, block: string, cells: string[], bytes: [number, number], types: [number, number]) {
+function driveResource(grid: string, id: string, block: string, cells: string[], bytes: [number, number], types: [number, number], priority = '0', partitions = '') {
   return {
     ref: { provider: 'ae2', type: 'drive', id, key: `ae2/drive/${id}` },
-    attributes: { grid, block, cells: cells.map((c, i) => `${i}=${c}`).join(';'), priority: '0' },
+    attributes: { grid, block, cells: cells.map((c, i) => `${i}=${c}`).join(';'), priority, partitions },
     metrics: { bytes_used: bytes[0], bytes_total: bytes[1], types_used: types[0], types_total: types[1] },
   }
 }
@@ -201,15 +201,47 @@ function driveResources(realistic: boolean) {
     const cell = (size: string, state: string) => `ae2:item_storage_cell_${size}=${state}`
     return [
       driveResource(grid, 'minecraft:overworld@116,64,-338', 'ae2:drive', [cell('64k', 'not_empty'), cell('64k', 'not_empty'), cell('64k', 'types_full'), cell('16k', 'full'), cell('16k', 'not_empty'), 'ae2:fluid_storage_cell_64k=not_empty'], [301_234, 360_448], [298, 378]),
-      driveResource(grid, 'minecraft:overworld@116,65,-338', 'ae2:drive', [cell('256k', 'not_empty'), cell('256k', 'empty')], [41_200, 524_288], [12, 126]),
+      driveResource(grid, 'minecraft:overworld@116,65,-338', 'ae2:drive', [cell('256k', 'not_empty'), cell('256k', 'empty')], [41_200, 524_288], [12, 126], '10',
+        JSON.stringify([{ slot: 0, keys: [{ key: 'item:minecraft:iron_ingot', kind: 'item', name: 'Iron Ingot' }, { key: 'item:minecraft:raw_iron', kind: 'item', name: 'Raw Iron' }], exclude: false, fuzzy: false }])),
       driveResource(grid, 'minecraft:overworld@114,64,-338', 'ae2:chest', [cell('4k', 'not_empty')], [1_904, 4_096], [3, 63]),
     ]
   }
   return Array.from({ length: 40 }, (_, i) =>
     driveResource('minecraft:overworld@0,64,-0', `minecraft:overworld@${i},${-i},${i}`, i % 3 ? `${LONG.toLowerCase()}:ex_drive` : 'ae2:drive',
       Array.from({ length: i % 3 ? 20 : 10 }, (_, s) => `megacells:bulk_item_cell_${s}=${['empty', 'not_empty', 'types_full', 'full'][(s + i) % 4]}`),
-      [9.2e18 / (i + 1), 9.2e18], [i * 1000, 987_654]),
+      [9.2e18 / (i + 1), 9.2e18], [i * 1000, 987_654], String(2 ** 31 - 1 - i),
+      // A few fully partitioned cells: enough for long chip lists without slowing every update.
+      i % 8 ? '' : JSON.stringify(Array.from({ length: 2 }, (_, s) => ({ slot: s, exclude: s % 2 === 0, fuzzy: true,
+        keys: Array.from({ length: 63 }, (_, k) => ({ key: `item:${LONG.toLowerCase()}:p${k}`, kind: 'item', name: `${LONG} ${k}` })) })))),
   )
+}
+
+function storageBusResource(grid: string, id: string, attrs: Record<string, string>) {
+  return {
+    ref: { provider: 'ae2', type: 'storage_bus', id, key: `ae2/storage_bus/${id}` },
+    attributes: { grid, block: 'ae2:storage_bus', name: '', target: '', targetBlock: '', priority: '0', partition: '', access: 'read_write', extractableOnly: 'true', active: 'true', ...attrs },
+    metrics: {},
+  }
+}
+
+const partitionJson = (keys: Array<[string, string]>, exclude = false) =>
+  JSON.stringify({ keys: keys.map(([key, name]) => ({ key, kind: key.startsWith('fluid:') ? 'fluid' : 'item', name })), exclude, fuzzy: false })
+
+/** Storage buses: realistic, a few barrels and a tank; extreme: 30 with long names, some with full partitions. */
+function storageBusResources(realistic: boolean) {
+  if (realistic) {
+    return [
+      storageBusResource(REAL_GRID, 'minecraft:overworld@112,64,-338/west', { name: '§6Cobble overflow', target: 'Drawer Controller', targetBlock: 'storagedrawers:controller', priority: '20', partition: partitionJson([['item:minecraft:cobblestone', 'Cobblestone']]) }),
+      storageBusResource(REAL_GRID, 'minecraft:overworld@112,65,-338/west', { target: 'Super Tank', targetBlock: 'gtceu:lv_super_tank', priority: '5', partition: partitionJson([['fluid:gtceu:oxygen', 'Oxygen']]) }),
+      storageBusResource(REAL_GRID, 'minecraft:overworld@112,66,-338/up', { target: 'Barrel', targetBlock: 'minecraft:barrel', priority: '-10', access: 'read', active: 'false' }),
+    ]
+  }
+  return Array.from({ length: 30 }, (_, i) =>
+    storageBusResource('minecraft:overworld@0,64,-0', `minecraft:overworld@${-i},${i},${i * 1000}/${['north', 'down'][i % 2]}`, {
+      name: i % 2 ? `${LONG} ${i}` : '', target: `${LONG} target ${i}`, targetBlock: `${LONG.toLowerCase()}:block`, priority: String(-(2 ** 31) + i),
+      partition: i % 3 ? '' : partitionJson(Array.from({ length: 63 }, (_, k) => [`item:${LONG.toLowerCase()}:s${k}`, `${LONG} ${k}`] as [string, string]), i % 2 === 0),
+      access: ['read_write', 'read', 'write', 'no_access'][i % 4], active: String(i % 5 !== 0),
+    }))
 }
 
 function providerResource(grid: string, id: string, attrs: Record<string, string>) {
@@ -424,7 +456,7 @@ export function ae2Snapshot(realistic = false, adopted: Map<string, string> = ne
   return {
     provider: 'ae2',
     at: { wall: now(), uptimeMillis: 123_456_789, session: 3 },
-    resources: [...[...grids, ...hidden].map(gridResource), ...cpuResources(realistic), ...driveResources(realistic), ...providerResources(realistic), ...busResources(realistic)],
+    resources: [...[...grids, ...hidden].map(gridResource), ...cpuResources(realistic), ...driveResources(realistic), ...providerResources(realistic), ...busResources(realistic), ...storageBusResources(realistic)],
   }
 }
 
@@ -885,6 +917,20 @@ export function createMockBackend(options: MockOptions = {}) {
       if (typeof params.redstone === 'string') set(bus.ref.key, 'redstone', { redstone: params.redstone }, a.redstone ?? 'ignore', params.redstone)
       if (typeof params.craftOnly === 'boolean') set(bus.ref.key, 'craftOnly', { craftOnly: String(params.craftOnly) }, a.craftOnly ?? '', String(params.craftOnly))
       if (typeof params.scheduling === 'string') set(bus.ref.key, 'scheduling', { scheduling: params.scheduling }, a.scheduling ?? '', params.scheduling)
+    } else if (b.type === 'ae2.storagebus.edit') {
+      const bus = part('storage_bus', params.bus)
+      if (!bus) return fail(400, 'invalid', 'This bus is not part of the network.')
+      const a = bus.attributes
+      if (typeof params.name === 'string') set(bus.ref.key, 'name', { name: params.name }, a.name ?? '', params.name)
+      if (typeof params.priority === 'number') set(bus.ref.key, 'priority', { priority: String(params.priority) }, a.priority ?? '0', String(params.priority))
+      if (Array.isArray(params.filter)) {
+        const keys = params.filter as string[]
+        const known = inventoryStacks(options.realistic === true)
+        const partition = keys.length === 0 ? '' : partitionJson(keys.map((key) => [key, known.find((k) => k.key === key)?.name ?? key]))
+        set(bus.ref.key, 'partition', { partition }, a.partition ?? '', keys.join(', '))
+      }
+      if (typeof params.access === 'string') set(bus.ref.key, 'access', { access: params.access }, a.access ?? 'read_write', params.access)
+      if (typeof params.extractableOnly === 'boolean') set(bus.ref.key, 'extractableOnly', { extractableOnly: String(params.extractableOnly) }, a.extractableOnly ?? '', String(params.extractableOnly))
     } else if (b.type === 'ae2.drive.edit') {
       const drive = part('drive', params.drive)
       if (!drive) return fail(400, 'invalid', 'This drive is not part of the network.')
@@ -1152,7 +1198,7 @@ export function createMockBackend(options: MockOptions = {}) {
           : resource.startsWith('flux/network/')
             ? ['flux.device.connect', 'flux.device.edit', 'flux.member.edit', 'flux.network.edit']
             : resource.startsWith('ae2/grid/')
-              ? ['ae2.bus.edit', 'ae2.cpu.cancel', 'ae2.cpu.edit', 'ae2.cpu.suspend', 'ae2.craft.plan', 'ae2.craft.start', 'ae2.drive.edit', 'ae2.provider.edit', 'ae2.restock']
+              ? ['ae2.bus.edit', 'ae2.cpu.cancel', 'ae2.cpu.edit', 'ae2.cpu.suspend', 'ae2.craft.plan', 'ae2.craft.start', 'ae2.drive.edit', 'ae2.provider.edit', 'ae2.restock', 'ae2.storagebus.edit']
               : []
         return json({ resource, types })
       }

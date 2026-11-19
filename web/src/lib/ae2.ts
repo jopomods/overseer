@@ -16,6 +16,7 @@ export const AE2_ACTIONS = {
   driveEdit: 'ae2.drive.edit',
   providerEdit: 'ae2.provider.edit',
   busEdit: 'ae2.bus.edit',
+  storageBusEdit: 'ae2.storagebus.edit',
   craftPlan: 'ae2.craft.plan',
   craftStart: 'ae2.craft.start',
   /** The right to switch on auto-crafting for a watched item (ADR-0021); never run as an action. */
