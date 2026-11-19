@@ -5,6 +5,7 @@ import {
   ApiError,
   useAccessRequests,
   useAllowedActions,
+  useDetails,
   useAddShare,
   useDecideAccess,
   useOverrides,
@@ -18,6 +19,7 @@ import {
 import { ActionLog } from '@/components/flux-edit'
 import { GridStateBadge } from '@/components/grid-state-badge'
 import { McText } from '@/components/mc-text'
+import { CraftProvider } from '@/components/craft'
 import { CraftingSection } from '@/components/crafting-cpus'
 import { DrivesSection } from '@/components/drives-section'
 import { PatternProvidersSection } from '@/components/pattern-providers'
@@ -31,7 +33,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AE2_ACTIONS, cpus, drives, patternProviders, providerLabel, formatAe, formatAeRate, formatBuckets, formatPos, grids, idPos, shortDimension, type Ae2Grid } from '@/lib/ae2'
+import { AE2_ACTIONS, cpus, drives, patternProviders, patternsOf, providerLabel, formatAe, formatAeRate, formatBuckets, formatPos, grids, idPos, shortDimension, type Ae2Grid } from '@/lib/ae2'
 import { formatBytes, formatDuration, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { plainText } from '@/lib/mc-text'
@@ -52,6 +54,8 @@ export function GridPage() {
   const server = useSnapshot('server').data
   const scheme = server?.resources.find((r) => r.ref.key === 'server/server/main')?.attributes.energyTiers as TierScheme | undefined
   const tiers = useMemo(() => tiersOf(scheme), [scheme])
+  const patternRows = useDetails(grid?.resource.ref.key ?? '', grid !== undefined).data
+  const patterns = useMemo(() => patternsOf(patternRows), [patternRows])
 
   if (snapshot.isPending) return <Skeleton className="h-64" />
   if (!grid) {
@@ -111,54 +115,56 @@ export function GridPage() {
         />
       </div>
 
-      <CraftingSection cpus={cpus(snapshot.data, grid.id)} grid={key} allowed={allowed} />
+      <CraftProvider grid={key} enabled={allowed.has(AE2_ACTIONS.craftPlan)} patterns={patterns}>
+        <CraftingSection cpus={cpus(snapshot.data, grid.id)} grid={key} allowed={allowed} />
 
-      <Section title={t('chart.history')}>
-        <div className="grid min-w-0 gap-3 xl:grid-cols-2">
-          <HistoryChart
-            testId="chart-ae2-power"
-            resource={key}
-            series={[
-              { metric: 'power_usage', label: t('ae2.usage'), color: 'var(--primary)' },
-              { metric: 'power_injection', label: t('ae2.injection'), color: 'var(--success)' },
-            ]}
-            format={(v) => formatAeRate(v, locale)}
-          />
-          <HistoryChart
-            resource={key}
-            series={[{ metric: 'power_stored', label: t('ae2.stored'), color: 'var(--chart-5)' }]}
-            format={(v) => formatAe(v, locale)}
-          />
-          <HistoryChart
-            resource={key}
-            series={[{ metric: 'items', label: t('ae2.items'), color: 'var(--chart-2)' }]}
-            format={(v) => formatSi(v, locale)}
-          />
-          <HistoryChart
-            resource={key}
-            series={[{ metric: 'item_types', label: t('ae2.itemTypes'), color: 'var(--chart-3)' }]}
-            format={(v) => formatNumber(v, locale)}
-          />
-          <HistoryChart
-            resource={key}
-            series={[{ metric: 'bytes_used', label: t('drive.chart'), color: 'var(--chart-4)' }]}
-            format={(v) => formatBytes(v, locale)}
-          />
-        </div>
-      </Section>
+        <Section title={t('chart.history')}>
+          <div className="grid min-w-0 gap-3 xl:grid-cols-2">
+            <HistoryChart
+              testId="chart-ae2-power"
+              resource={key}
+              series={[
+                { metric: 'power_usage', label: t('ae2.usage'), color: 'var(--primary)' },
+                { metric: 'power_injection', label: t('ae2.injection'), color: 'var(--success)' },
+              ]}
+              format={(v) => formatAeRate(v, locale)}
+            />
+            <HistoryChart
+              resource={key}
+              series={[{ metric: 'power_stored', label: t('ae2.stored'), color: 'var(--chart-5)' }]}
+              format={(v) => formatAe(v, locale)}
+            />
+            <HistoryChart
+              resource={key}
+              series={[{ metric: 'items', label: t('ae2.items'), color: 'var(--chart-2)' }]}
+              format={(v) => formatSi(v, locale)}
+            />
+            <HistoryChart
+              resource={key}
+              series={[{ metric: 'item_types', label: t('ae2.itemTypes'), color: 'var(--chart-3)' }]}
+              format={(v) => formatNumber(v, locale)}
+            />
+            <HistoryChart
+              resource={key}
+              series={[{ metric: 'bytes_used', label: t('drive.chart'), color: 'var(--chart-4)' }]}
+              format={(v) => formatBytes(v, locale)}
+            />
+          </div>
+        </Section>
 
-      <DrivesSection drives={drives(snapshot.data, grid.id)} grid={key} editable={allowed.has(AE2_ACTIONS.driveEdit)} />
+        <DrivesSection drives={drives(snapshot.data, grid.id)} grid={key} editable={allowed.has(AE2_ACTIONS.driveEdit)} />
 
-      <PatternProvidersSection
-        grid={key}
-        providers={patternProviders(snapshot.data, grid.id)}
-        editable={allowed.has(AE2_ACTIONS.providerEdit)}
-        tiers={tiers}
-      />
+        <PatternProvidersSection
+          grid={key}
+          providers={patternProviders(snapshot.data, grid.id)}
+          editable={allowed.has(AE2_ACTIONS.providerEdit)}
+          tiers={tiers}
+        />
 
-      <WatchlistSection grid={grid.resource} canEdit={grid.canEdit} />
+        <WatchlistSection grid={grid.resource} canEdit={grid.canEdit} />
 
-      <InventorySection resource={key} canEdit={grid.canEdit} />
+        <InventorySection resource={key} canEdit={grid.canEdit} />
+      </CraftProvider>
 
       {grid.canEdit && <AccessSection resource={key} />}
       {grid.canEdit && grid.kind === 'registered' && <UnregisterButton resource={key} />}

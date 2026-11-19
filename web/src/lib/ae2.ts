@@ -15,6 +15,8 @@ export const AE2_ACTIONS = {
   cpuEdit: 'ae2.cpu.edit',
   driveEdit: 'ae2.drive.edit',
   providerEdit: 'ae2.provider.edit',
+  craftPlan: 'ae2.craft.plan',
+  craftStart: 'ae2.craft.start',
 } as const
 
 /** AE2's lock crafting modes (pattern providers). */
@@ -434,4 +436,19 @@ export function patternsOf(rows: Record<string, string>[] | undefined): Ae2Patte
     }
     return [{ provider: r.provider ?? '', output: { key: r.output, kind: r.outputKind ?? 'item', name: r.outputName || r.output, amount: num(r.amount) }, inputs }]
   })
+}
+
+/** The answer of `ae2.craft.plan` (docs/modules/ae2.md), like AE2's craft confirm screen. */
+export interface CraftPlan {
+  plan: string
+  output: PatternStack
+  bytes: number
+  /** Items are missing: the plan cannot start. */
+  missing: boolean
+  multiplePaths: boolean
+  expiresInSeconds: number
+  used: PatternStack[]
+  missingItems: PatternStack[]
+  crafted: PatternStack[]
+  cpus: Array<{ id: string; number: number; name: string | null; storage: number; coProcessors: number; busy: boolean; mode: string; fits: boolean }>
 }
