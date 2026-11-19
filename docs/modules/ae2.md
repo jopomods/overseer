@@ -1,8 +1,9 @@
 # Applied Energistics 2
 
 Provider id `ae2`. Code: `platform/forge-1.20.1/.../integration/ae2/` (`Ae2Reader` touches
-AE2, `Ae2Mapping` is pure and unit-tested, `Ae2Provider` glues them). GameTest:
-`Ae2GameTests`. Decisions: [ADR-0011](../adr/0011-ae2-discovery-and-access.md),
+AE2, `Ae2Mapping` is pure and unit-tested, `Ae2Provider` glues them; `Ae2Writer` changes AE2,
+see World actions). GameTests: `Ae2GameTests`, `Ae2ActionGameTests`. Decisions:
+[ADR-0011](../adr/0011-ae2-discovery-and-access.md), [ADR-0017](../adr/0017-ae2-actions.md),
 [ADR-0012](../adr/0012-item-icons.md).
 
 ## Version
@@ -99,10 +100,11 @@ and editable exactly like its grid (shares included). CPUs of hidden grids are n
 | Attribute | Meaning |
 |---|---|
 | `grid` | Id of the grid |
-| `name` | Name from an anvil, empty if none |
+| `name` | Name from an anvil or the dashboard, empty if none |
 | `storage`, `coProcessors` | Bytes, co-processor count |
 | `mode` | `any`, `player_only`, `machine_only` (AE2 selection mode) |
 | `busy`, `job`, `jobKind`, `jobName`, `jobAmount` | Running job: stack key, kind, name and requested amount; empty when idle |
+| `suspended` | The running job is suspended (AE2 builds with job suspension only; always `false` otherwise) |
 
 | Metric (while busy) | |
 |---|---|
@@ -175,6 +177,7 @@ included) is a resource `ae2/drive/<dimension>@x,y,z`, visible like its grid.
 |---|---|
 | `grid` | Id of the grid |
 | `block` | Registry id, e.g. `ae2:drive`, `ae2:chest` |
+| `priority` | Storage priority; missing for add-on drives without one |
 | `cells` | `slot=item=state;…`; state `empty`, `not_empty`, `types_full`, `full`. Changes when a cell is inserted, removed or fills up, so these moments are events |
 
 | Metric (per drive, and summed per grid) | |
@@ -224,3 +227,33 @@ additionally have per-second `stock:` metrics.
 `GET /api/v1/inventory?resource=…` returns the newest scan with the net change of each key over
 the last hour and day. Keys used up completely are listed with amount 0 while they have a
 change. Search, kind filter, sort (amount, change, name) and paging happen on the server.
+
+## World actions (ADR-0016, ADR-0017)
+
+Grids can be operated from the dashboard through `POST /api/v1/actions`. Every action targets the
+grid (`resource: ae2/grid/<id>`); the part it changes is a parameter. Allowed for the grid's owner,
+the members of the owner's FTB Teams party and server operators. Shares and placer access only
+view; hidden grids have no actions. `Ae2Actions` parses and checks the parameters (pure,
+unit-tested); `Ae2Writer`, the only class that changes AE2 state, applies them on the server thread
+and checks again against the live grid that the id still names it, the part belongs to it and the
+caller may act. Parts in unloaded chunks answer `unavailable`; chunks are never loaded.
+
+| Type | Parameters | Notes |
+|---|---|---|
+| `ae2.cpu.cancel` | `cpu` | AE2's `cancelJob`, as the cancel button in the crafting status: what the job holds goes back into the network. |
+| `ae2.cpu.suspend` | `cpu`, `suspended` | Suspends or resumes the job. Only offered on AE2 builds that can (the Star Technology fork `15.5.4-uelm`; not AE2 15.4.12): `CraftingCpuLogic#setJobSuspended`, looked up once by reflection (`Ae2Compat`). A suspended job sends nothing to machines but still takes results back; the state is saved with the CPU. |
+| `ae2.cpu.edit` | `cpu`, `name?`, `mode?` (`any`, `player_only`, `machine_only`) | Name like an anvil: at most 50 characters, colour codes count, empty removes it. AE2 joins the custom names of all blocks of a CPU, so the name goes on one block and the others lose theirs. Names are AE2's private `customName` field, set by reflection; the mode goes through AE2's config manager. |
+| `ae2.drive.edit` | `drive`, `priority` | Any 32-bit integer, through AE2's `IPriorityHost` (drives, ME chests, add-on drives that have a priority). |
+
+CPU ids are `<dimension>@x,y,z` of the lowest corner, or `<grid id>#<index>` for CPUs without
+blocks (add-ons; cancel only). Changes name the CPU or drive, so its log shows them. The grid page
+shows the controls in the expanded CPU card and on each drive, and the grid's change log.
+
+## Tests
+
+- `Ae2MappingTest`, `Ae2ActionsTest` (JUnit): mapping, access rules, action parameters.
+- `Ae2GameTests` (Forge GameTest, also in CI): discovery, hidden and registered grids, inventory
+  scan, CPUs, drives, placer access.
+- `Ae2ActionGameTests`: a real job (processing pattern on a provider without a machine, so it never
+  finishes) is renamed, switched to players only, cancelled; strangers are refused, operators may
+  act; suspension is offered exactly where AE2 has it; drive priority, drives of other grids.

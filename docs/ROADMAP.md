@@ -128,7 +128,7 @@ the grid's owner, the members of the owner's FTB Teams party and server operator
 view only (ADR-0017). Patterns are shown, never edited; nothing is ever moved into a player's
 inventory.
 
-- [ ] Crafting CPUs: cancel a job, suspend and resume it (when the installed AE2 supports it, e.g.
+- [x] Crafting CPUs: cancel a job, suspend and resume it (when the installed AE2 supports it, e.g.
   the Star Technology fork), rename the CPU, change its selection mode; drive and ME chest
   priority. GameTests against AE2.
 - [ ] Pattern providers as resources: name with colour codes and voltage tier (filter by tier),
