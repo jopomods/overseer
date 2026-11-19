@@ -682,7 +682,8 @@ paths:
       summary: Watch an item or change its target
       description: |
         Owners (edit rights) only. The item must be in the newest inventory scan (or already
-        watched). At most 50 watched items per resource. Without `target` the item is only watched.
+        watched). At most 50 watched items per resource. Without `target` the item is only watched
+        (and auto-crafting goes off).
       requestBody:
         required: true
         content:
@@ -700,6 +701,13 @@ paths:
                   format: int64
                   minimum: 0
                   description: Minimum stock for the deficit view.
+                restock:
+                  type: boolean
+                  description: |
+                    Let the network craft up to `target` (ADR-0021); absent keeps the current setting.
+                    Switching it on needs `target` and the world action `<provider>.restock` on the
+                    resource (see `/api/v1/actions/allowed`); jobs then run as this player, and stop
+                    while they may no longer act.
       responses:
         "204":
           description: Saved.
@@ -1569,7 +1577,7 @@ components:
 
     Watch:
       type: object
-      required: [item, name, kind, createdAt, change1h, change24h]
+      required: [item, name, kind, createdAt, change1h, change24h, restock]
       properties:
         item:
           type: string
@@ -1594,6 +1602,9 @@ components:
           type: integer
           format: int64
           description: Net change over the last day; basis of the forecast.
+        restock:
+          type: boolean
+          description: Whether the network crafts up to the target (ADR-0021).
 
     Job:
       type: object

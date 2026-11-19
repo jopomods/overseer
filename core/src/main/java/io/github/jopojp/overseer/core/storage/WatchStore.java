@@ -22,15 +22,24 @@ public final class WatchStore implements AutoCloseable {
     public static final int MAX_PER_RESOURCE = 50;
 
     /**
-     * @param item   stack key
-     * @param target minimum stock, {@code null} for "just watch"
+     * @param item      stack key
+     * @param target    minimum stock, {@code null} for "just watch"
+     * @param restockBy who let the network craft up to the target (ADR-0021), {@code null} while off
      */
     public record Watch(ResourceRef resource, String item, String name, String kind, Long target, UUID createdBy,
-            Instant createdAt) {}
+            Instant createdAt, UUID restockBy) {
+        public boolean restock() {
+            return restockBy != null && target != null;
+        }
+    }
+
+    /** A watched item the network crafts up to its target, as whoever switched it on (ADR-0021). */
+    public record Restock(long target, UUID by) {}
 
     private final Connection connection;
     private volatile List<Watch> all;
     private volatile Map<String, Map<String, Set<String>>> keys = Map.of();
+    private volatile Map<String, Map<String, Map<String, Restock>>> restocks = Map.of();
 
     public WatchStore(Connection connection) throws SQLException {
         this.connection = connection;
@@ -46,13 +55,19 @@ public final class WatchStore implements AutoCloseable {
         return keys.getOrDefault(provider, Map.of());
     }
 
-    /** Adds a watch or changes its target. */
+    /** Items to craft up to their target per resource id, then stack key; from memory. Cheap. */
+    public Map<String, Map<String, Restock>> restockByResource(String provider) {
+        return restocks.getOrDefault(provider, Map.of());
+    }
+
+    /** Adds a watch or changes its target. Auto-crafting stays as it was, and goes off without a target. */
     public synchronized void put(ResourceRef ref, String item, String name, String kind, Long target, UUID by,
             Instant now) throws SQLException {
         try (var ps = connection.prepareStatement("INSERT INTO watch"
                 + " (provider, type, rid, item, name, kind, target, created_by, created_wall_ms)"
                 + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (provider, type, rid, item)"
-                + " DO UPDATE SET target = excluded.target, name = excluded.name")) {
+                + " DO UPDATE SET target = excluded.target, name = excluded.name,"
+                + " restock_by = CASE WHEN excluded.target IS NULL THEN NULL ELSE watch.restock_by END")) {
             ps.setString(1, ref.provider());
             ps.setString(2, ref.type());
             ps.setString(3, ref.id());
@@ -65,6 +80,26 @@ public final class WatchStore implements AutoCloseable {
             ps.executeUpdate();
         }
         reload();
+    }
+
+    /**
+     * Switches auto-crafting on (as {@code by}) or off ({@code null}).
+     *
+     * @return whether the item is watched
+     */
+    public synchronized boolean setRestock(ResourceRef ref, String item, UUID by) throws SQLException {
+        int changed;
+        try (var ps = connection.prepareStatement(
+                "UPDATE watch SET restock_by = ? WHERE provider = ? AND type = ? AND rid = ? AND item = ?")) {
+            if (by == null) ps.setNull(1, Types.VARCHAR); else ps.setString(1, by.toString());
+            ps.setString(2, ref.provider());
+            ps.setString(3, ref.type());
+            ps.setString(4, ref.id());
+            ps.setString(5, item);
+            changed = ps.executeUpdate();
+        }
+        reload();
+        return changed > 0;
     }
 
     /** @return whether it was watched */
@@ -85,14 +120,15 @@ public final class WatchStore implements AutoCloseable {
     private void reload() throws SQLException {
         var result = new ArrayList<Watch>();
         try (var st = connection.createStatement(); var rs = st.executeQuery("SELECT provider, type, rid, item, name,"
-                + " kind, target, created_by, created_wall_ms FROM watch ORDER BY created_wall_ms, item")) {
+                + " kind, target, created_by, created_wall_ms, restock_by FROM watch ORDER BY created_wall_ms, item")) {
             while (rs.next()) {
                 long target = rs.getLong(7);
                 Long t = rs.wasNull() ? null : target;
                 String by = rs.getString(8);
+                String restockBy = rs.getString(10);
                 result.add(new Watch(new ResourceRef(rs.getString(1), rs.getString(2), rs.getString(3)), rs.getString(4),
                         rs.getString(5), rs.getString(6), t, by == null ? null : UUID.fromString(by),
-                        Instant.ofEpochMilli(rs.getLong(9))));
+                        Instant.ofEpochMilli(rs.getLong(9)), restockBy == null ? null : UUID.fromString(restockBy)));
             }
         }
         var index = new HashMap<String, Map<String, Set<String>>>();
@@ -104,8 +140,19 @@ public final class WatchStore implements AutoCloseable {
             byId.replaceAll((id, set) -> Set.copyOf(set));
             return Map.copyOf(byId);
         });
+        var restocking = new HashMap<String, Map<String, Map<String, Restock>>>();
+        for (Watch w : result) {
+            if (!w.restock()) continue;
+            restocking.computeIfAbsent(w.resource().provider(), k -> new HashMap<>())
+                    .computeIfAbsent(w.resource().id(), k -> new HashMap<>()).put(w.item(), new Restock(w.target(), w.restockBy()));
+        }
+        restocking.replaceAll((p, byId) -> {
+            byId.replaceAll((id, map) -> Map.copyOf(map));
+            return Map.copyOf(byId);
+        });
         all = List.copyOf(result);
         keys = Map.copyOf(index);
+        restocks = Map.copyOf(restocking);
     }
 
     @Override

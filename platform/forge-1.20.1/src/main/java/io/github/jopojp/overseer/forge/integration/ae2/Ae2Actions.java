@@ -24,6 +24,11 @@ public final class Ae2Actions {
     public static final String BUS_EDIT = "ae2.bus.edit";
     public static final String CRAFT_PLAN = "ae2.craft.plan";
     public static final String CRAFT_START = "ae2.craft.start";
+    /**
+     * Auto-crafting of watched items (ADR-0021). Not run through {@code /api/v1/actions}: it is the
+     * right to switch it on in the watchlist.
+     */
+    public static final String RESTOCK = "ae2.restock";
 
     /** Remote crafting (server setting {@code actions.ae2Crafting}, ADR-0019). */
     public static final Set<String> CRAFT_TYPES = Set.of(CRAFT_PLAN, CRAFT_START);

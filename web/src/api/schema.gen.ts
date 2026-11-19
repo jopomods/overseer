@@ -471,7 +471,8 @@ export interface paths {
         /**
          * Watch an item or change its target
          * @description Owners (edit rights) only. The item must be in the newest inventory scan (or already
-         *     watched). At most 50 watched items per resource. Without `target` the item is only watched.
+         *     watched). At most 50 watched items per resource. Without `target` the item is only watched
+         *     (and auto-crafting goes off).
          */
         post: operations["addWatch"];
         /** Stop watching an item */
@@ -944,6 +945,8 @@ export interface components {
              * @description Net change over the last day; basis of the forecast.
              */
             change24h: number;
+            /** @description Whether the network crafts up to the target (ADR-0021). */
+            restock: boolean;
         };
         Job: {
             resource: string;
@@ -1953,6 +1956,13 @@ export interface operations {
                      * @description Minimum stock for the deficit view.
                      */
                     target?: number;
+                    /**
+                     * @description Let the network craft up to `target` (ADR-0021); absent keeps the current setting.
+                     *     Switching it on needs `target` and the world action `<provider>.restock` on the
+                     *     resource (see `/api/v1/actions/allowed`); jobs then run as this player, and stop
+                     *     while they may no longer act.
+                     */
+                    restock?: boolean;
                 };
             };
         };

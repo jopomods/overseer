@@ -36,7 +36,8 @@ public final class Integrations {
                 () -> registrations("ae2"), () -> watches("ae2"))
                 .placerAccess(io.github.jopojp.overseer.forge.OverseerConfig::ae2PlacerAccess)
                 .remoteCrafting(io.github.jopojp.overseer.forge.OverseerConfig::ae2Crafting)
-                .flow(io.github.jopojp.overseer.forge.OverseerConfig::ae2Flow));
+                .flow(io.github.jopojp.overseer.forge.OverseerConfig::ae2Flow)
+                .restock(io.github.jopojp.overseer.forge.OverseerConfig::ae2Restock, () -> restocks("ae2")));
         return providers;
     }
 
@@ -51,6 +52,11 @@ public final class Integrations {
     /** Watched stack keys per resource id; empty while Overseer is not running. */
     private static Map<String, java.util.Set<String>> watches(String provider) {
         return ServerLifecycle.runtime().map(r -> r.watches().keysByResource(provider)).orElse(Map.of());
+    }
+
+    /** Watched items to craft up to their target per resource id (ADR-0021); empty while Overseer is not running. */
+    private static Map<String, Map<String, io.github.jopojp.overseer.core.storage.WatchStore.Restock>> restocks(String provider) {
+        return ServerLifecycle.runtime().map(r -> r.watches().restockByResource(provider)).orElse(Map.of());
     }
 
     private static void optional(List<DataProvider> providers, String modId, Supplier<DataProvider> factory) {

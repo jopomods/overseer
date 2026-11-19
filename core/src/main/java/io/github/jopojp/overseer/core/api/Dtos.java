@@ -51,9 +51,9 @@ public final class Dtos {
 
     /** A watched item with its net change over the last hour and day (for the forecast). */
     public record Watch(String item, String name, String kind, Long target, Instant createdAt, long change1h,
-            long change24h) {}
+            long change24h, boolean restock) {}
 
-    public record AddWatch(String resource, String item, Long target) {}
+    public record AddWatch(String resource, String item, Long target, Boolean restock) {}
 
     public record JobLine(String key, String kind, String name, long stored, long active, long pending) {}
 

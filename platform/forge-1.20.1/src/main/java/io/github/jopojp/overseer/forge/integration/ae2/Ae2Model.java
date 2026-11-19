@@ -174,6 +174,16 @@ public final class Ae2Model {
     public record Offline(String id, String item, String name) {}
 
     /**
+     * What auto-crafting of a watched item is doing (ADR-0021).
+     *
+     * @param key   stack key
+     * @param state {@code ok}, {@code planning}, {@code crafting}, {@code missing}, {@code no_pattern},
+     *              {@code no_cpu}, {@code denied} or {@code unavailable}
+     * @param since when it changed to this state
+     */
+    public record RestockState(String key, String state, java.time.Instant since) {}
+
+    /**
      * A crafting job.
      *
      * @param key         stack key of the requested output (see {@code Stack})

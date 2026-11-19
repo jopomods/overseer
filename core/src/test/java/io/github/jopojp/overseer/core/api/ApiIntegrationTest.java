@@ -595,6 +595,67 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void autoCraftingNeedsATargetAndTheRestockAction() throws Exception {
+        var iron = "item:minecraft:iron_ingot";
+        flux.inventory(ALEX_NET, List.of(new Stack(iron, "item", "Iron Ingot", 100)));
+        flux.actions(new ActionHandler() {
+            @Override
+            public Set<String> types() {
+                return Set.of("flux.restock");
+            }
+
+            @Override
+            public boolean canPerform(UUID player, ResourceRef target, String type) {
+                return player.equals(ALEX.uuid()) && target.equals(ALEX_NET);
+            }
+
+            @Override
+            public ActionResult perform(Actor actor, ActionRequest request) {
+                return ActionResult.error(ActionResult.Status.INVALID, "Switch it on in the watchlist.");
+            }
+        });
+        restart();
+        operators.add(STEVE.uuid()); // edit rights for the watchlist
+        var json = Map.of("Content-Type", "application/json");
+        var steve = new Browser().loginAs(STEVE);
+        var alex = new Browser().loginAs(ALEX);
+        String on = "{\"resource\":\"flux/network/1\",\"item\":\"" + iron + "\",\"target\":500,\"restock\":true}";
+        assertEquals(204, steve.send("POST", "/api/v1/watches",
+                "{\"resource\":\"flux/network/1\",\"item\":\"" + iron + "\",\"target\":500}", json).statusCode());
+        operators.remove(STEVE.uuid());
+        operators.add(ALEX.uuid()); // edit rights for the watchlist
+        assertEquals(400, alex.send("POST", "/api/v1/watches",
+                "{\"resource\":\"flux/network/1\",\"item\":\"" + iron + "\",\"restock\":true}", json).statusCode(),
+                "no target");
+        assertEquals(204, alex.send("POST", "/api/v1/watches", on, json).statusCode());
+        var restocks = runtime.watches().restockByResource("flux").get("1");
+        assertEquals(new io.github.jopojp.overseer.core.storage.WatchStore.Restock(500, ALEX.uuid()), restocks.get(iron));
+        var list = JsonParser.parseString(alex.get("/api/v1/watches?resource=flux/network/1").body()).getAsJsonArray();
+        assertTrue(list.get(0).getAsJsonObject().get("restock").getAsBoolean());
+
+        assertEquals(204, alex.send("POST", "/api/v1/watches",
+                "{\"resource\":\"flux/network/1\",\"item\":\"" + iron + "\",\"target\":800}", json).statusCode());
+        assertEquals(800, runtime.watches().restockByResource("flux").get("1").get(iron).target(), "kept with a new target");
+        assertEquals(204, alex.send("POST", "/api/v1/watches",
+                "{\"resource\":\"flux/network/1\",\"item\":\"" + iron + "\"}", json).statusCode());
+        assertTrue(runtime.watches().restockByResource("flux").isEmpty(), "off without a target");
+        list = JsonParser.parseString(alex.get("/api/v1/watches?resource=flux/network/1").body()).getAsJsonArray();
+        assertFalse(list.get(0).getAsJsonObject().get("restock").getAsBoolean());
+    }
+
+    @Test
+    void strangersCannotSwitchOnAutoCrafting() throws Exception {
+        var iron = "item:minecraft:iron_ingot";
+        flux.inventory(ALEX_NET, List.of(new Stack(iron, "item", "Iron Ingot", 100)));
+        collect();
+        operators.add(ALEX.uuid()); // edit rights, but flux has no restock action here
+        var alex = new Browser().loginAs(ALEX);
+        assertEquals(403, alex.send("POST", "/api/v1/watches", "{\"resource\":\"flux/network/1\",\"item\":\"" + iron
+                + "\",\"target\":5,\"restock\":true}", Map.of("Content-Type", "application/json")).statusCode());
+        assertTrue(runtime.watches().list(ALEX_NET).isEmpty(), "nothing saved");
+    }
+
+    @Test
     void iconsNeedALoginAndAreCached() throws Exception {
         var png = io.github.jopojp.overseer.core.storage.IconStoreTest.png(7);
         runtime.icons().putAll(Map.of("item:minecraft:iron_ingot", png), null, java.time.Instant.EPOCH);
@@ -746,7 +807,11 @@ class ApiIntegrationTest {
                         params.get("name").getAsString())));
             }
         });
-        // Providers are read at start.
+        restart();
+    }
+
+    /** Providers and their action handlers are read at start. */
+    private void restart() throws Exception {
         runtime.close();
         var config = new OverseerRuntime.Config(dir, HttpConfig.DEFAULTS.withPort(0), StorageSettings.DEFAULTS,
                 Duration.ofDays(30), 64, "0.0.0-test", "test-web");
