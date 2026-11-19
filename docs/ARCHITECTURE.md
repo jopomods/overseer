@@ -34,7 +34,7 @@ overseer/
 │   ├── icons/               icon network channel (optional on both sides), mod jar texture fallback
 │   ├── client/              client-only: /ovicons export renders item and fluid icons
 │   ├── mixin/               completes Forge 1.20.1's block entity timer (ADR-0014); mixin/ae2: pattern
-│   │                        provider icons in AE2's terminal, only with AE2 (ADR-0018, compat/ plugin)
+│   │                        provider icons and flow counting, only with AE2 (ADR-0018, ADR-0020, compat/ plugin)
 │   └── src/gametest/        Forge GameTests (own source set, not shipped)
 ├── web/                     Vite + React + shadcn/ui, built into the jar at /overseer-web
 │   ├── src/api/             generated schema, typed client, query hooks, SSE live updates
