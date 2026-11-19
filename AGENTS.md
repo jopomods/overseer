@@ -18,7 +18,7 @@ see what the mods' own permission rules let them see.
 | Path | What | Rules |
 |---|---|---|
 | `core/` | Plain Java 17: provider contract, data model, storage, web server, auth, permissions | **No Minecraft, Forge or mod imports. Ever.** Testable without a game. |
-| `platform/forge-1.20.1/` | Forge 1.20.1 mod: entry point, tick collector, commands, mod adapters | Only place that touches Minecraft or mod APIs. Keep adapters thin. Mixins only to fix what Forge or Minecraft get wrong, each with an ADR (ADR-0014). |
+| `platform/forge-1.20.1/` | Forge 1.20.1 mod: entry point, tick collector, commands, mod adapters | Only place that touches Minecraft or mod APIs. Keep adapters thin. Mixins only to fix what Forge or Minecraft get wrong (ADR-0014) or where an optional mod offers no hook (server side, own config applied only with the mod, fail soft; ADR-0018), each with an ADR. |
 | `web/` | Vite + React + TypeScript + shadcn/ui dashboard | Built into the jar under `/overseer-web`. |
 | `api/openapi.yaml` | HTTP API contract | Change this first; regenerate the TS client. |
 | `docs/` | Architecture, ADRs, glossary, roadmap, guides | Updated in the same PR as the code. |
