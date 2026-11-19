@@ -101,6 +101,15 @@ test('no horizontal overflow with a crafting plan open', async ({ page }) => {
   await expectNoHorizontalOverflow(page)
 })
 
+test('no horizontal overflow with auto-crafting states on the watchlist', async ({ page }) => {
+  await mockApi(page, { realistic: true })
+  await page.goto('/ae2/minecraft:overworld@120,64,-340')
+  const circuit = page.getByTestId('watchlist').getByRole('listitem').filter({ hasText: 'Good Electronic Circuit' })
+  await circuit.getByRole('button', { name: 'Auto-craft to target' }).click()
+  await expect(circuit.getByTestId('restock')).toContainText('planning a job')
+  await expectNoHorizontalOverflow(page)
+})
+
 test('no horizontal overflow with the flow open', async ({ page }) => {
   // Extreme data: 300 devices, long names, huge numbers; the Sankey on wide screens.
   await mockApi(page)

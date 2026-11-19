@@ -1,4 +1,4 @@
-import { ChevronDown, Hammer, Star, X } from 'lucide-react'
+import { ChevronDown, Hammer, Repeat, Star, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useRemoveWatch, useSetWatch, useWatches, type Resource, type Watch } from '@/api/hooks'
 import { useCraft } from '@/components/craft'
@@ -11,21 +11,35 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
-import { forecast, formatBuckets, isInfinite, type Forecast } from '@/lib/ae2'
+import { forecast, formatBuckets, isInfinite, RESTOCK_PROBLEMS, type Forecast, type RestockState } from '@/lib/ae2'
 import { formatDuration, formatSi } from '@/lib/format'
-import { useT, type Translate } from '@/lib/i18n'
+import { useT, type MessageKey, type Translate } from '@/lib/i18n'
 import { usePreferences, type Locale } from '@/lib/preferences'
 import { metric } from '@/lib/snapshot'
+import { useNow } from '@/lib/use-now'
 import { cn } from '@/lib/utils'
 
 /** A forecast further out than this is no forecast. */
 const HORIZON_HOURS = 24 * 14
 
+type Restocks = Map<string, { state: RestockState; since: string }>
+
 /**
  * Watched items of an ME network: live amount (every second), target, deficit and a forecast
  * from the net changes. Owners set targets; everyone who sees the network sees the list.
+ * Who may craft here can let the network craft an item up to its target (ADR-0021).
  */
-export function WatchlistSection({ grid, canEdit }: { grid: Resource; canEdit: boolean }) {
+export function WatchlistSection({
+  grid,
+  canEdit,
+  canRestock = false,
+  restocks = new Map(),
+}: {
+  grid: Resource
+  canEdit: boolean
+  canRestock?: boolean
+  restocks?: Restocks
+}) {
   const t = useT()
   const key = grid.ref.key
   const watches = useWatches(key)
@@ -51,7 +65,7 @@ export function WatchlistSection({ grid, canEdit }: { grid: Resource; canEdit: b
           {[...list]
             .sort((a, b) => urgency(grid, b) - urgency(grid, a) || plainText(a.name).localeCompare(plainText(b.name)))
             .map((w) => (
-              <WatchCard key={w.item} grid={grid} watch={w} canEdit={canEdit} />
+              <WatchCard key={w.item} grid={grid} watch={w} canEdit={canEdit} canRestock={canRestock} restock={restocks.get(w.item)} />
             ))}
         </ul>
       )}
@@ -72,7 +86,19 @@ function urgency(grid: Resource, w: Watch) {
   return 0
 }
 
-function WatchCard({ grid, watch, canEdit }: { grid: Resource; watch: Watch; canEdit: boolean }) {
+function WatchCard({
+  grid,
+  watch,
+  canEdit,
+  canRestock,
+  restock,
+}: {
+  grid: Resource
+  watch: Watch
+  canEdit: boolean
+  canRestock: boolean
+  restock?: { state: RestockState; since: string }
+}) {
   const t = useT()
   const { locale } = usePreferences()
   const [open, setOpen] = useState(false)
@@ -132,7 +158,10 @@ function WatchCard({ grid, watch, canEdit }: { grid: Resource; watch: Watch; can
             </span>
             <span className="text-muted-foreground tabular">{forecastText(f, t, locale)}</span>
           </div>
-          {f.deficit > 0 && <CraftDeficit watch={watch} deficit={f.deficit} />}
+          {watch.target != null && (watch.restock || (canEdit && canRestock)) && (
+            <RestockToggle grid={grid.ref.key} watch={watch} canEdit={canEdit} canRestock={canRestock} state={restock} />
+          )}
+          {f.deficit > 0 && !watch.restock && <CraftDeficit watch={watch} deficit={f.deficit} />}
           <button
             type="button"
             className="text-muted-foreground hover:text-foreground flex items-center gap-1 self-start text-xs"
@@ -224,6 +253,52 @@ export function WatchToggle({ grid, item, watched, name }: { grid: string; item:
     >
       <Star className={cn(watched ? 'text-warning fill-current' : 'text-muted-foreground')} />
     </Button>
+  )
+}
+
+/** Auto-crafting switch and what it is doing (ADR-0021). Off needs edit rights, on also the right to craft. */
+function RestockToggle({
+  grid,
+  watch,
+  canEdit,
+  canRestock,
+  state,
+}: {
+  grid: string
+  watch: Watch
+  canEdit: boolean
+  canRestock: boolean
+  state?: { state: RestockState; since: string }
+}) {
+  const t = useT()
+  const { locale } = usePreferences()
+  const set = useSetWatch(grid)
+  const on = watch.restock
+  const allowed = on ? canEdit : canEdit && canRestock
+  const problem = on && state !== undefined && RESTOCK_PROBLEMS.has(state.state)
+  const now = useNow(30_000)
+  const since = state?.since ? now - Date.parse(state.since) : NaN
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs" data-testid="restock">
+      <Button
+        size="sm"
+        variant={on ? 'secondary' : 'outline'}
+        className="h-7 px-2 text-xs"
+        aria-pressed={on}
+        disabled={!allowed || set.isPending}
+        onClick={() => set.mutate({ item: watch.item, target: watch.target, restock: !on })}
+      >
+        <Repeat /> {t('restock.toggle')}
+      </Button>
+      {on && (
+        <span
+          className={cn('min-w-0', problem ? 'text-destructive font-medium' : 'text-muted-foreground')}
+          title={Number.isFinite(since) ? t('restock.since', { time: formatDuration(Math.max(0, since), locale) }) : undefined}
+        >
+          {state ? t(`restock.state.${state.state}` as MessageKey) : t('restock.waiting')}
+        </span>
+      )}
+    </div>
   )
 }
 
