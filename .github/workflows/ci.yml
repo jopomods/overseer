@@ -46,7 +46,7 @@ jobs:
       gt_teams: ${{ steps.decide.outputs.gt_teams }}
       gt_ae2_teams: ${{ steps.decide.outputs.gt_ae2_teams }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -103,28 +103,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Skip when exactly these inputs already passed (ADR-0015). A pass is remembered as an
       # empty cache entry; runs can read their own branch's and main's entries.
       - name: Already passed with these inputs?
         id: passed
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ci-passed
           key: passed-build-${{ env.PASS_CACHE }}-${{ needs.changes.outputs.all == 'true' || needs.changes.outputs.build_web == 'true' }}-${{ hashFiles('.github/**', 'core/**', 'platform/**', 'api/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', 'version.txt', 'fixtures/**', 'web/**') }}
           lookup-only: true
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         if: steps.passed.outputs.cache-hit != 'true'
         with:
           distribution: temurin
           java-version: "17"
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: steps.passed.outputs.cache-hit != 'true'
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         if: steps.passed.outputs.cache-hit != 'true'
 
       # core + platform unit tests, mod jar; with the web UI embedded when web may have changed,
@@ -140,7 +140,7 @@ jobs:
 
       - name: Upload mod jar
         if: steps.passed.outputs.cache-hit != 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: overseer-jar
           path: platform/*/build/libs/*.jar
@@ -149,7 +149,7 @@ jobs:
       - name: Remember the pass
         if: steps.passed.outputs.cache-hit != 'true'
         run: mkdir -p "$GITHUB_WORKSPACE/.ci-passed" && echo "${{ github.sha }}" > "$GITHUB_WORKSPACE/.ci-passed/sha"
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: steps.passed.outputs.cache-hit != 'true'
         with:
           path: .ci-passed
@@ -167,22 +167,22 @@ jobs:
       matrix:
         suite: ${{ fromJSON(needs.changes.outputs.suites) }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Skip when exactly these inputs already passed (ADR-0015). A pass is remembered as an
       # empty cache entry; runs can read their own branch's and main's entries.
       - name: Already passed with these inputs?
         id: passed
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ci-passed
           key: passed-gametest-${{ env.PASS_CACHE }}-${{ matrix.suite }}-${{ hashFiles('.github/**', 'core/**', 'platform/**', 'api/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', 'version.txt', 'fixtures/**') }}
           lookup-only: true
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         if: steps.passed.outputs.cache-hit != 'true'
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         if: steps.passed.outputs.cache-hit != 'true'
         with:
           cache-read-only: true
@@ -195,7 +195,7 @@ jobs:
       - name: Remember the pass
         if: steps.passed.outputs.cache-hit != 'true'
         run: mkdir -p "$GITHUB_WORKSPACE/.ci-passed" && echo "${{ github.sha }}" > "$GITHUB_WORKSPACE/.ci-passed/sha"
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: steps.passed.outputs.cache-hit != 'true'
         with:
           path: .ci-passed
@@ -221,17 +221,17 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Skip when exactly these inputs already passed (ADR-0015). A pass is remembered as an
       # empty cache entry; runs can read their own branch's and main's entries.
       - name: Already passed with these inputs?
         id: passed
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ci-passed
           key: passed-web-${{ env.PASS_CACHE }}-${{ matrix.shard }}-${{ hashFiles('.github/**', 'web/**', 'api/openapi.yaml', 'fixtures/recordings/**') }}
           lookup-only: true
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: steps.passed.outputs.cache-hit != 'true'
         with:
           node-version: "24"
@@ -271,7 +271,7 @@ jobs:
 
       - name: Upload Playwright report
         if: steps.passed.outputs.cache-hit != 'true' && (failure())
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-${{ matrix.shard }}
           path: web/playwright-report
@@ -280,7 +280,7 @@ jobs:
       - name: Remember the pass
         if: steps.passed.outputs.cache-hit != 'true'
         run: mkdir -p "$GITHUB_WORKSPACE/.ci-passed" && echo "${{ github.sha }}" > "$GITHUB_WORKSPACE/.ci-passed/sha"
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: steps.passed.outputs.cache-hit != 'true'
         with:
           path: .ci-passed
@@ -293,7 +293,7 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-      - uses: amannn/action-semantic-pull-request@e32d7e603df1aa1ba07e981f2a23455dee596825 # v5
+      - uses: amannn/action-semantic-pull-request@2252a14e810aa9b85c2d560bd7070c802206ecf6 # v6.1.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
