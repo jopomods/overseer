@@ -176,7 +176,7 @@ See where items go: every storage of a network by priority with what it accepts.
 - [x] Cell partitions (keys, inverter, fuzzy) on drives; storage buses as resources with priority,
   partition, access and what they mount
 - [x] Edit storage buses: name, priority, partition, access, extractable only
-- [ ] UI: storages ordered by priority, partitions, "where does this item go?", storage bus editor
+- [x] UI: storages ordered by priority, partitions, "where does this item go?", storage bus editor
 
 ## M3: GregTech CEu (GTCEu)
 

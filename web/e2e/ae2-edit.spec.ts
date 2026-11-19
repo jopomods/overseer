@@ -291,4 +291,38 @@ test.describe('ae2 actions', () => {
     await expect(circuit.getByTestId('restock')).toContainText('planning a job')
     await expect(circuit.getByRole('button', { name: 'Craft the missing amount' })).toHaveCount(0)
   })
+
+  test('storage order: by priority, where an item goes, edit a storage bus', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto(GRID)
+    const cards = page.getByTestId('storage-order').locator(':scope > li')
+    await expect(cards).toHaveCount(6)
+    await expect(cards.first()).toContainText('Cobble overflow')
+    await expect(cards.nth(1)).toContainText('Iron Ingot')
+
+    await page.getByLabel('Where does an item go?').fill('iron ingot')
+    await page.getByTestId('storage-matches').getByRole('button', { name: 'Iron Ingot' }).click()
+    await expect(page.getByTestId('storage-answer')).toContainText('Iron Ingot goes to the highlighted storage first (1)')
+    await expect(cards.nth(1).locator('[data-mark=first]')).toHaveCount(1)
+    await expect(cards.first().locator('[data-mark=refuses]')).toHaveCount(1)
+
+    const barrel = cards.filter({ hasText: 'Barrel' })
+    await expect(barrel).toContainText('read only')
+    await barrel.getByRole('button', { name: 'Edit storage bus' }).click()
+    const editor = barrel.getByTestId('storage-bus-editor')
+    await editor.getByLabel('Priority').fill('50')
+    await editor.getByLabel('Add an item from the network').fill('iron ingot')
+    await editor.getByTestId('bus-filter-matches').getByRole('button', { name: 'Iron Ingot' }).click()
+    await editor.getByLabel('Access').selectOption('read_write')
+    const request = page.waitForRequest((r) => r.url().endsWith('/api/v1/actions') && r.method() === 'POST')
+    await editor.getByRole('button', { name: 'Save' }).click()
+    expect((await request).postDataJSON().params).toEqual({
+      bus: 'minecraft:overworld@112,66,-338/up',
+      priority: 50,
+      filter: ['item:minecraft:iron_ingot'],
+      access: 'read_write',
+    })
+    await expect(cards.first()).toContainText('Barrel')
+    await expect(cards.first()).toContainText('read and write')
+  })
 })

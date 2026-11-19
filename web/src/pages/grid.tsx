@@ -31,6 +31,8 @@ import { HistoryChart } from '@/components/history-chart'
 import { InventorySection } from '@/components/inventory-list'
 import { WatchlistSection } from '@/components/watchlist'
 import { P2pSection } from '@/components/p2p-tunnels'
+import { StorageOrderSection } from '@/components/storage-order'
+import { storageBuses } from '@/lib/storage'
 import { tunnelsOf } from '@/lib/p2p'
 import { LiveBadge } from '@/components/live-badge'
 import { useSession } from '@/components/session'
@@ -164,6 +166,13 @@ export function GridPage() {
         </Section>
 
         <DrivesSection drives={drives(snapshot.data, grid.id)} grid={key} editable={allowed.has(AE2_ACTIONS.driveEdit)} />
+
+        <StorageOrderSection
+          grid={key}
+          drives={drives(snapshot.data, grid.id)}
+          buses={storageBuses(snapshot.data, grid.id)}
+          editable={allowed.has(AE2_ACTIONS.storageBusEdit)}
+        />
 
         <PatternProvidersSection
           grid={key}

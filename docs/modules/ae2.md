@@ -226,6 +226,11 @@ Every storage bus is a resource `ae2/storage_bus/<dimension>@x,y,z/<side>`, visi
 | `extractableOnly` | Shows only what can be extracted (AE2's default) |
 | `active` | Power and channel |
 
+The grid page lists drives and storage buses by priority with their partitions. "Where does an
+item go?" picks an item of the network and marks the storages of the highest priority that accept
+it (an open or matching partition, a cell that is not full, write access); which of them AE2
+takes at equal priority depends on what they already hold. Storage buses can be edited there.
+
 ## Import and export buses
 
 Every import and export bus (anything extending AE2's `IOBusPart`, so add-on buses too) is a
