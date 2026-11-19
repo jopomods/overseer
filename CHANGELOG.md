@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.8.0](https://github.com/jopomods/overseer/compare/v0.7.0...v0.8.0) (2026-11-19)
+
+
+### Features
+
+* **ae2:** craft watched items up to their target automatically ([#94](https://github.com/jopomods/overseer/issues/94)) ([3d0840d](https://github.com/jopomods/overseer/commit/3d0840d3a9d0f921dfd54a86f467179219059d2d))
+* **ae2:** edit import and export buses from the dashboard ([#93](https://github.com/jopomods/overseer/issues/93)) ([8859e88](https://github.com/jopomods/overseer/commit/8859e8818e764d514b6f8903af33e92a1222af39))
+* **ae2:** import and export buses on the ME network page ([#90](https://github.com/jopomods/overseer/issues/90)) ([417be7e](https://github.com/jopomods/overseer/commit/417be7e13dfcea56b0c24804a5c83174f15e45da))
+* **ae2:** list the P2P tunnels of every ME network ([#96](https://github.com/jopomods/overseer/issues/96)) ([4073568](https://github.com/jopomods/overseer/commit/407356821712e8a905cb58e0c165266a34e39c8d))
+* **ae2:** measure what every device moves into and out of ME networks ([#91](https://github.com/jopomods/overseer/issues/91)) ([f5456c8](https://github.com/jopomods/overseer/commit/f5456c86ac273660fd119378466d9fdcbc5f0106))
+* **ae2:** operate crafting CPUs and drives from the dashboard ([#84](https://github.com/jopomods/overseer/issues/84)) ([d1f2286](https://github.com/jopomods/overseer/commit/d1f228697546924b3caf14c9d6ca3a284afd8f7a))
+* **ae2:** pattern providers with patterns, settings and in-game icons ([#86](https://github.com/jopomods/overseer/issues/86)) ([3c0e1ba](https://github.com/jopomods/overseer/commit/3c0e1badb85b448fb443af8ccc265c9532123791))
+* **ae2:** plan and start crafting jobs from the dashboard ([#87](https://github.com/jopomods/overseer/issues/87)) ([8d60039](https://github.com/jopomods/overseer/commit/8d60039b908a03a44869b6d3df8c947ead6e4053))
+* **ae2:** read storage buses and cell partitions, edit storage buses ([#98](https://github.com/jopomods/overseer/issues/98)) ([ce2be9f](https://github.com/jopomods/overseer/commit/ce2be9f0708ec03a5bd24f35f0aa10bb53152d24))
+* **ae2:** show stuck crafting jobs and devices without a channel ([#89](https://github.com/jopomods/overseer/issues/89)) ([0011a31](https://github.com/jopomods/overseer/commit/0011a313e755649de35b903e31fb1e2a3bfbe412))
+* **core:** job statistics of crafting CPUs from their recorded events ([#100](https://github.com/jopomods/overseer/issues/100)) ([efba988](https://github.com/jopomods/overseer/commit/efba988e7c9b25d2d53de9420be3a9d5322ca28b))
+* **core:** search an item in every inventory one may see ([#102](https://github.com/jopomods/overseer/issues/102)) ([857430a](https://github.com/jopomods/overseer/commit/857430aaeda29a9b7104e7018e768de9df89c235))
+* **web:** crafting statistics on the network page ([#101](https://github.com/jopomods/overseer/issues/101)) ([434fe48](https://github.com/jopomods/overseer/commit/434fe482fbd315d7686f3827a501529dd3b93654))
+* **web:** find an item in every ME network from the networks page ([#103](https://github.com/jopomods/overseer/issues/103)) ([be9cc6b](https://github.com/jopomods/overseer/commit/be9cc6bb0f14b4e8a68167c42221d76f754b8c8d))
+* **web:** P2P tunnels of a network grouped into links, problems first ([#97](https://github.com/jopomods/overseer/issues/97)) ([ccd5715](https://github.com/jopomods/overseer/commit/ccd57158e5ed00a94bef3b47d8b93abc9dc6c530))
+* **web:** plan and start AE2 crafting jobs from the ME network page ([#88](https://github.com/jopomods/overseer/issues/88)) ([ac42a4e](https://github.com/jopomods/overseer/commit/ac42a4e0ce1a5a1079e7343dd6ead659ee9682c5))
+* **web:** see what flows into and out of ME networks ([#92](https://github.com/jopomods/overseer/issues/92)) ([d1fad14](https://github.com/jopomods/overseer/commit/d1fad147140252e99913720b3197190b6a13f7f1))
+* **web:** storage order of a network with where an item goes and a storage bus editor ([#99](https://github.com/jopomods/overseer/issues/99)) ([e00765f](https://github.com/jopomods/overseer/commit/e00765f231278c148cb1b7ff795522036cdd0aa7))
+* **web:** switch on auto-crafting on the watch card and show what it does ([#95](https://github.com/jopomods/overseer/issues/95)) ([716ad7e](https://github.com/jopomods/overseer/commit/716ad7e7881138e6e86fb665729556f51e2c4d88))
+
 ## [0.7.0](https://github.com/jopomods/overseer/compare/v0.6.0...v0.7.0) (2026-11-18)
 
 
