@@ -194,7 +194,7 @@ final class Ae2Crafting {
      * The player as AE2 sees them: online, or a stand-in with their profile while offline, so
      * player-only CPUs take the job and AE2 knows who asked.
      */
-    private static IActionSource source(Actor actor, Level level) {
+    static IActionSource source(Actor actor, Level level) {
         if (level instanceof ServerLevel server) {
             ServerPlayer online = server.getServer().getPlayerList().getPlayer(actor.player());
             if (online != null) return IActionSource.ofPlayer(online);

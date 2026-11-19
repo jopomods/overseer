@@ -21,6 +21,7 @@ public final class OverseerConfig {
     static final ForgeConfigSpec.ConfigValue<String> PUBLIC_URL;
     static final ForgeConfigSpec.BooleanValue AE2_PLACER_ACCESS;
     static final ForgeConfigSpec.BooleanValue AE2_CRAFTING;
+    static final ForgeConfigSpec.BooleanValue AE2_RESTOCK;
     static final ForgeConfigSpec.BooleanValue AE2_FLOW;
     static final ForgeConfigSpec.EnumValue<EnergyTiers> ENERGY_TIERS;
 
@@ -68,6 +69,10 @@ public final class OverseerConfig {
                         "AE2: owners of an ME network (and their FTB Teams party) may plan and start crafting jobs",
                         "from the dashboard, like from a terminal anywhere. Results go into the network.")
                 .define("ae2Crafting", true);
+        AE2_RESTOCK = builder.comment(
+                        "AE2: owners may let their network craft a watched item whenever its stock falls below the",
+                        "target (ADR-0021). Jobs run as the player who switched it on. Needs ae2Crafting.")
+                .define("ae2Restock", true);
         builder.pop();
         builder.comment("Applied Energistics 2").push("ae2");
         AE2_FLOW = builder.comment(
@@ -99,6 +104,11 @@ public final class OverseerConfig {
     /** Read on every request, so a change applies without a restart. */
     public static boolean ae2Crafting() {
         return !SPEC.isLoaded() || AE2_CRAFTING.get();
+    }
+
+    /** Read every collection and request, so a change applies without a restart. */
+    public static boolean ae2Restock() {
+        return !SPEC.isLoaded() || AE2_RESTOCK.get();
     }
 
     /** Read every collection, so a change applies without a restart. */

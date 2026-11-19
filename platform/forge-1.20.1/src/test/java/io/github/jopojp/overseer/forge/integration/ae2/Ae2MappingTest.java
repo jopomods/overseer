@@ -337,4 +337,18 @@ class Ae2MappingTest {
         assertEquals(java.util.Set.of(Ae2Mapping.grid(g.id())), snapshot.flows().keySet());
         assertEquals(16, snapshot.flows().get(Ae2Mapping.grid(g.id())).get(0).inserted());
     }
+
+    @Test
+    void restockStatesAreRowsOfTheGridSortedByKey() {
+        Grid g = grid(OWNER, 10);
+        var since = java.time.Instant.parse("2026-01-02T03:04:05Z");
+        var snapshot = Ae2Mapping.snapshot(AT, List.of(g), java.util.Map.of(), java.util.Map.of(), java.util.Map.of(g.id(), List.of(
+                new Ae2Model.RestockState("item:minecraft:iron_ingot", "missing", since),
+                new Ae2Model.RestockState("item:minecraft:diamond", "crafting", since))));
+        var rows = snapshot.details().get(Ae2Mapping.grid(g.id())).stream().filter(r -> "restock".equals(r.get("row"))).toList();
+        assertEquals(2, rows.size());
+        assertEquals("item:minecraft:diamond", rows.get(0).get("key"));
+        assertEquals("crafting", rows.get(0).get("state"));
+        assertEquals("2026-01-02T03:04:05Z", rows.get(1).get("since"));
+    }
 }

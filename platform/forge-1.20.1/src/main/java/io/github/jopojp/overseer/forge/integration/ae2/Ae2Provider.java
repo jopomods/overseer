@@ -32,15 +32,19 @@ public final class Ae2Provider implements DataProvider {
             Ae2Mapping.ALL_METRICS, 20, TimeUnit.MILLISECONDS.toNanos(2));
 
     private final MinecraftServer server;
+    private final Ae2Writer.Context context;
     private final Teams teams;
     private final Supplier<Map<String, UUID>> registrations;
     private final Supplier<Map<String, Set<String>>> watches;
+    private Supplier<Map<String, Map<String, io.github.jopojp.overseer.core.storage.WatchStore.Restock>>> restockTargets = Map::of;
+    private java.util.function.BooleanSupplier restock = () -> true;
     private java.util.function.BooleanSupplier placerAccess = () -> false;
     private java.util.function.BooleanSupplier remoteCrafting = () -> true;
     private java.util.function.BooleanSupplier flow = () -> true;
     private volatile Ae2Mapping.AccessIndex access = Ae2Mapping.AccessIndex.EMPTY;
     private final Ae2Reader.StackCache stacks = new Ae2Reader.StackCache();
     private final Ae2Crafting crafting = new Ae2Crafting(stacks, System::nanoTime);
+    private final Ae2Restocker restocker = new Ae2Restocker(stacks, System::nanoTime);
     /** Placers per grid id, refreshed with every inventory scan (10 s); walking all nodes costs. */
     private final Map<String, Set<UUID>> placers = new java.util.HashMap<>();
     private long collections;
@@ -68,6 +72,7 @@ public final class Ae2Provider implements DataProvider {
         this.teams = teams;
         this.registrations = registrations;
         this.watches = watches;
+        this.context = new Ae2Writer.Context(server, registrations, teams);
     }
 
     /** Full inventory scan every 10th collection: every 10 s (ADR-0011). */
@@ -83,6 +88,23 @@ public final class Ae2Provider implements DataProvider {
     public Ae2Provider flow(java.util.function.BooleanSupplier enabled) {
         this.flow = enabled;
         return this;
+    }
+
+    /**
+     * Auto-crafting of watched items (ADR-0021; server setting {@code actions.ae2Restock}, only with
+     * remote crafting on).
+     *
+     * @param targets items to keep in stock per grid id, then stack key; read every collection, must be cheap
+     */
+    public Ae2Provider restock(java.util.function.BooleanSupplier enabled,
+            Supplier<Map<String, Map<String, io.github.jopojp.overseer.core.storage.WatchStore.Restock>>> targets) {
+        this.restock = enabled;
+        this.restockTargets = targets;
+        return this;
+    }
+
+    private boolean restocking() {
+        return restock.getAsBoolean() && remoteCrafting.getAsBoolean();
     }
 
     /** Players may plan and start crafting jobs from the dashboard (server setting {@code actions.ae2Crafting}). */
@@ -108,7 +130,8 @@ public final class Ae2Provider implements DataProvider {
         Map<String, List<io.github.jopojp.overseer.core.provider.Flow>> moved = flows ? flows(storages) : Map.of();
         grids = withCachedPatterns(grids);
         access = Ae2Mapping.AccessIndex.of(grids, teams::teammates, placerAccess.getAsBoolean());
-        return Ae2Mapping.snapshot(at, grids, stalls.update(grids, at), moved);
+        restocker.tick(context, restocking() ? restockTargets.get() : Map.of(), at.wall());
+        return Ae2Mapping.snapshot(at, grids, stalls.update(grids, at), moved, restocker.states());
     }
 
     /** What was recorded since the last collection, per identified grid; other networks are dropped. */
@@ -176,12 +199,14 @@ public final class Ae2Provider implements DataProvider {
         Set<String> base = Set.copyOf(types);
         types.addAll(Ae2Actions.CRAFT_TYPES);
         Set<String> withCrafting = Set.copyOf(types);
-        var context = new Ae2Writer.Context(server, registrations, teams);
+        types.add(Ae2Actions.RESTOCK);
+        Set<String> withRestock = Set.copyOf(types);
         return new ActionHandler() {
             /** Read on every request, so the server setting applies without a restart. */
             @Override
             public Set<String> types() {
-                return remoteCrafting.getAsBoolean() ? withCrafting : base;
+                if (!remoteCrafting.getAsBoolean()) return base;
+                return restock.getAsBoolean() ? withRestock : withCrafting;
             }
 
             /** Plans finish later: AE2 computes them on a thread of its own (ADR-0019). */
@@ -227,6 +252,8 @@ public final class Ae2Provider implements DataProvider {
                                         "Crafting from the dashboard is switched off on this server.");
                         case Ae2Actions.CRAFT_PLAN -> ActionResult.error(ActionResult.Status.INVALID,
                                 "Plans are computed through start().");
+                        case Ae2Actions.RESTOCK -> ActionResult.error(ActionResult.Status.INVALID,
+                                "Switch auto-crafting on for a watched item in the watchlist.");
                         default -> ActionResult.error(ActionResult.Status.INVALID, "Unknown action.");
                     };
                 } catch (Ae2Actions.Invalid e) {

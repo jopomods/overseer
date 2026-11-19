@@ -150,6 +150,16 @@ See where items enter and leave an ME network and who asks for crafting.
 - [x] UI: Sankey sources → network → destinations, flow per item and per device, idle buses
 - [x] Edit buses: name, filter, redstone mode, craft only, scheduling
 
+## M2.10: AE2 auto-restock (no new mod)
+
+Keep watched items in stock without pressing "Craft" (ADR-0021).
+
+- [x] Watches remember who switched auto-crafting on; switching on needs a target and the right
+  `ae2.restock` (owner, party, operators; server setting `actions.ae2Restock`, default on)
+- [x] Restocker: every 5 s, plans and starts the deficit as that player while no job for the item
+  runs; waits a minute after missing items or no free CPU; state per item in the grid's live table
+- [ ] UI: switch on the watch card, state and reason, mock and tests
+
 ## M3: GregTech CEu (GTCEu)
 
 - Its own integration; scope to be defined (machine state, maintenance, energy buffers, ...)
@@ -170,8 +180,8 @@ See where items enter and leave an ME network and who asks for crafting.
 - Notifications (push, Discord webhook)
 - Custom dashboard widgets
 - Actions for GTCEu on top of the world actions of ADR-0016
-- AE2: auto-restock from watchlist targets, P2P tunnel overview, storage order (priority and
-  partitions), crafting statistics, item search across grids
+- AE2: P2P tunnel overview, storage order (priority and partitions), crafting statistics, item
+  search across grids
 - More loaders and versions (NeoForge, Fabric, older ones such as 1.7.10 for GT New Horizons) via
   Stonecutter, only when needed; the GregTech voltage tiers already match GTNH
 - [x] Public repository on GitHub prepared: MIT license, security policy, contributing guide, issue

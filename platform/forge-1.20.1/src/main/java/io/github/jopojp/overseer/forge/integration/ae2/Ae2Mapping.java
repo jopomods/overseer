@@ -100,6 +100,13 @@ public final class Ae2Mapping {
      */
     public static ProviderSnapshot snapshot(Timestamp at, List<Grid> grids, Map<String, java.time.Instant> stalled,
             Map<String, List<io.github.jopojp.overseer.core.provider.Flow>> flows) {
+        return snapshot(at, grids, stalled, flows, Map.of());
+    }
+
+    /** @param restocks what auto-crafting does per grid id (ADR-0021), as rows of the grid's live table */
+    public static ProviderSnapshot snapshot(Timestamp at, List<Grid> grids, Map<String, java.time.Instant> stalled,
+            Map<String, List<io.github.jopojp.overseer.core.provider.Flow>> flows,
+            Map<String, List<Ae2Model.RestockState>> restocks) {
         Map<ResourceRef, Map<String, String>> resources = new HashMap<>();
         List<Sample> samples = new ArrayList<>();
         Map<ResourceRef, List<io.github.jopojp.overseer.core.provider.Stack>> inventories = new HashMap<>();
@@ -165,6 +172,7 @@ public final class Ae2Mapping {
                 rows.addAll(offlineRows(g.offline()));
                 samples.add(new Sample(ref, NO_CHANNEL.key(), g.offline().size()));
             }
+            rows.addAll(restockRows(restocks.getOrDefault(g.id(), List.of())));
             if (!rows.isEmpty()) details.put(ref, rows);
         }
         var moved = new HashMap<ResourceRef, List<io.github.jopojp.overseer.core.provider.Flow>>();
@@ -309,6 +317,23 @@ public final class Ae2Mapping {
             row.put("inputs", GSON.toJson(inputs));
             rows.add(row);
         }
+        return rows;
+    }
+
+    /**
+     * Auto-crafting as rows of the grid's live table: {@code row=restock}, {@code key}, {@code state},
+     * {@code since} (ISO-8601), sorted by key.
+     */
+    static List<Map<String, String>> restockRows(List<Ae2Model.RestockState> states) {
+        var rows = new ArrayList<Map<String, String>>(states.size());
+        states.stream().sorted(java.util.Comparator.comparing(Ae2Model.RestockState::key)).forEach(s -> {
+            var row = new LinkedHashMap<String, String>();
+            row.put("row", "restock");
+            row.put("key", s.key());
+            row.put("state", s.state());
+            row.put("since", s.since().toString());
+            rows.add(row);
+        });
         return rows;
     }
 

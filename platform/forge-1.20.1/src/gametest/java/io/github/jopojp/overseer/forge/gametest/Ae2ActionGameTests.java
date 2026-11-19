@@ -21,6 +21,7 @@ import io.github.jopojp.overseer.core.action.ActionRequest;
 import io.github.jopojp.overseer.core.action.ActionResult.Status;
 import io.github.jopojp.overseer.core.action.Actor;
 import io.github.jopojp.overseer.core.provider.ResourceRef;
+import io.github.jopojp.overseer.core.storage.WatchStore;
 import io.github.jopojp.overseer.core.time.Timestamp;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Actions;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Mapping;
@@ -319,6 +320,50 @@ public final class Ae2ActionGameTests {
             helper.assertTrue(again.status() == Status.INVALID, "a plan starts once: " + again);
             helper.succeed();
         });
+    }
+
+    /**
+     * Auto-crafting (ADR-0021): below the target a job starts as the player who switched it on;
+     * stock at the target, items without a pattern and players who may not act are reported.
+     */
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 300)
+    public static void watchedItemsAreCraftedUpToTheirTarget(GameTestHelper helper) {
+        buildGrid(helper);
+        var provider = new Ae2Provider[1];
+        helper.runAfterDelay(30, () -> grid(helper).getStorageService().getInventory().insert(AEItemKey.of(Items.STICK), 16,
+                Actionable.MODULATE, IActionSource.empty()));
+        helper.runAfterDelay(60, () -> {
+            String grid = id(helper, CONTROLLER);
+            provider[0] = provider(helper).restock(() -> true, () -> Map.of(grid, Map.of(
+                    "item:minecraft:diamond", new WatchStore.Restock(3, OWNER),
+                    "item:minecraft:stick", new WatchStore.Restock(10, OWNER),
+                    "item:minecraft:gold_ingot", new WatchStore.Restock(1, OWNER),
+                    "item:minecraft:iron_ingot", new WatchStore.Restock(1, STRANGER))));
+            var states = restockStates(helper, provider[0].collect(AT));
+            helper.assertTrue(Map.of("item:minecraft:diamond", "planning", "item:minecraft:stick", "ok",
+                    "item:minecraft:gold_ingot", "no_pattern", "item:minecraft:iron_ingot", "denied").equals(states),
+                    "states: " + states);
+            var off = provider(helper).restock(() -> true, () -> Map.of(grid, Map.of("item:minecraft:diamond",
+                    new WatchStore.Restock(3, OWNER)))).remoteCrafting(() -> false);
+            helper.assertTrue(restockStates(helper, off.collect(AT)).isEmpty(), "off without remote crafting");
+            helper.assertTrue(provider[0].actions().types().contains(Ae2Actions.RESTOCK), "the right to switch it on");
+        });
+        helper.runAfterDelay(90, () -> {
+            var states = restockStates(helper, provider[0].collect(AT));
+            helper.assertTrue("crafting".equals(states.get("item:minecraft:diamond")), "states: " + states);
+            var cluster = ((CraftingBlockEntity) helper.getBlockEntity(CPU)).getCluster();
+            helper.assertTrue(cluster.isBusy() && AEItemKey.of(Items.DIAMOND).equals(cluster.getJobStatus().crafting().what())
+                    && cluster.getJobStatus().crafting().amount() == 3, "a job for the missing three diamonds");
+            helper.succeed();
+        });
+    }
+
+    private static Map<String, String> restockStates(GameTestHelper helper, io.github.jopojp.overseer.core.provider.ProviderSnapshot s) {
+        var result = new java.util.HashMap<String, String>();
+        for (var row : s.details().getOrDefault(gridRef(helper), java.util.List.of())) {
+            if ("restock".equals(row.get("row"))) result.put(row.get("key"), row.get("state"));
+        }
+        return result;
     }
 
     /**
