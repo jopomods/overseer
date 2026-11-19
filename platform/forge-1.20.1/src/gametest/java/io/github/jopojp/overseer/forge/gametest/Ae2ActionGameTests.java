@@ -366,6 +366,62 @@ public final class Ae2ActionGameTests {
         return result;
     }
 
+    /** P2P tunnels are listed with frequency, AE2's colours and direction; unlinked ones too. */
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
+    public static void p2pTunnelsAreListed(GameTestHelper helper) {
+        buildGrid(helper);
+        BlockPos cable = new BlockPos(1, 1, 2);
+        short[] frequency = new short[1];
+        helper.runAfterDelay(5, () -> {
+            BlockPos at = helper.absolutePos(cable);
+            appeng.api.parts.PartHelper.setPart(helper.getLevel(), at, null, null,
+                    appeng.core.definitions.AEParts.GLASS_CABLE.item(appeng.api.util.AEColor.TRANSPARENT));
+            appeng.api.parts.PartHelper.setPart(helper.getLevel(), at, net.minecraft.core.Direction.SOUTH, null,
+                    appeng.core.definitions.AEParts.ITEM_P2P_TUNNEL.asItem());
+            appeng.api.parts.PartHelper.setPart(helper.getLevel(), at, net.minecraft.core.Direction.EAST, null,
+                    appeng.core.definitions.AEParts.ITEM_P2P_TUNNEL.asItem());
+            appeng.api.parts.PartHelper.setPart(helper.getLevel(), at, net.minecraft.core.Direction.WEST, null,
+                    appeng.core.definitions.AEParts.FE_P2P_TUNNEL.asItem());
+        });
+        helper.runAfterDelay(30, () -> {
+            var host = (appeng.api.parts.IPartHost) helper.getBlockEntity(cable);
+            var input = (appeng.parts.p2p.P2PTunnelPart<?>) host.getPart(net.minecraft.core.Direction.SOUTH);
+            var output = (appeng.parts.p2p.P2PTunnelPart<?>) host.getPart(net.minecraft.core.Direction.EAST);
+            var service = appeng.me.service.P2PService.get(grid(helper));
+            frequency[0] = service.newFrequency();
+            try {
+                // A memory card makes a tunnel an output; there is no public setter.
+                var field = appeng.parts.p2p.P2PTunnelPart.class.getDeclaredField("output");
+                field.setAccessible(true);
+                field.setBoolean(output, true);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+            service.updateFreq(input, frequency[0]);
+            service.updateFreq(output, frequency[0]);
+        });
+        helper.runAfterDelay(40, () -> {
+            var rows = provider(helper).collect(AT).details().getOrDefault(gridRef(helper), java.util.List.of()).stream()
+                    .filter(r -> "p2p".equals(r.get("row"))).toList();
+            helper.assertTrue(rows.size() == 3, "tunnels: " + rows);
+            String base = id(helper, cable);
+            var byId = new java.util.HashMap<String, Map<String, String>>();
+            rows.forEach(r -> byId.put(r.get("id"), r));
+            var in = byId.get(base + "/south");
+            var out = byId.get(base + "/east");
+            var fe = byId.get(base + "/west");
+            String f = Integer.toString(Short.toUnsignedInt(frequency[0]));
+            helper.assertTrue(in != null && "false".equals(in.get("output")) && f.equals(in.get("frequency"))
+                    && "item:ae2:item_p2p_tunnel".equals(in.get("item")), "input: " + in);
+            helper.assertTrue(appeng.util.Platform.p2p().toHexString(frequency[0]).equals(in.get("hex"))
+                    && in.get("colors").split(",").length == 4, "frequency as AE2 shows it: " + in);
+            helper.assertTrue(out != null && "true".equals(out.get("output")) && f.equals(out.get("frequency")), "output: " + out);
+            helper.assertTrue(fe != null && "0".equals(fe.get("frequency")) && "item:ae2:fe_p2p_tunnel".equals(fe.get("item")),
+                    "unlinked: " + fe);
+            helper.succeed();
+        });
+    }
+
     /**
      * A network without controller has eight channels: ten drives leave devices without one. They
      * are counted and listed with position and item.

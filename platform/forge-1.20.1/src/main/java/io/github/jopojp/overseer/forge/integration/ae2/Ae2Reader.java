@@ -270,6 +270,7 @@ final class Ae2Reader {
         List<Ae2Model.Bus> buses = kind == Kind.HIDDEN ? List.of() : buses(grid, keys);
         List<Ae2Model.Offline> offline = kind == Kind.HIDDEN || scan == null || pathingBooting(grid) ? null
                 : withoutChannel(grid, keys);
+        List<Ae2Model.Tunnel> tunnels = kind == Kind.HIDDEN || scan == null ? null : tunnels(grid);
 
         IPathingService pathing = grid.getPathingService();
         return new Ae2Model.Grid(dimension, pos.getX(), pos.getY(), pos.getZ(), owner,
@@ -280,7 +281,7 @@ final class Ae2Reader {
                 placers == null || kind == Kind.HIDDEN ? java.util.Set.of()
                         : scan != null || !placers.containsKey(gridId) ? refresh(placers, gridId, grid)
                         : placers.get(gridId),
-                providers, patterns, offline, buses);
+                providers, patterns, offline, buses, tunnels);
     }
 
     /**
@@ -539,18 +540,9 @@ final class Ae2Reader {
                         : bus instanceof appeng.parts.automation.ExportBusPart ? "export"
                         : bus.getClass().getSimpleName().toLowerCase(java.util.Locale.ROOT);
                 // What the bus faces, as the player sees it; nothing in an unloaded chunk.
-                BlockPos front = pos.relative(bus.getSide());
-                String target = "";
-                String targetBlock = "";
-                if (be.getLevel().isLoaded(front)) {
-                    var state = be.getLevel().getBlockState(front);
-                    if (!state.isAir()) {
-                        BlockEntity facing = be.getLevel().getBlockEntity(front);
-                        Component custom = facing instanceof net.minecraft.world.Nameable named ? named.getCustomName() : null;
-                        target = custom != null ? custom.getString() : state.getBlock().getName().getString();
-                        targetBlock = String.valueOf(ForgeRegistries.BLOCKS.getKey(state.getBlock()));
-                    }
-                }
+                String[] facing = facing(be, bus.getSide());
+                String target = facing[0];
+                String targetBlock = facing[1];
                 var filter = new ArrayList<Stack>();
                 var config = bus.getConfig();
                 for (int i = 0; i < config.size(); i++) {
@@ -587,6 +579,54 @@ final class Ae2Reader {
         }
         result.sort(Comparator.comparing(Ae2Model.Bus::id));
         return result;
+    }
+
+    /** Tunnels of a grid at most listed; a P2P wall should not flood the page. */
+    static final int MAX_TUNNELS = 1000;
+
+    /**
+     * The P2P tunnels whose own node is in this grid. ME tunnels also have an outer node in the
+     * network they carry; they are listed only where they were placed.
+     */
+    private static List<Ae2Model.Tunnel> tunnels(Grid grid) {
+        var result = new ArrayList<Ae2Model.Tunnel>();
+        var p2p = appeng.util.Platform.p2p();
+        for (Class<?> type : grid.getMachineClasses()) {
+            if (!appeng.parts.p2p.P2PTunnelPart.class.isAssignableFrom(type)) continue;
+            for (Object machine : grid.getMachines(type)) {
+                if (result.size() >= MAX_TUNNELS) break;
+                if (!(machine instanceof appeng.parts.p2p.P2PTunnelPart<?> tunnel)) continue;
+                if (tunnel.getMainNode().getGrid() != grid) continue;
+                BlockEntity be = tunnel.getBlockEntity();
+                if (be == null || be.getLevel() == null || be.isRemoved() || tunnel.getSide() == null) continue;
+                BlockPos pos = be.getBlockPos();
+                String id = dimension(be.getLevel()) + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ() + "/"
+                        + tunnel.getSide().getSerializedName();
+                short frequency = tunnel.getFrequency();
+                var colors = new java.util.StringJoiner(",");
+                for (var color : p2p.toColors(frequency)) colors.add(String.format(java.util.Locale.ROOT, "%06x", color.mediumVariant & 0xffffff));
+                String[] facing = facing(be, tunnel.getSide());
+                Component custom = tunnel.getCustomName();
+                IGridNode node = tunnel.getGridNode();
+                result.add(new Ae2Model.Tunnel(id, "item:" + providerBlockOf(tunnel), custom == null ? null : custom.getString(),
+                        Short.toUnsignedInt(frequency), p2p.toHexString(frequency), colors.toString(), tunnel.isOutput(),
+                        facing[0], facing[1], node != null && node.isActive()));
+            }
+        }
+        result.sort(Comparator.comparing(Ae2Model.Tunnel::id));
+        return result;
+    }
+
+    /** Name and registry id of the block in front of a part, as the player sees it; empty when there is none or it is unloaded. */
+    private static String[] facing(BlockEntity be, Direction side) {
+        BlockPos front = be.getBlockPos().relative(side);
+        if (!be.getLevel().isLoaded(front)) return new String[] {"", ""};
+        var state = be.getLevel().getBlockState(front);
+        if (state.isAir()) return new String[] {"", ""};
+        BlockEntity facing = be.getLevel().getBlockEntity(front);
+        Component custom = facing instanceof net.minecraft.world.Nameable named ? named.getCustomName() : null;
+        return new String[] {custom != null ? custom.getString() : state.getBlock().getName().getString(),
+                String.valueOf(ForgeRegistries.BLOCKS.getKey(state.getBlock()))};
     }
 
     private static String providerBlockOf(appeng.api.parts.IPart part) {

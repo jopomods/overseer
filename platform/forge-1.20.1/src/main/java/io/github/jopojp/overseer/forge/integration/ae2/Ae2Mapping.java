@@ -172,6 +172,7 @@ public final class Ae2Mapping {
                 rows.addAll(offlineRows(g.offline()));
                 samples.add(new Sample(ref, NO_CHANNEL.key(), g.offline().size()));
             }
+            if (g.tunnels() != null) rows.addAll(tunnelRows(g.tunnels()));
             rows.addAll(restockRows(restocks.getOrDefault(g.id(), List.of())));
             if (!rows.isEmpty()) details.put(ref, rows);
         }
@@ -315,6 +316,31 @@ public final class Ae2Mapping {
                 inputs.add(Map.of("key", input.key(), "kind", input.kind(), "name", input.name(), "amount", input.amount()));
             }
             row.put("inputs", GSON.toJson(inputs));
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /**
+     * P2P tunnels as rows of the grid's live table: {@code row=p2p}, {@code id}, {@code item},
+     * {@code name} (empty if none), {@code frequency}, {@code hex}, {@code colors}, {@code output},
+     * {@code target}, {@code targetBlock}, {@code active}.
+     */
+    static List<Map<String, String>> tunnelRows(List<Ae2Model.Tunnel> tunnels) {
+        var rows = new ArrayList<Map<String, String>>(tunnels.size());
+        for (Ae2Model.Tunnel t : tunnels) {
+            var row = new LinkedHashMap<String, String>();
+            row.put("row", "p2p");
+            row.put("id", t.id());
+            row.put("item", t.item());
+            row.put("name", t.name() == null ? "" : t.name());
+            row.put("frequency", Integer.toString(t.frequency()));
+            row.put("hex", t.hex());
+            row.put("colors", t.colors());
+            row.put("output", Boolean.toString(t.output()));
+            row.put("target", t.target());
+            row.put("targetBlock", t.targetBlock());
+            row.put("active", Boolean.toString(t.active()));
             rows.add(row);
         }
         return rows;
