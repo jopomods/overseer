@@ -1,6 +1,8 @@
-import { Check, Crown, History, Trash2, UserPlus, X } from 'lucide-react'
-import { useState, type FormEvent, type ReactNode } from 'react'
-import { ActionFailed, useActionLog, useRunAction, type ActionLogEntry } from '@/api/hooks'
+import { Crown, History, Trash2, UserPlus } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
+import { useActionLog, useRunAction, type ActionLogEntry } from '@/api/hooks'
+import { Actions, Counter, Feedback, Field } from '@/components/edit-form'
+import { errorText, SELECT } from '@/lib/edit'
 import { McText } from '@/components/mc-text'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,55 +27,6 @@ import { useT, type MessageKey, type Translate } from '@/lib/i18n'
 import { plainText } from '@/lib/mc-text'
 import { usePreferences } from '@/lib/preferences'
 import { cn } from '@/lib/utils'
-
-const SELECT =
-  'border-input dark:bg-input/30 h-8 min-w-0 rounded-lg border bg-transparent px-2 text-base md:text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
-
-function errorText(t: Translate, error: unknown): string {
-  if (error instanceof ActionFailed) {
-    if (error.status === 429) return t('edit.rateLimited')
-    if (error.status === 503) return t('edit.busy')
-    return error.message
-  }
-  return t('edit.failed')
-}
-
-/** A text field label with a character counter against Flux's name limit. */
-function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: ReactNode }) {
-  return (
-    <label className="block min-w-0 space-y-1">
-      <span className="text-muted-foreground flex min-w-0 items-baseline justify-between gap-2 text-xs font-medium">
-        <span className="truncate">{label}</span>
-        {hint && <span className="shrink-0 font-normal">{hint}</span>}
-      </span>
-      {children}
-    </label>
-  )
-}
-
-function Counter({ value, max }: { value: string; max: number }) {
-  return <span className={cn('tabular', value.length > max && 'text-destructive')}>{value.length}/{max}</span>
-}
-
-function Feedback({ error, message }: { error?: string; message?: string }) {
-  if (error) return <p className="text-destructive text-sm" role="alert">{error}</p>
-  if (message) return <p className="text-muted-foreground text-sm" role="status">{message}</p>
-  return null
-}
-
-function Actions({ pending, onCancel, disabled }: { pending: boolean; onCancel: () => void; disabled?: boolean }) {
-  const t = useT()
-  return (
-    <div className="flex flex-wrap gap-2">
-      <Button type="submit" size="sm" disabled={pending || disabled}>
-        <Check /> {t('common.save')}
-      </Button>
-      <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
-        <X /> {t('common.cancel')}
-      </Button>
-    </div>
-  )
-}
 
 // --- network ---------------------------------------------------------------------------
 
@@ -602,6 +555,9 @@ const FIELD_KEYS: Record<string, MessageKey> = {
   network: 'edit.network',
   access: 'edit.role',
   owner: 'energy.access.owner',
+  job: 'cpu.job',
+  suspended: 'cpu.suspended',
+  mode: 'cpu.mode',
 }
 
 function value(t: Translate, v: string | null | undefined): string {
