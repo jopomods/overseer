@@ -148,7 +148,7 @@ See where items enter and leave an ME network and who asks for crafting.
 - [x] Flow measurement: every insert into and extract from a network's storage, counted per device
   (or player) and item, stored per minute (server setting `ae2.flow`, default on)
 - [x] UI: Sankey sources → network → destinations, flow per item and per device, idle buses
-- [ ] Later: edit bus filters and redstone mode
+- [x] Edit buses: name, filter, redstone mode, craft only, scheduling
 
 ## M3: GregTech CEu (GTCEu)
 

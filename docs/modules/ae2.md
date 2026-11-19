@@ -211,7 +211,8 @@ resource `ae2/bus/<dimension>@x,y,z/<side>`, visible like its grid.
 | `active` | Power and channel |
 
 The grid page lists them with a filter for import or export and a search over names, machines and
-filter items.
+filter items; those who may act edit them in place (`ae2.bus.edit`), adding filter items by searching
+the network's contents.
 
 ## Flow
 
@@ -345,6 +346,7 @@ caller may act. Parts in unloaded chunks answer `unavailable`; chunks are never 
 | `ae2.cpu.edit` | `cpu`, `name?`, `mode?` (`any`, `player_only`, `machine_only`) | Name like an anvil: at most 50 characters, colour codes count, empty removes it. AE2 joins the custom names of all blocks of a CPU, so the name goes on one block and the others lose theirs. Names are AE2's private `customName` field, set by reflection; the mode goes through AE2's config manager. |
 | `ae2.drive.edit` | `drive`, `priority` | Any 32-bit integer, through AE2's `IPriorityHost` (drives, ME chests, add-on drives that have a priority). |
 | `ae2.provider.edit` | `provider`, `name?`, `icon?` (item id, empty removes it), `priority?`, `blocking?`, `lock?`, `visible?` | Name as for CPUs (also the group in the Pattern Access Terminal); settings through AE2's config manager, which saves the provider like its buttons do. Unknown items are refused. |
+| `ae2.bus.edit` | `bus`, `name?`, `filter?` (list of stack keys, at most 9; empty clears it), `redstone?` (`ignore`, `low_signal`, `high_signal`, `signal_pulse`), `craftOnly?`, `scheduling?` (`default`, `roundrobin`, `random`) | Import and export buses. The filter replaces the whole configuration; slots locked behind capacity cards in game accept entries that then do nothing. Craft only and scheduling exist on export buses only. Settings through AE2's config manager; the redstone mode matters only with a redstone card. |
 | `ae2.craft.plan` | `key` (stack key), `amount` (1 to 10^12) | Plans a job like AE2's craft confirm screen and answers with the plan (below). AE2 computes it on its own thread; the answer comes with the next collection, at most a second later (ADR-0019). Refused when no pattern makes the key. Server setting `actions.ae2Crafting` (default on). |
 | `ae2.craft.start` | `plan` (id from the plan), `cpu?` | Starts a kept plan, on the given CPU or where AE2 chooses (`submitJob`). Plans are kept 5 minutes, at most 64 on the server, and start once; only the player who planned (or an operator) may start one. Refused while items are missing, with AE2's reason when it refuses (no free CPU, too small, busy, offline). The result goes into the network. |
 
