@@ -50,6 +50,8 @@ public final class Ae2Provider implements DataProvider {
     private long collections;
     /** Patterns per grid id from the last scan. Server thread. */
     private final Map<String, List<Ae2Model.Pattern>> patterns = new java.util.HashMap<>();
+    /** P2P tunnels per grid id from the last scan. Server thread. */
+    private final Map<String, List<Ae2Model.Tunnel>> tunnels = new java.util.HashMap<>();
     /** Devices without channel per grid id from the last scan. Server thread. */
     private final Map<String, List<Ae2Model.Offline>> offline = new java.util.HashMap<>();
     /** Jobs without progress (ADR-0017 diagnosis). Server thread. */
@@ -163,11 +165,14 @@ public final class Ae2Provider implements DataProvider {
             // Booting grids are not checked: keep the last answer until the next scan.
             if (g.offline() != null) offline.put(g.id(), g.offline());
             else g = g.withOffline(offline.get(g.id()));
+            if (g.tunnels() != null) tunnels.put(g.id(), g.tunnels());
+            else g = g.withTunnels(tunnels.get(g.id()));
             result.add(g);
         }
         var ids = grids.stream().map(Ae2Model.Grid::id).toList();
         patterns.keySet().retainAll(ids);
         offline.keySet().retainAll(ids);
+        tunnels.keySet().retainAll(ids);
         return result;
     }
 

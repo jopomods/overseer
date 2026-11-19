@@ -174,6 +174,24 @@ public final class Ae2Model {
     public record Offline(String id, String item, String name) {}
 
     /**
+     * A P2P tunnel of the grid. Tunnels of one type and frequency are linked: one input, any number
+     * of outputs.
+     *
+     * @param id          {@code <dimension>@x,y,z/<side>}
+     * @param item        stack key of the tunnel's item, e.g. {@code item:ae2:me_p2p_tunnel}
+     * @param name        custom name, {@code null} if none
+     * @param frequency   AE2's frequency (unsigned); 0 = not linked
+     * @param hex         the frequency as AE2 shows it on the memory card
+     * @param colors      AE2's four colours of the frequency, {@code rrggbb} each, comma separated
+     * @param output      an output; else the input
+     * @param target      name of the block it faces; empty when there is none
+     * @param targetBlock registry id of that block; empty when there is none
+     * @param active      powered with a channel
+     */
+    public record Tunnel(String id, String item, String name, int frequency, String hex, String colors, boolean output,
+            String target, String targetBlock, boolean active) {}
+
+    /**
      * What auto-crafting of a watched item is doing (ADR-0021).
      *
      * @param key   stack key
@@ -244,7 +262,8 @@ public final class Ae2Model {
             List<Provider> providers,
             List<Pattern> patterns,
             List<Offline> offline,
-            List<Bus> buses) {
+            List<Bus> buses,
+            List<Tunnel> tunnels) {
 
         public Grid {
             placers = placers == null ? java.util.Set.of() : java.util.Set.copyOf(placers);
@@ -252,6 +271,7 @@ public final class Ae2Model {
             if (patterns != null) patterns = List.copyOf(patterns);
             if (offline != null) offline = List.copyOf(offline);
             buses = buses == null ? List.of() : List.copyOf(buses);
+            if (tunnels != null) tunnels = List.copyOf(tunnels);
             if (inventory != null) inventory = List.copyOf(inventory);
             drives = drives == null ? List.of() : List.copyOf(drives);
             watched = watched == null ? java.util.Map.of() : java.util.Map.copyOf(watched);
@@ -262,25 +282,31 @@ public final class Ae2Model {
                 Crafting crafting, Kind kind, List<Stack> inventory, List<Drive> drives,
                 java.util.Map<String, Long> watched, java.util.Set<UUID> placers) {
             this(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy, storage,
-                    crafting, kind, inventory, drives, watched, placers, List.of(), null, null, List.of());
+                    crafting, kind, inventory, drives, watched, placers, List.of(), null, null, List.of(), null);
         }
 
         /** The same grid with these patterns (cached between scans). */
         public Grid withPatterns(List<Pattern> list) {
             return new Grid(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy,
-                    storage, crafting, kind, inventory, drives, watched, placers, providers, list, offline, buses);
+                    storage, crafting, kind, inventory, drives, watched, placers, providers, list, offline, buses, tunnels);
         }
 
         /** The same grid with these buses. */
         public Grid withBuses(List<Bus> list) {
             return new Grid(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy,
-                    storage, crafting, kind, inventory, drives, watched, placers, providers, patterns, offline, list);
+                    storage, crafting, kind, inventory, drives, watched, placers, providers, patterns, offline, list, tunnels);
         }
 
         /** The same grid with these devices without channel (cached between scans). */
         public Grid withOffline(List<Offline> list) {
             return new Grid(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy,
-                    storage, crafting, kind, inventory, drives, watched, placers, providers, patterns, list, buses);
+                    storage, crafting, kind, inventory, drives, watched, placers, providers, patterns, list, buses, tunnels);
+        }
+
+        /** The same grid with these P2P tunnels (cached between scans). */
+        public Grid withTunnels(List<Tunnel> list) {
+            return new Grid(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy,
+                    storage, crafting, kind, inventory, drives, watched, placers, providers, patterns, offline, buses, list);
         }
 
         public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,

@@ -242,7 +242,7 @@ class Ae2MappingTest {
         Grid g = grid(OWNER, 10);
         var full = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(), g.controllers(),
                 g.state(), false, g.channels(), g.energy(), g.storage(), g.crafting(), Ae2Model.Kind.CONTROLLER, null,
-                List.of(), java.util.Map.of(), java.util.Set.of(), List.of(provider), List.of(pattern), null, List.of());
+                List.of(), java.util.Map.of(), java.util.Set.of(), List.of(provider), List.of(pattern), null, List.of(), null);
         var snapshot = Ae2Mapping.snapshot(AT, List.of(full));
         var ref = Ae2Mapping.provider("minecraft:overworld@4,64,0/north");
         var attrs = snapshot.resources().get(ref);
@@ -350,5 +350,21 @@ class Ae2MappingTest {
         assertEquals("item:minecraft:diamond", rows.get(0).get("key"));
         assertEquals("crafting", rows.get(0).get("state"));
         assertEquals("2026-01-02T03:04:05Z", rows.get(1).get("since"));
+    }
+
+    @Test
+    void tunnelsAreRowsOfTheGridOnlyAfterAScan() {
+        var tunnel = new Ae2Model.Tunnel("minecraft:overworld@1,2,3/east", "item:ae2:me_p2p_tunnel", null, 51966, "CAFE",
+                "f0f0f0,1d1d21,3ab3da,80c71f", true, "ME Drive", "ae2:drive", false);
+        Grid g = grid(OWNER, 10);
+        assertTrue(Ae2Mapping.snapshot(AT, List.of(g)).details().getOrDefault(Ae2Mapping.grid(g.id()), List.of()).isEmpty(),
+                "not scanned yet: no rows");
+        var rows = Ae2Mapping.snapshot(AT, List.of(g.withTunnels(List.of(tunnel)))).details().get(Ae2Mapping.grid(g.id()));
+        assertEquals(1, rows.size());
+        assertEquals("p2p", rows.get(0).get("row"));
+        assertEquals("", rows.get(0).get("name"));
+        assertEquals("51966", rows.get(0).get("frequency"));
+        assertEquals("true", rows.get(0).get("output"));
+        assertEquals("false", rows.get(0).get("active"));
     }
 }

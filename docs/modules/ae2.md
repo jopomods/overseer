@@ -269,6 +269,17 @@ grid's live table with `row=offline`, `id` (`dimension@x,y,z`, plus `/<side>` fo
 not checked (channels are handed out after booting); the last answer stays until the next scan.
 The grid page lists them near the top when there are any.
 
+## P2P tunnels
+
+Read with the inventory scan (every 10 s) and sent with every snapshot as rows of the grid's live
+table, at most 1,000 per grid: `row=p2p`, `id` (`<dimension>@x,y,z/<side>`), `item` (the tunnel's
+item, which names its type: ME, item, fluid, FE, redstone, light, add-on tunnels), `name` (custom
+name, empty if none), `frequency` (unsigned; `0` = not linked), `hex` (as AE2 shows it), `colors`
+(AE2's four colours of the frequency, `rrggbb`, comma separated), `output`, `target` and
+`targetBlock` (the block it faces), `active` (power and channel). Tunnels of one type and frequency
+form a link: one input, any number of outputs. ME tunnels also have a node in the network they
+carry; they are listed only in the network they were placed in.
+
 ## Pattern providers
 
 Every pattern provider of a grid, block or part on a cable (anything implementing AE2's

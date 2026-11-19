@@ -160,6 +160,15 @@ Keep watched items in stock without pressing "Craft" (ADR-0021).
   runs; waits a minute after missing items or no free CPU; state per item in the grid's live table
 - [x] UI: switch on the watch card, state and reason, mock and tests
 
+## M2.11: AE2 P2P tunnels (no new mod)
+
+See every P2P tunnel of a network, what it links and what is broken.
+
+- [x] Tunnels read with the inventory scan: type, frequency with AE2's colours, input or output, what
+  they face, active; rows of the grid's live table
+- [ ] UI: links grouped by frequency (input → outputs), filter by type, problems (unlinked, no input,
+  no output, without channel)
+
 ## M3: GregTech CEu (GTCEu)
 
 - Its own integration; scope to be defined (machine state, maintenance, energy buffers, ...)
@@ -180,8 +189,7 @@ Keep watched items in stock without pressing "Craft" (ADR-0021).
 - Notifications (push, Discord webhook)
 - Custom dashboard widgets
 - Actions for GTCEu on top of the world actions of ADR-0016
-- AE2: P2P tunnel overview, storage order (priority and partitions), crafting statistics, item
-  search across grids
+- AE2: storage order (priority and partitions), crafting statistics, item search across grids
 - More loaders and versions (NeoForge, Fabric, older ones such as 1.7.10 for GT New Horizons) via
   Stonecutter, only when needed; the GregTech voltage tiers already match GTNH
 - [x] Public repository on GitHub prepared: MIT license, security policy, contributing guide, issue
