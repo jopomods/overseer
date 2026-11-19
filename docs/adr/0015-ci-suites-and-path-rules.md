@@ -54,7 +54,8 @@ Runs read their own branch's entries and `main`'s, so re-pushes to a PR and late
 forgets every pass.
 
 **Speed.** GameTest jobs do not wait for the build job; each compiles what it needs. Flow tests
-run at 360 and 1280 px; the layout tests run at all six widths (ADR-0009). The web job runs in Playwright's container image, so the browser's system libraries need no
+run at 360 and 1280 px; the layout tests run at all six widths (ADR-0009). The browser tests run in three parallel shards (they are CPU-bound; lint, types and the API
+check run in the first shard), in Playwright's container image, so the browser's system libraries need no
 apt install (that took 4-7 min). Actions are pinned to commit SHAs.
 
 ## Consequences
