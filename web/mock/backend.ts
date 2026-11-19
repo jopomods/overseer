@@ -277,6 +277,44 @@ function patternRows(grid: string, realistic: boolean): Array<Record<string, str
   return [...dark, ...patterns]
 }
 
+function busResource(grid: string, id: string, attrs: Record<string, string>) {
+  return {
+    ref: { provider: 'ae2', type: 'bus', id, key: `ae2/bus/${id}` },
+    attributes: { grid, block: 'ae2:export_bus', kind: 'export', name: '', target: '', targetBlock: '', filter: '[]', upgrades: '', redstone: 'ignore', craftOnly: '', scheduling: '', requested: '0', active: 'true', ...attrs },
+    metrics: {},
+  }
+}
+
+const filterJson = (items: Array<[string, string]>) => JSON.stringify(items.map(([key, name]) => ({ key, kind: key.startsWith('fluid:') ? 'fluid' : 'item', name })))
+
+/** Import and export buses: realistic, an ore line; extreme: 120 with long names and full filters. */
+function busResources(realistic: boolean) {
+  if (realistic) {
+    return [
+      busResource(REAL_GRID, 'minecraft:overworld@104,64,-330/east', { target: 'LV Macerator', targetBlock: 'gtceu:lv_macerator', filter: filterJson([['item:minecraft:raw_iron', 'Raw Iron'], ['item:minecraft:raw_copper', 'Raw Copper']]), upgrades: 'ae2:speed_card=2', craftOnly: 'false', scheduling: 'roundrobin' }),
+      busResource(REAL_GRID, 'minecraft:overworld@104,65,-330/east', { block: 'ae2:import_bus', kind: 'import', target: 'LV Macerator', targetBlock: 'gtceu:lv_macerator', upgrades: 'ae2:capacity_card=1;ae2:speed_card=1' }),
+      busResource(REAL_GRID, 'minecraft:overworld@106,64,-330/up', { name: '§bCircuit restock', target: 'Chest', targetBlock: 'minecraft:chest', filter: filterJson([['item:gtceu:good_electronic_circuit', 'Good Electronic Circuit']]), upgrades: 'ae2:crafting_card=1;ae2:redstone_card=1', redstone: 'high_signal', craftOnly: 'true', scheduling: 'default', requested: '1' }),
+      busResource(REAL_GRID, 'minecraft:overworld@105,64,-330/east', { block: 'ae2:import_bus', kind: 'import', target: 'Electric Blast Furnace', targetBlock: 'gtceu:electric_blast_furnace', active: 'false' }),
+    ]
+  }
+  return Array.from({ length: 120 }, (_, i) =>
+    busResource(EXTREME_GRID, `minecraft:overworld@${i},${i},${-i}/${['north', 'south', 'east', 'west', 'up', 'down'][i % 6]}`, {
+      block: i % 2 ? `${LONG.toLowerCase()}:ex_import_bus` : 'ae2:export_bus',
+      kind: i % 2 ? 'import' : 'export',
+      name: i % 5 === 0 ? `${LONG.slice(0, 40)} ${i}` : '',
+      target: `${LONG} ${i}`,
+      targetBlock: `${LONG.toLowerCase()}:machine${i}`,
+      filter: filterJson(Array.from({ length: i % 3 ? 27 : 0 }, (_, k) => [`item:${LONG.toLowerCase()}:f${k}`, `${LONG} ${k}`] as [string, string])),
+      upgrades: `ae2:speed_card=4;ae2:capacity_card=5;ae2:fuzzy_card=1;${LONG.toLowerCase()}:mega_card=64`,
+      redstone: ['ignore', 'low_signal', 'high_signal', 'signal_pulse'][i % 4],
+      craftOnly: i % 2 ? '' : 'true',
+      scheduling: i % 2 ? '' : 'random',
+      requested: String(i),
+      active: String(i % 7 !== 0),
+    }),
+  )
+}
+
 /** Crafting CPUs: realistic, one running job that advances in real time; extreme: many, long names. */
 function cpuResources(realistic: boolean) {
   const t = (Date.now() / 1000) % 600
@@ -340,7 +378,7 @@ export function ae2Snapshot(realistic = false, adopted: Map<string, string> = ne
   return {
     provider: 'ae2',
     at: { wall: now(), uptimeMillis: 123_456_789, session: 3 },
-    resources: [...[...grids, ...hidden].map(gridResource), ...cpuResources(realistic), ...driveResources(realistic), ...providerResources(realistic)],
+    resources: [...[...grids, ...hidden].map(gridResource), ...cpuResources(realistic), ...driveResources(realistic), ...providerResources(realistic), ...busResources(realistic)],
   }
 }
 
