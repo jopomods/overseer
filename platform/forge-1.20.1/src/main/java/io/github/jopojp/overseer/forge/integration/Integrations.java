@@ -35,7 +35,8 @@ public final class Integrations {
         optional(providers, "ae2", () -> new io.github.jopojp.overseer.forge.integration.ae2.Ae2Provider(server, teams,
                 () -> registrations("ae2"), () -> watches("ae2"))
                 .placerAccess(io.github.jopojp.overseer.forge.OverseerConfig::ae2PlacerAccess)
-                .remoteCrafting(io.github.jopojp.overseer.forge.OverseerConfig::ae2Crafting));
+                .remoteCrafting(io.github.jopojp.overseer.forge.OverseerConfig::ae2Crafting)
+                .flow(io.github.jopojp.overseer.forge.OverseerConfig::ae2Flow));
         return providers;
     }
 

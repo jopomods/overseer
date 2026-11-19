@@ -81,7 +81,14 @@ final class Ae2Reader {
     static List<Ae2Model.Grid> readAll(MinecraftServer server, Map<String, UUID> registrations,
             Map<String, java.util.Set<String>> watches, StackCache keys, boolean scanInventory,
             Map<String, java.util.Set<UUID>> placers) {
-        var grids = readGrids(server, registrations, watches, keys, scanInventory, placers);
+        return readAll(server, registrations, watches, keys, scanInventory, placers, null);
+    }
+
+    /** @param storages filled with each identified grid's network storage and its id (flows, ADR-0020); may be null */
+    static List<Ae2Model.Grid> readAll(MinecraftServer server, Map<String, UUID> registrations,
+            Map<String, java.util.Set<String>> watches, StackCache keys, boolean scanInventory,
+            Map<String, java.util.Set<UUID>> placers, Map<Object, String> storages) {
+        var grids = readGrids(server, registrations, watches, keys, scanInventory, placers, storages);
         if (placers != null) placers.keySet().retainAll(grids.stream().map(Ae2Model.Grid::id).toList());
         return grids;
     }
@@ -89,7 +96,7 @@ final class Ae2Reader {
     /** @param placers cache of placers per grid id, refreshed on scans; {@code null} when not needed */
     private static List<Ae2Model.Grid> readGrids(MinecraftServer server, Map<String, UUID> registrations,
             Map<String, java.util.Set<String>> watches, StackCache keys, boolean scanInventory,
-            Map<String, java.util.Set<UUID>> placers) {
+            Map<String, java.util.Set<UUID>> placers, Map<Object, String> storages) {
         StackCache scan = scanInventory ? keys : null;
         var registered = registeredGrids(server, registrations);
         var result = new ArrayList<Ae2Model.Grid>();
@@ -102,15 +109,19 @@ final class Ae2Reader {
                     .orElse(null);
             if (id != null) {
                 IGridNode node = id.getMainNode().getNode();
-                result.add(read(server, grid, dimension(id.getLevel()), id.getBlockPos(), watches, placers,
+                var read = read(server, grid, dimension(id.getLevel()), id.getBlockPos(), watches, placers,
                         node == null ? null : node.getOwningPlayerProfileId(), controllers.size(), Kind.CONTROLLER,
-                        scan, keys));
+                        scan, keys);
+                result.add(read);
+                if (storages != null) storages.put(grid.getStorageService().getInventory(), read.id());
                 continue;
             }
             var registration = registered.get(grid);
             if (registration != null) {
-                result.add(read(server, grid, registration.dimension(), registration.pos(), watches, placers, registration.owner(), 0,
-                        Kind.REGISTERED, scan, keys));
+                var read = read(server, grid, registration.dimension(), registration.pos(), watches, placers,
+                        registration.owner(), 0, Kind.REGISTERED, scan, keys);
+                result.add(read);
+                if (storages != null) storages.put(grid.getStorageService().getInventory(), read.id());
             } else if (grid.size() >= HIDDEN_MIN_NODES) {
                 var lowest = lowestNode(grid);
                 if (lowest != null) {
@@ -456,6 +467,60 @@ final class Ae2Reader {
         }
         out.sort(Comparator.comparing(Ae2Model.Provider::id));
         if (patterns != null) patterns.sort(Comparator.comparing(Ae2Model.Pattern::provider));
+    }
+
+    /** A device that moved items: id within its network, kind and display name (ADR-0020). */
+    record FlowDevice(String id, String kind, String name) {}
+
+    static final FlowDevice OTHER = new FlowDevice("other", "other", "Other");
+
+    /**
+     * Names what acted on a network storage: a player, a part (bus, interface, provider, ...), a block
+     * (interface, provider, crafting CPU, ...), or {@link #OTHER}. Server thread, once per collection.
+     */
+    static FlowDevice flowDevice(Object who) {
+        if (who instanceof net.minecraft.world.entity.player.Player player) {
+            return new FlowDevice("player:" + player.getUUID(), "player", player.getGameProfile().getName());
+        }
+        if (who instanceof appeng.parts.AEBasePart part && part.getBlockEntity() != null
+                && part.getBlockEntity().getLevel() != null) {
+            BlockPos pos = part.getBlockEntity().getBlockPos();
+            String id = dimension(part.getBlockEntity().getLevel()) + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ()
+                    + (part.getSide() == null ? "" : "/" + part.getSide().getSerializedName());
+            Component custom = part.getCustomName();
+            var item = part.getPartItem() == null ? null : part.getPartItem().asItem();
+            String name = custom != null ? custom.getString()
+                    : item == null ? id : new net.minecraft.world.item.ItemStack(item).getHoverName().getString();
+            return new FlowDevice(id, partKind(part, item), name);
+        }
+        if (who instanceof BlockEntity be && be.getLevel() != null) {
+            if (be instanceof appeng.blockentity.crafting.CraftingBlockEntity crafting && crafting.getCluster() != null) {
+                var cluster = crafting.getCluster();
+                BlockPos min = cluster.getBoundsMin();
+                Component name = cluster.getName();
+                return new FlowDevice(dimension(be.getLevel()) + "@" + min.getX() + "," + min.getY() + "," + min.getZ(),
+                        "crafting", name == null ? "" : name.getString());
+            }
+            BlockPos pos = be.getBlockPos();
+            String id = dimension(be.getLevel()) + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ();
+            Component custom = be instanceof net.minecraft.world.Nameable named ? named.getCustomName() : null;
+            String name = custom != null ? custom.getString() : be.getBlockState().getBlock().getName().getString();
+            String kind = be instanceof PatternProviderLogicHost ? "pattern_provider"
+                    : be instanceof appeng.helpers.InterfaceLogicHost ? "interface"
+                    : String.valueOf(ForgeRegistries.BLOCKS.getKey(be.getBlockState().getBlock())).replaceFirst("^[^:]*:", "");
+            return new FlowDevice(id, kind, name);
+        }
+        return OTHER;
+    }
+
+    private static String partKind(appeng.parts.AEBasePart part, net.minecraft.world.item.Item item) {
+        if (part instanceof appeng.parts.automation.ImportBusPart) return "import_bus";
+        if (part instanceof appeng.parts.automation.ExportBusPart) return "export_bus";
+        if (part instanceof appeng.parts.storagebus.StorageBusPart) return "storage_bus";
+        if (part instanceof PatternProviderLogicHost) return "pattern_provider";
+        if (part instanceof appeng.helpers.InterfaceLogicHost) return "interface";
+        if (part instanceof appeng.parts.reporting.AbstractTerminalPart) return "terminal";
+        return item == null ? "part" : String.valueOf(ForgeRegistries.ITEMS.getKey(item)).replaceFirst("^[^:]*:", "");
     }
 
     /** Import and export buses of a grid, add-on buses included (anything extending {@code IOBusPart}). */

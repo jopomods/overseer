@@ -91,6 +91,15 @@ public final class Ae2Mapping {
 
     /** @param stalled CPU id to when its job last made progress, for jobs stuck that long ({@link StallTracker}) */
     public static ProviderSnapshot snapshot(Timestamp at, List<Grid> grids, Map<String, java.time.Instant> stalled) {
+        return snapshot(at, grids, stalled, Map.of());
+    }
+
+    /**
+     * @param flows what devices moved into and out of each grid since the last collection, by grid id
+     *              (ADR-0020); only grids in {@code grids} that are not hidden are reported
+     */
+    public static ProviderSnapshot snapshot(Timestamp at, List<Grid> grids, Map<String, java.time.Instant> stalled,
+            Map<String, List<io.github.jopojp.overseer.core.provider.Flow>> flows) {
         Map<ResourceRef, Map<String, String>> resources = new HashMap<>();
         List<Sample> samples = new ArrayList<>();
         Map<ResourceRef, List<io.github.jopojp.overseer.core.provider.Stack>> inventories = new HashMap<>();
@@ -158,7 +167,12 @@ public final class Ae2Mapping {
             }
             if (!rows.isEmpty()) details.put(ref, rows);
         }
-        return new ProviderSnapshot(PROVIDER, at, resources, samples, inventories, jobs, details);
+        var moved = new HashMap<ResourceRef, List<io.github.jopojp.overseer.core.provider.Flow>>();
+        for (Grid g : grids) {
+            var list = flows.get(g.id());
+            if (list != null && !list.isEmpty() && g.kind() != Ae2Model.Kind.HIDDEN) moved.put(grid(g.id()), list);
+        }
+        return new ProviderSnapshot(PROVIDER, at, resources, samples, inventories, jobs, details, moved);
     }
 
     /**
