@@ -474,3 +474,77 @@ export function offlineOf(rows: Record<string, string>[] | undefined): Ae2Offlin
       return { id: r.id, side: slash < 0 ? null : r.id.slice(slash + 1), item: r.item ?? '', name: r.name ?? '' }
     })
 }
+
+export type BusKind = 'import' | 'export' | string
+
+export interface Ae2Bus {
+  resource: Resource
+  id: string
+  /** The side of the cable the bus sits on. */
+  side: string | null
+  /** Registry id of the part item, e.g. ae2:export_bus. */
+  block: string
+  kind: BusKind
+  name: string | null
+  /** The block the bus faces (custom name if it has one); empty when nothing. */
+  target: string
+  targetBlock: string
+  /** Configured keys; empty means everything (import buses). */
+  filter: Array<{ key: string; kind: string; name: string }>
+  /** Installed cards: item id to count. */
+  upgrades: Array<{ item: string; count: number }>
+  redstone: string
+  /** Export buses only. */
+  craftOnly: boolean | null
+  scheduling: string | null
+  /** Crafting jobs the bus requested that still run. */
+  requested: number
+  /** Has power and a channel. */
+  active: boolean
+}
+
+/** Import and export buses of one grid: by what they face, then position. */
+export function buses(snapshot: Snapshot | undefined, gridId: string): Ae2Bus[] {
+  return ofType(snapshot, 'bus')
+    .filter((r) => r.attributes.grid === gridId)
+    .map((r): Ae2Bus => {
+      const a = r.attributes
+      const slash = r.ref.id.indexOf('/', r.ref.id.indexOf('@'))
+      let filter: Ae2Bus['filter'] = []
+      try {
+        const parsed: unknown = JSON.parse(a.filter || '[]')
+        if (Array.isArray(parsed)) filter = parsed as Ae2Bus['filter']
+      } catch {
+        filter = []
+      }
+      return {
+        resource: r,
+        id: r.ref.id,
+        side: slash < 0 ? null : r.ref.id.slice(slash + 1),
+        block: a.block ?? '',
+        kind: a.kind ?? '',
+        name: a.name || null,
+        target: a.target ?? '',
+        targetBlock: a.targetBlock ?? '',
+        filter,
+        upgrades: (a.upgrades ?? '')
+          .split(';')
+          .filter(Boolean)
+          .map((u) => {
+            const [item, count] = u.split('=')
+            return { item: item ?? '', count: num(count) }
+          }),
+        redstone: a.redstone || 'ignore',
+        craftOnly: a.craftOnly ? a.craftOnly === 'true' : null,
+        scheduling: a.scheduling || null,
+        requested: num(a.requested),
+        active: a.active !== 'false',
+      }
+    })
+    .sort((a, b) => busLabel(a).localeCompare(busLabel(b), undefined, { numeric: true }) || a.id.localeCompare(b.id))
+}
+
+/** What to call a bus: its name, else what it faces. */
+export function busLabel(b: Ae2Bus): string {
+  return (b.name ?? b.target).replace(/§./g, '')
+}

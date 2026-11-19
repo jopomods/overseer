@@ -21,6 +21,7 @@ import { GridStateBadge } from '@/components/grid-state-badge'
 import { McText } from '@/components/mc-text'
 import { CraftProvider } from '@/components/craft'
 import { CraftingSection } from '@/components/crafting-cpus'
+import { BusesSection } from '@/components/bus-list'
 import { DrivesSection } from '@/components/drives-section'
 import { OfflineDevicesSection } from '@/components/offline-devices'
 import { PatternProvidersSection } from '@/components/pattern-providers'
@@ -34,7 +35,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AE2_ACTIONS, cpus, drives, offlineOf, patternProviders, patternsOf, providerLabel, formatAe, formatAeRate, formatBuckets, formatPos, grids, idPos, shortDimension, type Ae2Grid } from '@/lib/ae2'
+import { AE2_ACTIONS, buses, cpus, drives, offlineOf, patternProviders, patternsOf, providerLabel, formatAe, formatAeRate, formatBuckets, formatPos, grids, idPos, shortDimension, type Ae2Grid } from '@/lib/ae2'
 import { formatBytes, formatDuration, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { plainText } from '@/lib/mc-text'
@@ -164,6 +165,8 @@ export function GridPage() {
           editable={allowed.has(AE2_ACTIONS.providerEdit)}
           tiers={tiers}
         />
+
+        <BusesSection buses={buses(snapshot.data, grid.id)} />
 
         <WatchlistSection grid={grid.resource} canEdit={grid.canEdit} />
 
