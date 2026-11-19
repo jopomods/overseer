@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { DrivePriority } from '@/components/ae2-edit'
 import { Section } from '@/components/stat'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -20,7 +21,7 @@ const CELL_COLOR: Record<CellState, string> = {
 }
 
 /** Drives and ME chests of a network: total fill, then each drive with its cells, fullest first. */
-export function DrivesSection({ drives }: { drives: Ae2Drive[] }) {
+export function DrivesSection({ drives, grid, editable }: { drives: Ae2Drive[]; grid: string; editable: boolean }) {
   const t = useT()
   const { locale } = usePreferences()
   const [all, setAll] = useState(false)
@@ -84,6 +85,7 @@ export function DrivesSection({ drives }: { drives: Ae2Drive[] }) {
                   {t('drive.types', { used: formatNumber(d.usedTypes, locale), total: formatNumber(d.totalTypes, locale) })}
                 </span>
               )}
+              <DrivePriority grid={grid} drive={d} editable={editable} />
             </Card>
           </li>
         ))}
