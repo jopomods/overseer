@@ -350,6 +350,46 @@ public final class Ae2ActionGameTests {
         });
     }
 
+    /** Import and export buses on a cable: what they face, filter, cards, settings. */
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
+    public static void busesAreReadWithTheirSettings(GameTestHelper helper) {
+        buildGrid(helper);
+        BlockPos cable = new BlockPos(1, 1, 2);
+        helper.setBlock(new BlockPos(1, 1, 3), net.minecraft.world.level.block.Blocks.CHEST);
+        helper.setBlock(new BlockPos(2, 1, 2), net.minecraft.world.level.block.Blocks.FURNACE);
+        helper.runAfterDelay(5, () -> {
+            var level = helper.getLevel();
+            BlockPos at = helper.absolutePos(cable);
+            appeng.api.parts.PartHelper.setPart(level, at, null, null,
+                    appeng.core.definitions.AEParts.GLASS_CABLE.item(appeng.api.util.AEColor.TRANSPARENT));
+            var export = appeng.api.parts.PartHelper.setPart(level, at, net.minecraft.core.Direction.SOUTH, null,
+                    appeng.core.definitions.AEParts.EXPORT_BUS.asItem());
+            var importBus = appeng.api.parts.PartHelper.setPart(level, at, net.minecraft.core.Direction.EAST, null,
+                    appeng.core.definitions.AEParts.IMPORT_BUS.asItem());
+            helper.assertTrue(export != null && importBus != null, "buses not placed");
+            export.getConfig().setStack(0, new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1));
+            export.getUpgrades().addItems(new net.minecraft.world.item.ItemStack(AEItems.SPEED_CARD.asItem(), 2));
+        });
+        helper.runAfterDelay(40, () -> {
+            var snapshot = provider(helper).collect(AT);
+            String side = id(helper, cable);
+            var export = snapshot.resources().get(Ae2Mapping.bus(side + "/south"));
+            helper.assertTrue(export != null, "export bus missing; got " + snapshot.resources().keySet());
+            helper.assertTrue("export".equals(export.get("kind")) && "ae2:export_bus".equals(export.get("block")), "export: " + export);
+            helper.assertTrue("minecraft:chest".equals(export.get("targetBlock")) && "Chest".equals(export.get("target")),
+                    "faces the chest: " + export);
+            helper.assertTrue(export.get("filter").contains("item:minecraft:iron_ingot"), "filter: " + export.get("filter"));
+            helper.assertTrue("ae2:speed_card=2".equals(export.get("upgrades")), "upgrades: " + export.get("upgrades"));
+            helper.assertTrue("false".equals(export.get("craftOnly")) && "default".equals(export.get("scheduling")),
+                    "export settings: " + export);
+            var importBus = snapshot.resources().get(Ae2Mapping.bus(side + "/east"));
+            helper.assertTrue(importBus != null && "import".equals(importBus.get("kind"))
+                    && "minecraft:furnace".equals(importBus.get("targetBlock")) && "".equals(importBus.get("craftOnly")),
+                    "import: " + importBus);
+            helper.succeed();
+        });
+    }
+
     // --- setup -----------------------------------------------------------------------------
 
     /** Controller (owned), creative power, drive with a 1k cell, 1k CPU, provider with a pattern. */
