@@ -110,4 +110,24 @@ class Ae2ActionsTest {
         assertThrows(Invalid.class, () -> Ae2Actions.craftStart(json("{\"plan\":\"nope\"}")));
         assertThrows(Invalid.class, () -> Ae2Actions.craftStart(json("{\"plan\":\"0123456789abcdef\",\"cpu\":\"x\"}")));
     }
+
+    @Test
+    void busEditReplacesTheFilterAndSetsModes() {
+        var edit = Ae2Actions.busEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/east\",\"filter\":[\"item:minecraft:raw_iron\","
+                + "\"fluid:minecraft:water\"],\"redstone\":\"HIGH_SIGNAL\",\"craftOnly\":true,\"scheduling\":\"roundrobin\",\"name\":\"Ore\"}"));
+        assertEquals(java.util.List.of("item:minecraft:raw_iron", "fluid:minecraft:water"), edit.filter());
+        assertEquals(Ae2Actions.Redstone.HIGH_SIGNAL, edit.redstone());
+        assertEquals(Ae2Actions.Scheduling.ROUNDROBIN, edit.scheduling());
+        assertTrue(edit.craftOnly());
+        assertEquals(java.util.List.of(), Ae2Actions.busEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/east\",\"filter\":[]}")).filter(),
+                "an empty list clears the filter");
+        assertThrows(Invalid.class, () -> Ae2Actions.busEdit(json("{\"bus\":\"minecraft:overworld@1,2,3\",\"redstone\":\"ignore\"}")),
+                "buses are parts: a side is required");
+        assertThrows(Invalid.class, () -> Ae2Actions.busEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/east\",\"filter\":["
+                + "\"item:a:b\",\"item:a:c\",\"item:a:d\",\"item:a:e\",\"item:a:f\",\"item:a:g\",\"item:a:h\",\"item:a:i\",\"item:a:j\",\"item:a:k\"]}")));
+        assertThrows(Invalid.class, () -> Ae2Actions.busEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/east\",\"filter\":[\"item:a:b\",\"item:a:b\"]}")));
+        assertThrows(Invalid.class, () -> Ae2Actions.busEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/east\",\"filter\":\"item:a:b\"}")));
+        assertThrows(Invalid.class, () -> Ae2Actions.busEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/east\",\"redstone\":\"loud\"}")));
+        assertThrows(Invalid.class, () -> Ae2Actions.busEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/east\"}")), "nothing to change");
+    }
 }

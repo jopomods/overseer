@@ -21,6 +21,7 @@ public final class Ae2Actions {
     public static final String CPU_EDIT = "ae2.cpu.edit";
     public static final String DRIVE_EDIT = "ae2.drive.edit";
     public static final String PROVIDER_EDIT = "ae2.provider.edit";
+    public static final String BUS_EDIT = "ae2.bus.edit";
     public static final String CRAFT_PLAN = "ae2.craft.plan";
     public static final String CRAFT_START = "ae2.craft.start";
 
@@ -31,7 +32,16 @@ public final class Ae2Actions {
     public static final long MAX_CRAFT = 1_000_000_000_000L;
 
     /** Actions every AE2 build supports. */
-    public static final Set<String> BASE_TYPES = Set.of(CPU_CANCEL, CPU_EDIT, DRIVE_EDIT, PROVIDER_EDIT);
+    public static final Set<String> BASE_TYPES = Set.of(CPU_CANCEL, CPU_EDIT, DRIVE_EDIT, PROVIDER_EDIT, BUS_EDIT);
+
+    /** Filter slots of an AE2 import or export bus (capacity cards unlock them in game). */
+    public static final int MAX_FILTER = 9;
+
+    /** AE2 redstone modes, lower case as in the snapshot. */
+    public enum Redstone { IGNORE, LOW_SIGNAL, HIGH_SIGNAL, SIGNAL_PULSE }
+
+    /** AE2 export bus scheduling modes. */
+    public enum Scheduling { DEFAULT, ROUNDROBIN, RANDOM }
 
     /** Minecraft's anvil limit; AE2 names blocks and parts like an anvil does. */
     public static final int MAX_NAME = 50;
@@ -67,6 +77,56 @@ public final class Ae2Actions {
     public record CpuSuspend(String cpu, boolean suspended) {}
 
     public record DriveEdit(String drive, int priority) {}
+
+    /**
+     * Settings of an import or export bus; {@code null} fields stay. {@code filter} replaces the whole
+     * filter (empty clears it); craft only and scheduling apply to export buses.
+     */
+    public record BusEdit(String bus, String name, java.util.List<String> filter, Redstone redstone, Boolean craftOnly,
+            Scheduling scheduling) {}
+
+    /**
+     * {@code bus}, {@code name?}, {@code filter?} (list of stack keys, at most 9), {@code redstone?},
+     * {@code craftOnly?}, {@code scheduling?}.
+     */
+    public static BusEdit busEdit(JsonObject params) {
+        String bus = optString(params, "bus");
+        if (bus == null) throw new Invalid("bus is required.");
+        if (!PROVIDER_ID.matcher(bus).matches() || !bus.contains("/")) throw new Invalid("Unknown bus: " + bus);
+        String name = optString(params, "name");
+        if (name != null) name = name(name);
+        java.util.List<String> filter = null;
+        JsonElement f = params.get("filter");
+        if (f != null && !f.isJsonNull()) {
+            if (!f.isJsonArray()) throw new Invalid("filter must be a list of item keys.");
+            if (f.getAsJsonArray().size() > MAX_FILTER) throw new Invalid("A bus filter has at most " + MAX_FILTER + " entries.");
+            filter = new java.util.ArrayList<>();
+            for (JsonElement e : f.getAsJsonArray()) {
+                if (!e.isJsonPrimitive() || !e.getAsJsonPrimitive().isString()) throw new Invalid("filter must be a list of item keys.");
+                String key = e.getAsString();
+                if (!STACK_KEY.matcher(key).matches()) throw new Invalid("Unknown item: " + key);
+                if (filter.contains(key)) throw new Invalid("An item is listed twice.");
+                filter.add(key);
+            }
+        }
+        Redstone redstone = optEnum(params, "redstone", Redstone.class, "Redstone must be ignore, low_signal, high_signal or signal_pulse.");
+        Scheduling scheduling = optEnum(params, "scheduling", Scheduling.class, "Scheduling must be default, roundrobin or random.");
+        Boolean craftOnly = optBool(params, "craftOnly");
+        if (name == null && filter == null && redstone == null && craftOnly == null && scheduling == null) {
+            throw new Invalid("Nothing to change.");
+        }
+        return new BusEdit(bus, name, filter, redstone, craftOnly, scheduling);
+    }
+
+    private static <E extends Enum<E>> E optEnum(JsonObject params, String key, Class<E> type, String message) {
+        String text = optString(params, key);
+        if (text == null) return null;
+        try {
+            return Enum.valueOf(type, text.strip().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new Invalid(message);
+        }
+    }
 
     /** {@code key} (stack key), {@code amount}. */
     public record CraftPlan(String key, long amount) {}

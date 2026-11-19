@@ -434,6 +434,60 @@ public final class Ae2ActionGameTests {
         });
     }
 
+    /** Bus filter, redstone mode and export settings through the action, refusals for import buses. */
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
+    public static void busesAreEdited(GameTestHelper helper) {
+        buildGrid(helper);
+        BlockPos cable = new BlockPos(1, 1, 2);
+        var buses = new appeng.parts.automation.IOBusPart[2];
+        helper.runAfterDelay(5, () -> {
+            BlockPos at = helper.absolutePos(cable);
+            appeng.api.parts.PartHelper.setPart(helper.getLevel(), at, null, null,
+                    appeng.core.definitions.AEParts.GLASS_CABLE.item(appeng.api.util.AEColor.TRANSPARENT));
+            buses[0] = appeng.api.parts.PartHelper.setPart(helper.getLevel(), at, net.minecraft.core.Direction.SOUTH, null,
+                    appeng.core.definitions.AEParts.EXPORT_BUS.asItem());
+            buses[1] = appeng.api.parts.PartHelper.setPart(helper.getLevel(), at, net.minecraft.core.Direction.EAST, null,
+                    appeng.core.definitions.AEParts.IMPORT_BUS.asItem());
+        });
+        helper.runAfterDelay(40, () -> {
+            var provider = provider(helper);
+            provider.collect(AT);
+            ActionHandler actions = provider.actions();
+            ResourceRef gridRef = gridRef(helper);
+            String export = id(helper, cable) + "/south";
+            var edit = actions.perform(OWNER_ACTOR, request(Ae2Actions.BUS_EDIT, gridRef, "{\"bus\":\"" + export
+                    + "\",\"name\":\"§aOre out\",\"filter\":[\"item:minecraft:gold_ingot\",\"item:minecraft:raw_iron\"],"
+                    + "\"redstone\":\"high_signal\",\"craftOnly\":true,\"scheduling\":\"random\"}"));
+            helper.assertTrue(edit.isOk() && edit.changes().size() == 5, "edit: " + edit);
+            var bus = buses[0];
+            helper.assertTrue(AEItemKey.of(Items.GOLD_INGOT).equals(bus.getConfig().getKey(0))
+                    && AEItemKey.of(Items.RAW_IRON).equals(bus.getConfig().getKey(1)) && bus.getConfig().getKey(2) == null,
+                    "filter: " + bus.getConfig());
+            var settings = bus.getConfigManager();
+            helper.assertTrue(settings.getSetting(appeng.api.config.Settings.REDSTONE_CONTROLLED) == appeng.api.config.RedstoneMode.HIGH_SIGNAL
+                    && settings.getSetting(appeng.api.config.Settings.CRAFT_ONLY) == appeng.api.config.YesNo.YES
+                    && settings.getSetting(appeng.api.config.Settings.SCHEDULING_MODE) == appeng.api.config.SchedulingMode.RANDOM,
+                    "settings");
+            helper.assertTrue("§aOre out".equals(bus.getCustomName().getString()), "name: " + bus.getCustomName());
+            var attrs = provider.collect(AT).resources().get(Ae2Mapping.bus(export));
+            helper.assertTrue(attrs.get("filter").contains("item:minecraft:raw_iron") && "high_signal".equals(attrs.get("redstone")),
+                    "snapshot: " + attrs);
+
+            var cleared = actions.perform(OWNER_ACTOR, request(Ae2Actions.BUS_EDIT, gridRef, "{\"bus\":\"" + export + "\",\"filter\":[]}"));
+            helper.assertTrue(cleared.isOk() && bus.getConfig().getKey(0) == null, "cleared: " + cleared);
+            var importOnly = actions.perform(OWNER_ACTOR, request(Ae2Actions.BUS_EDIT, gridRef,
+                    "{\"bus\":\"" + id(helper, cable) + "/east\",\"craftOnly\":true}"));
+            helper.assertTrue(importOnly.status() == Status.INVALID, "import buses have no craft only: " + importOnly);
+            var unknown = actions.perform(OWNER_ACTOR, request(Ae2Actions.BUS_EDIT, gridRef,
+                    "{\"bus\":\"" + export + "\",\"filter\":[\"item:minecraft:no_such_item\"]}"));
+            helper.assertTrue(unknown.status() == Status.INVALID, "unknown item: " + unknown);
+            var denied = actions.perform(STRANGER_ACTOR, request(Ae2Actions.BUS_EDIT, gridRef,
+                    "{\"bus\":\"" + export + "\",\"redstone\":\"ignore\"}"));
+            helper.assertTrue(denied.status() == Status.DENIED, "stranger: " + denied);
+            helper.succeed();
+        });
+    }
+
     // --- setup -----------------------------------------------------------------------------
 
     /** Controller (owned), creative power, drive with a 1k cell, 1k CPU, provider with a pattern. */

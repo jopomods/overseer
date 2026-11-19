@@ -851,6 +851,24 @@ export function createMockBackend(options: MockOptions = {}) {
       if (!cpu) return fail(400, 'invalid', 'No free CPU is big enough or accepts jobs from players.')
       plans.delete(String(params.plan))
       set(cpu.ref.key, 'job', { job: plan.key, jobKind: 'item', jobName: plan.name, jobAmount: '1', busy: 'true' }, '', plan.key)
+    } else if (b.type === 'ae2.bus.edit') {
+      const bus = part('bus', params.bus)
+      if (!bus) return fail(400, 'invalid', 'This bus is not part of the network.')
+      const a = bus.attributes
+      if (a.kind !== 'export' && (params.craftOnly !== undefined || params.scheduling !== undefined)) {
+        return fail(400, 'invalid', 'Only export buses have craft only and scheduling.')
+      }
+      if (typeof params.name === 'string') set(bus.ref.key, 'name', { name: params.name }, a.name ?? '', params.name)
+      if (Array.isArray(params.filter)) {
+        const keys = params.filter as string[]
+        const known = inventoryStacks(options.realistic === true)
+        const filter = JSON.stringify(keys.map((key) => ({ key, kind: key.startsWith('fluid:') ? 'fluid' : 'item', name: known.find((k) => k.key === key)?.name ?? key })))
+        const before = (JSON.parse(a.filter || '[]') as Array<{ key: string }>).map((f) => f.key).join(', ')
+        set(bus.ref.key, 'filter', { filter }, before, keys.join(', '))
+      }
+      if (typeof params.redstone === 'string') set(bus.ref.key, 'redstone', { redstone: params.redstone }, a.redstone ?? 'ignore', params.redstone)
+      if (typeof params.craftOnly === 'boolean') set(bus.ref.key, 'craftOnly', { craftOnly: String(params.craftOnly) }, a.craftOnly ?? '', String(params.craftOnly))
+      if (typeof params.scheduling === 'string') set(bus.ref.key, 'scheduling', { scheduling: params.scheduling }, a.scheduling ?? '', params.scheduling)
     } else if (b.type === 'ae2.drive.edit') {
       const drive = part('drive', params.drive)
       if (!drive) return fail(400, 'invalid', 'This drive is not part of the network.')
@@ -1105,7 +1123,7 @@ export function createMockBackend(options: MockOptions = {}) {
           : resource.startsWith('flux/network/')
             ? ['flux.device.connect', 'flux.device.edit', 'flux.member.edit', 'flux.network.edit']
             : resource.startsWith('ae2/grid/')
-              ? ['ae2.cpu.cancel', 'ae2.cpu.edit', 'ae2.cpu.suspend', 'ae2.craft.plan', 'ae2.craft.start', 'ae2.drive.edit', 'ae2.provider.edit']
+              ? ['ae2.bus.edit', 'ae2.cpu.cancel', 'ae2.cpu.edit', 'ae2.cpu.suspend', 'ae2.craft.plan', 'ae2.craft.start', 'ae2.drive.edit', 'ae2.provider.edit']
               : []
         return json({ resource, types })
       }
