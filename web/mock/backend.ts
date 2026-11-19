@@ -678,6 +678,7 @@ export function createMockBackend(options: MockOptions = {}) {
   }
   // AE2 actions (ADR-0017) patch CPU and drive attributes the same way.
   const ae2Patches = new Map<string, Record<string, string>>()
+  const plans = new Map<string, { grid: string; key: string; name: string; missing: boolean }>()
   const patchAe2 = (snap: LooseSnapshot): LooseSnapshot => ({
     ...snap,
     resources: snap.resources.map((r) => {
@@ -738,6 +739,44 @@ export function createMockBackend(options: MockOptions = {}) {
       if (typeof params.blocking === 'boolean') set(provider.ref.key, 'blocking', { blocking: String(params.blocking) }, a.blocking ?? 'false', String(params.blocking))
       if (typeof params.visible === 'boolean') set(provider.ref.key, 'visible', { visible: String(params.visible) }, a.visible ?? 'true', String(params.visible))
       if (typeof params.lock === 'string') set(provider.ref.key, 'lock', { lock: params.lock }, a.lock ?? 'none', params.lock)
+    } else if (b.type === 'ae2.craft.plan') {
+      // A plan like AE2's: up to 64 crafts are covered by the network, more miss resistors.
+      const pattern = patternRows(b.resource, options.realistic === true).find((r) => r.output === params.key)
+      if (!pattern) return fail(400, 'invalid', 'No pattern in this network makes this.')
+      const amount = Number(params.amount)
+      const crafts = Math.ceil(amount / Number(pattern.amount))
+      const inputs = JSON.parse(pattern.inputs) as Array<{ key: string; kind: string; name: string; amount: number }>
+      const short = crafts > 64
+      const id = (plans.size + 1).toString(16).padStart(16, '0')
+      plans.set(id, { grid: b.resource, key: String(params.key), name: pattern.outputName, missing: short })
+      const cpus = current.resources.filter((r) => r.ref.type === 'cpu' && r.attributes.grid === grid.ref.id)
+      const data = {
+        plan: id,
+        output: { key: pattern.output, kind: pattern.outputKind, name: pattern.outputName, amount },
+        bytes: crafts * 128,
+        missing: short,
+        multiplePaths: false,
+        expiresInSeconds: 300,
+        used: inputs.map((i) => ({ ...i, amount: i.amount * Math.min(crafts, 64) })),
+        missingItems: short ? inputs.slice(0, 1).map((i) => ({ ...i, amount: i.amount * (crafts - 64) })) : [],
+        crafted: [],
+        cpus: cpus.map((c, i) => ({
+          id: c.ref.id, number: i + 1, name: c.attributes.name || null, storage: Number(c.attributes.storage),
+          coProcessors: Number(c.attributes.coProcessors), busy: Boolean(c.attributes.job), mode: c.attributes.mode ?? 'any',
+          fits: Number(c.attributes.storage) >= crafts * 128,
+        })),
+      }
+      log('ok', null)
+      return json({ status: 'ok', message: null, changes: [], data })
+    } else if (b.type === 'ae2.craft.start') {
+      const plan = plans.get(String(params.plan))
+      if (!plan || plan.grid !== b.resource) return fail(400, 'invalid', 'This plan expired. Plan the job again.')
+      if (plan.missing) return fail(400, 'invalid', 'Items are missing; the job cannot start.')
+      const free = current.resources.filter((r) => r.ref.type === 'cpu' && r.attributes.grid === grid.ref.id && !r.attributes.job)
+      const cpu = params.cpu ? free.find((c) => c.ref.id === params.cpu) : free[0]
+      if (!cpu) return fail(400, 'invalid', 'No free CPU is big enough or accepts jobs from players.')
+      plans.delete(String(params.plan))
+      set(cpu.ref.key, 'job', { job: plan.key, jobKind: 'item', jobName: plan.name, jobAmount: '1', busy: 'true' }, '', plan.key)
     } else if (b.type === 'ae2.drive.edit') {
       const drive = part('drive', params.drive)
       if (!drive) return fail(400, 'invalid', 'This drive is not part of the network.')
@@ -975,7 +1014,7 @@ export function createMockBackend(options: MockOptions = {}) {
           : resource.startsWith('flux/network/')
             ? ['flux.device.connect', 'flux.device.edit', 'flux.member.edit', 'flux.network.edit']
             : resource.startsWith('ae2/grid/')
-              ? ['ae2.cpu.cancel', 'ae2.cpu.edit', 'ae2.cpu.suspend', 'ae2.drive.edit', 'ae2.provider.edit']
+              ? ['ae2.cpu.cancel', 'ae2.cpu.edit', 'ae2.cpu.suspend', 'ae2.craft.plan', 'ae2.craft.start', 'ae2.drive.edit', 'ae2.provider.edit']
               : []
         return json({ resource, types })
       }
