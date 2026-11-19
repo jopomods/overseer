@@ -70,4 +70,24 @@ class Ae2ActionsTest {
                 () -> Ae2Actions.driveEdit(json("{\"drive\":\"minecraft:the_nether@0,5,0\",\"priority\":3000000000}")));
         assertThrows(Invalid.class, () -> Ae2Actions.driveEdit(json("{\"drive\":\"x#1\",\"priority\":1}")));
     }
+
+    @Test
+    void providerEditTakesEverySettingAndAnIcon() {
+        var edit = Ae2Actions.providerEdit(json("{\"provider\":\"minecraft:overworld@1,2,3/north\",\"name\":\"§6Assembler HV\","
+                + "\"priority\":-3,\"blocking\":true,\"lock\":\"LOCK_UNTIL_RESULT\",\"visible\":false,\"icon\":\" gtceu:hv_assembler \"}"));
+        assertEquals("minecraft:overworld@1,2,3/north", edit.provider());
+        assertEquals("§6Assembler HV", edit.name());
+        assertEquals(-3, edit.priority());
+        assertTrue(edit.blocking());
+        assertEquals(Ae2Actions.Lock.LOCK_UNTIL_RESULT, edit.lock());
+        assertFalse(edit.visible());
+        assertEquals("gtceu:hv_assembler", edit.icon());
+        assertEquals("", Ae2Actions.providerEdit(json("{\"provider\":\"minecraft:overworld@1,2,3\",\"icon\":\"\"}")).icon(),
+                "empty removes the icon");
+        assertThrows(Invalid.class, () -> Ae2Actions.providerEdit(json("{\"provider\":\"minecraft:overworld@1,2,3/inside\",\"priority\":1}")));
+        assertThrows(Invalid.class, () -> Ae2Actions.providerEdit(json("{\"provider\":\"minecraft:overworld@1,2,3\",\"icon\":\"Diamond\"}")));
+        assertThrows(Invalid.class, () -> Ae2Actions.providerEdit(json("{\"provider\":\"minecraft:overworld@1,2,3\",\"lock\":\"always\"}")));
+        assertThrows(Invalid.class, () -> Ae2Actions.providerEdit(json("{\"provider\":\"minecraft:overworld@1,2,3\"}")), "nothing to change");
+        assertThrows(Invalid.class, () -> Ae2Actions.providerEdit(json("{\"priority\":1}")));
+    }
 }
