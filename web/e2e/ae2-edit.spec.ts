@@ -128,4 +128,56 @@ test.describe('ae2 actions', () => {
     await expect(card.getByTestId('provider-details')).toContainText('Until redstone pulse')
     await expect(page.getByTestId('action-log')).toContainText('Assembler EV: Icon gtceu:hv_assembler → gtceu:ev_assembler')
   })
+
+  test('remote crafting: the missing amount of a watched item, planned and started', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto(GRID)
+    await page.getByTestId('watchlist').getByRole('button', { name: 'Craft the missing amount' }).click()
+    const panel = page.getByTestId('craft-panel')
+    await expect(panel).toContainText('Good Electronic Circuit')
+    await expect(panel.getByLabel('Amount')).toHaveValue('91')
+
+    const plan = page.waitForRequest((r) => r.url().endsWith('/api/v1/actions') && r.method() === 'POST')
+    await panel.getByRole('button', { name: 'Plan' }).click()
+    expect((await plan).postDataJSON()).toEqual({
+      type: 'ae2.craft.plan',
+      resource: 'ae2/grid/minecraft:overworld@120,64,-340',
+      params: { key: 'item:gtceu:good_electronic_circuit', amount: 91 },
+    })
+    const view = panel.getByTestId('craft-plan')
+    await expect(view).toContainText('Ready')
+    await expect(view.getByTestId('craft-used')).toContainText('Resistor')
+    await expect(view.getByLabel('Crafting CPU').locator('option:not([disabled])')).toHaveCount(2) // automatic + the idle CPU
+
+    const start = page.waitForRequest((r) => r.url().endsWith('/api/v1/actions') && r.method() === 'POST')
+    await view.getByRole('button', { name: 'Start' }).click()
+    expect((await start).postDataJSON().params).toEqual({ plan: '0000000000000001' })
+    await expect(panel.getByTestId('craft-started')).toHaveText('Job started on CPU #3.')
+  })
+
+  test('remote crafting: search, missing items block the start', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto(GRID)
+    await page.getByTestId('craft-search-open').click()
+    await page.getByTestId('craft-search').getByLabel('Search craftable items').fill('resis')
+    await page.getByTestId('craft-search').getByRole('button', { name: 'Resistor' }).click()
+    const panel = page.getByTestId('craft-panel')
+    await panel.getByLabel('Amount').fill('0')
+    await expect(panel.getByRole('button', { name: 'Plan' })).toBeDisabled()
+    await panel.getByLabel('Amount').fill('300')
+    await panel.getByRole('button', { name: 'Plan' }).click()
+    await expect(panel.getByTestId('craft-plan')).toContainText('Items missing')
+    await expect(panel.getByTestId('craft-missing')).toContainText('Fine Copper Wire')
+    await expect(panel.getByRole('button', { name: 'Start' })).toHaveCount(0)
+    // The contents list offers crafting for craftable items too.
+    await expect(page.getByTestId('inventory-list').getByRole('button', { name: 'Craft Iron Ingot' })).toBeVisible()
+  })
+
+  test('viewers cannot craft', async ({ page }) => {
+    await mockApi(page, { realistic: true, role: 'player' })
+    await page.goto(GRID)
+    await expect(page.getByTestId('inventory-list')).toBeVisible()
+    await expect(page.getByTestId('craft-search-open')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Craft / })).toHaveCount(0)
+  })
 })

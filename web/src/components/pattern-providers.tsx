@@ -1,6 +1,7 @@
 import { ChevronDown, Lock, Pencil, Search } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { useDetails, useRunAction } from '@/api/hooks'
+import { CraftButton } from '@/components/craft'
 import { Actions, Counter, Feedback, Field } from '@/components/edit-form'
 import { Segmented } from '@/components/history-chart'
 import { ItemIcon } from '@/components/item-icon'
@@ -248,6 +249,7 @@ function PatternList({ patterns }: { patterns: Ae2Pattern[] }) {
                 <McText text={x.output.name} />
               </span>
               <span className="tabular shrink-0">×{amount(x.output, locale, t)}</span>
+              <CraftButton request={{ key: x.output.key, name: x.output.name, kind: x.output.kind }} className="-my-1 shrink-0" />
             </div>
             <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 pl-5.5">
               {x.inputs.map((input, j) => (

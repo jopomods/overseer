@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useInventory, useWatches, type InventoryItem, type InventoryQuery } from '@/api/hooks'
+import { CraftButton } from '@/components/craft'
 import { ItemHistory } from '@/components/item-history'
 import { ItemIcon } from '@/components/item-icon'
 import { McText } from '@/components/mc-text'
@@ -181,6 +182,7 @@ function Row({
             {hint ? <span className="text-destructive">{hint}</span> : item.key}
           </p>
         </button>
+        <CraftButton request={{ key: item.key, name: item.name, kind: item.kind }} className="ml-auto shrink-0" />
       </div>
       <span className="tabular text-right text-sm font-semibold" title={exact}>
         {amount}

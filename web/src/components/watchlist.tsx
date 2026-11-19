@@ -1,6 +1,7 @@
-import { ChevronDown, Star, X } from 'lucide-react'
+import { ChevronDown, Hammer, Star, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useRemoveWatch, useSetWatch, useWatches, type Resource, type Watch } from '@/api/hooks'
+import { useCraft } from '@/components/craft'
 import { HistoryChart } from '@/components/history-chart'
 import { ItemIcon } from '@/components/item-icon'
 import { McText } from '@/components/mc-text'
@@ -131,6 +132,7 @@ function WatchCard({ grid, watch, canEdit }: { grid: Resource; watch: Watch; can
             </span>
             <span className="text-muted-foreground tabular">{forecastText(f, t, locale)}</span>
           </div>
+          {f.deficit > 0 && <CraftDeficit watch={watch} deficit={f.deficit} />}
           <button
             type="button"
             className="text-muted-foreground hover:text-foreground flex items-center gap-1 self-start text-xs"
@@ -221,6 +223,23 @@ export function WatchToggle({ grid, item, watched, name }: { grid: string; item:
       onClick={() => (watched ? remove.mutate(item) : set.mutate({ item }))}
     >
       <Star className={cn(watched ? 'text-warning fill-current' : 'text-muted-foreground')} />
+    </Button>
+  )
+}
+
+/** "Craft the missing amount" for a watched item below its target, when it can be crafted here. */
+function CraftDeficit({ watch, deficit }: { watch: Watch; deficit: number }) {
+  const t = useT()
+  const craft = useCraft()
+  if (!craft?.canCraft(watch.item)) return null
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="self-start"
+      onClick={() => craft.open({ key: watch.item, name: watch.name, kind: watch.kind, amount: deficit })}
+    >
+      <Hammer /> {t('craft.deficit')}
     </Button>
   )
 }

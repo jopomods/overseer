@@ -92,6 +92,15 @@ test('no horizontal overflow with the AE2 editors open', async ({ page }) => {
   await expectNoHorizontalOverflow(page)
 })
 
+test('no horizontal overflow with a crafting plan open', async ({ page }) => {
+  await mockApi(page, { realistic: true })
+  await page.goto('/ae2/minecraft:overworld@120,64,-340')
+  await page.getByTestId('watchlist').getByRole('button', { name: 'Craft the missing amount' }).click()
+  await page.getByTestId('craft-panel').getByRole('button', { name: 'Plan' }).click()
+  await expect(page.getByTestId('craft-plan')).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+})
+
 test('overflow detector catches content wider than the viewport', async ({ page }) => {
   await mockApi(page)
   await page.goto('/login')

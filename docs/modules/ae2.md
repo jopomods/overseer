@@ -292,6 +292,13 @@ Jobs are requested as the player: online, or a stand-in with their profile while
 fake player), so CPUs reserved for players take them. Keys come from scans and patterns; plain items
 and fluids also by registry id.
 
+**Crafting in the UI.** With `ae2.craft.plan` allowed, the grid page has a "Craft" section above
+the CPUs: search the craftable items (the outputs of the grid's patterns) or start from a hammer
+button in the contents list, a pattern, or "Craft the missing amount" on a watched item below its
+target (pre-filled with the deficit). The panel takes the amount (buckets for fluids), shows the
+plan (bytes, missing, used and crafted items), offers the CPUs that fit and are free, and starts
+the job.
+
 CPU ids are `<dimension>@x,y,z` of the lowest corner, or `<grid id>#<index>` for CPUs without
 blocks (add-ons; cancel only). Changes name the CPU or drive, so its log shows them. The grid page
 shows the controls in the expanded CPU card and on each drive, and the grid's change log.
