@@ -21,6 +21,14 @@ public final class Ae2Actions {
     public static final String CPU_EDIT = "ae2.cpu.edit";
     public static final String DRIVE_EDIT = "ae2.drive.edit";
     public static final String PROVIDER_EDIT = "ae2.provider.edit";
+    public static final String CRAFT_PLAN = "ae2.craft.plan";
+    public static final String CRAFT_START = "ae2.craft.start";
+
+    /** Remote crafting (server setting {@code actions.ae2Crafting}, ADR-0019). */
+    public static final Set<String> CRAFT_TYPES = Set.of(CRAFT_PLAN, CRAFT_START);
+
+    /** The largest amount one plan may ask for. */
+    public static final long MAX_CRAFT = 1_000_000_000_000L;
 
     /** Actions every AE2 build supports. */
     public static final Set<String> BASE_TYPES = Set.of(CPU_CANCEL, CPU_EDIT, DRIVE_EDIT, PROVIDER_EDIT);
@@ -36,6 +44,9 @@ public final class Ae2Actions {
 
     private static final Pattern PROVIDER_ID = Pattern.compile(
             "[a-z0-9_.-]+:[a-z0-9_./-]+@-?\\d+,-?\\d+,-?\\d+(/(down|up|north|south|west|east))?");
+    private static final Pattern STACK_KEY = Pattern.compile(
+            "(item|fluid):[a-z0-9_.-]+:[a-z0-9_./-]+(#[0-9a-f]{1,8})?|other:[a-z0-9_.:/-]+");
+    private static final Pattern PLAN_ID = Pattern.compile("[0-9a-f]{16}");
     private static final Pattern ITEM_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
     private static final Pattern POS_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+@-?\\d+,-?\\d+,-?\\d+");
     /** CPUs that are no multiblock (add-ons) are numbered within their grid. */
@@ -56,6 +67,12 @@ public final class Ae2Actions {
     public record CpuSuspend(String cpu, boolean suspended) {}
 
     public record DriveEdit(String drive, int priority) {}
+
+    /** {@code key} (stack key), {@code amount}. */
+    public record CraftPlan(String key, long amount) {}
+
+    /** {@code plan} (id from {@link #CRAFT_PLAN}), {@code cpu?} (else AE2 chooses). */
+    public record CraftStart(String plan, String cpu) {}
 
     /**
      * Settings of a pattern provider; {@code null} fields stay as they are. An empty name or icon
@@ -152,6 +169,27 @@ public final class Ae2Actions {
             throw new Invalid("Nothing to change.");
         }
         return edit;
+    }
+
+    public static CraftPlan craftPlan(JsonObject params) {
+        String key = optString(params, "key");
+        if (key == null) throw new Invalid("key is required.");
+        if (!STACK_KEY.matcher(key).matches()) throw new Invalid("Unknown item: " + key);
+        Long amount = optLong(params, "amount");
+        if (amount == null) throw new Invalid("amount is required.");
+        if (amount < 1 || amount > MAX_CRAFT) throw new Invalid("Amount must be between 1 and " + MAX_CRAFT + ".");
+        return new CraftPlan(key, amount);
+    }
+
+    public static CraftStart craftStart(JsonObject params) {
+        String plan = optString(params, "plan");
+        if (plan == null) throw new Invalid("plan is required.");
+        if (!PLAN_ID.matcher(plan).matches()) throw new Invalid("Unknown plan.");
+        String cpu = optString(params, "cpu");
+        if (cpu != null && !POS_ID.matcher(cpu).matches() && !INDEX_ID.matcher(cpu).matches()) {
+            throw new Invalid("Unknown CPU: " + cpu);
+        }
+        return new CraftStart(plan, cpu);
     }
 
     /**

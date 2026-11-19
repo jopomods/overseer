@@ -59,7 +59,7 @@ final class Ae2Writer {
     record Context(MinecraftServer server, Supplier<Map<String, UUID>> registrations, Teams teams) {}
 
     /** An action that cannot run; carries the answer. */
-    private static final class Refused extends RuntimeException {
+    static final class Refused extends RuntimeException {
         final transient ActionResult result;
 
         Refused(Status status, String message) {
@@ -280,7 +280,7 @@ final class Ae2Writer {
      * The live grid the id names, after checking the actor may change it. The id must still
      * identify this grid: a removed controller makes it another grid.
      */
-    private static IGrid grid(Context ctx, Actor actor, String gridId) {
+    static IGrid grid(Context ctx, Actor actor, String gridId) {
         Located at = locate(ctx.server(), gridId);
         IGridNode node = Ae2Reader.nodeAt(at.level(), at.pos());
         IGrid grid = node == null ? null : node.getGrid();
@@ -301,7 +301,7 @@ final class Ae2Writer {
     }
 
     /** A CPU of the grid: by its lowest corner, or {@code <grid>#<index>} for CPUs without blocks. */
-    private static ICraftingCPU cpu(Context ctx, IGrid grid, String cpuId) {
+    static ICraftingCPU cpu(Context ctx, IGrid grid, String cpuId) {
         int hash = cpuId.indexOf('#');
         if (hash >= 0) {
             int index;
