@@ -558,6 +558,10 @@ const FIELD_KEYS: Record<string, MessageKey> = {
   job: 'cpu.job',
   suspended: 'cpu.suspended',
   mode: 'cpu.mode',
+  icon: 'provider.icon',
+  blocking: 'provider.blocking',
+  lock: 'provider.lockMode',
+  visible: 'provider.visible',
 }
 
 function value(t: Translate, v: string | null | undefined): string {

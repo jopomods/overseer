@@ -183,6 +183,28 @@ export function useJob(resource: string, enabled: boolean) {
   })
 }
 
+/**
+ * The live table of a resource (`GET /api/v1/details`), e.g. the patterns of an AE2 grid. Empty
+ * when the resource has none.
+ */
+export function useDetails(resource: string, enabled: boolean, pollMs: number | false = 10_000) {
+  return useQuery({
+    queryKey: ['details', resource] as const,
+    queryFn: async () => {
+      try {
+        return (await unwrap(api.GET('/api/v1/details', { params: { query: { resource } } }))).rows
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return []
+        throw error
+      }
+    },
+    enabled,
+    refetchInterval: pollMs,
+    placeholderData: keepPreviousData,
+    retry,
+  })
+}
+
 /** Recorded changes of a resource, newest first; e.g. the jobs of a crafting CPU. */
 export function useEvents(resource: string, attributes: string[], enabled: boolean, pollMs: number | false = false) {
   return useQuery({
