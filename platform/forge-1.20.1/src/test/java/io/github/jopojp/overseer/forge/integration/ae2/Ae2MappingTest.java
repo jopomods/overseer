@@ -242,7 +242,7 @@ class Ae2MappingTest {
         Grid g = grid(OWNER, 10);
         var full = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(), g.controllers(),
                 g.state(), false, g.channels(), g.energy(), g.storage(), g.crafting(), Ae2Model.Kind.CONTROLLER, null,
-                List.of(), java.util.Map.of(), java.util.Set.of(), List.of(provider), List.of(pattern), null);
+                List.of(), java.util.Map.of(), java.util.Set.of(), List.of(provider), List.of(pattern), null, List.of());
         var snapshot = Ae2Mapping.snapshot(AT, List.of(full));
         var ref = Ae2Mapping.provider("minecraft:overworld@4,64,0/north");
         var attrs = snapshot.resources().get(ref);
@@ -301,5 +301,24 @@ class Ae2MappingTest {
         var attrs = Ae2Mapping.snapshot(AT, withProgress.apply(10), java.util.Map.of("minecraft:overworld@1,2,3",
                 java.time.Instant.EPOCH)).resources().get(Ae2Mapping.cpu("minecraft:overworld@1,2,3"));
         assertEquals("1970-01-01T00:00:00Z", attrs.get("stalledSince"));
+    }
+
+    @Test
+    void busesAreResourcesWithTheirSettings() {
+        var iron = new io.github.jopojp.overseer.core.provider.Stack("item:minecraft:iron_ingot", "item", "Iron \"Ingot\"", 0);
+        var bus = new Ae2Model.Bus("minecraft:overworld@1,2,3/east", "ae2:export_bus", "export", null, "LV Macerator",
+                "gtceu:lv_macerator", List.of(iron), java.util.Map.of("ae2:speed_card", 2, "ae2:crafting_card", 1),
+                "high_signal", true, "roundrobin", 1, true);
+        Grid g = grid(OWNER, 10).withBuses(List.of(bus));
+        var ref = Ae2Mapping.bus("minecraft:overworld@1,2,3/east");
+        var attrs = Ae2Mapping.snapshot(AT, List.of(g)).resources().get(ref);
+        assertEquals("export", attrs.get("kind"));
+        assertEquals("LV Macerator", attrs.get("target"));
+        assertEquals("ae2:crafting_card=1;ae2:speed_card=2", attrs.get("upgrades"), "sorted, stable");
+        assertEquals("true", attrs.get("craftOnly"));
+        assertEquals("1", attrs.get("requested"));
+        var filter = com.google.gson.JsonParser.parseString(attrs.get("filter")).getAsJsonArray();
+        assertEquals("Iron \"Ingot\"", filter.get(0).getAsJsonObject().get("name").getAsString());
+        assertEquals(Ae2Mapping.grid(g.id()), Ae2Mapping.AccessIndex.of(List.of(g)).parent(ref));
     }
 }

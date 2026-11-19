@@ -191,6 +191,28 @@ Add-on cells that AE2 does not describe in bytes (e.g. bulk cells) show their st
 cell inventories come from the drive's own cache (`getOriginalCellInventory`), so reading them
 costs no NBT parsing. Metrics are skipped while a grid boots.
 
+## Import and export buses
+
+Every import and export bus (anything extending AE2's `IOBusPart`, so add-on buses too) is a
+resource `ae2/bus/<dimension>@x,y,z/<side>`, visible like its grid.
+
+| Attribute | Meaning |
+|---|---|
+| `grid` | Id of the grid |
+| `block` | Registry id of the part item, e.g. `ae2:export_bus` |
+| `kind` | `import`, `export`, or the class name of an add-on bus |
+| `name` | Custom name, empty if none |
+| `target`, `targetBlock` | Name (custom name if it has one) and registry id of the block the bus faces; empty when nothing or not loaded |
+| `filter` | Configured keys, JSON list of `{key, kind, name}`; empty means everything for import buses and nothing for export buses |
+| `upgrades` | Installed cards, `<item id>=<count>;...` sorted |
+| `redstone` | `ignore`, `low_signal`, `high_signal`, `signal_pulse` |
+| `craftOnly`, `scheduling` | Export buses: export only crafted items; `default`, `roundrobin`, `random`. Empty for others |
+| `requested` | Crafting jobs the bus requested that still run (crafting card) |
+| `active` | Power and channel |
+
+The grid page lists them with a filter for import or export and a search over names, machines and
+filter items.
+
 ## Diagnosis
 
 **Stuck jobs.** A CPU whose job has made no progress for 5 minutes gets `stalledSince` (see Crafting

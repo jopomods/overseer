@@ -139,6 +139,32 @@ public final class Ae2Model {
     }
 
     /**
+     * An import or export bus (anything extending AE2's {@code IOBusPart}, add-on buses included).
+     *
+     * @param id          {@code dimension@x,y,z/<side>} of the part
+     * @param block       registry id of the part item, e.g. {@code ae2:export_bus}
+     * @param kind        {@code import}, {@code export} or, for add-on buses, their class name in lower case
+     * @param name        custom name, {@code null} if none
+     * @param target      name of the block the bus faces; empty when there is none
+     * @param targetBlock registry id of that block; empty when there is none
+     * @param filter      configured keys (empty: everything, for import buses)
+     * @param upgrades    installed upgrade cards by item id
+     * @param redstone    AE2 redstone mode, lower case ({@code ignore} without a redstone card)
+     * @param craftOnly   export buses: only export what they crafted; {@code null} for others
+     * @param scheduling  export buses: {@code default}, {@code roundrobin}, {@code random}; {@code null} for others
+     * @param requested   crafting jobs the bus requested and that still run (export buses with a crafting card)
+     * @param active      the bus has power and a channel
+     */
+    public record Bus(String id, String block, String kind, String name, String target, String targetBlock,
+            List<Stack> filter, java.util.Map<String, Integer> upgrades, String redstone, Boolean craftOnly,
+            String scheduling, int requested, boolean active) {
+        public Bus {
+            filter = List.copyOf(filter);
+            upgrades = java.util.Map.copyOf(upgrades);
+        }
+    }
+
+    /**
      * A device that needs a channel and has none (AE2 shows it dark), read with the inventory scan.
      *
      * @param id   {@code dimension@x,y,z} of the block, plus {@code /<side>} for a part
@@ -183,6 +209,7 @@ public final class Ae2Model {
      * @param providers  pattern providers
      * @param patterns   their patterns when read this time (inventory scans), otherwise {@code null}
      * @param offline    devices without a channel when read this time (inventory scans), otherwise {@code null}
+     * @param buses      import and export buses
      */
     public record Grid(
             String dimension,
@@ -206,13 +233,15 @@ public final class Ae2Model {
             java.util.Set<UUID> placers,
             List<Provider> providers,
             List<Pattern> patterns,
-            List<Offline> offline) {
+            List<Offline> offline,
+            List<Bus> buses) {
 
         public Grid {
             placers = placers == null ? java.util.Set.of() : java.util.Set.copyOf(placers);
             providers = providers == null ? List.of() : List.copyOf(providers);
             if (patterns != null) patterns = List.copyOf(patterns);
             if (offline != null) offline = List.copyOf(offline);
+            buses = buses == null ? List.of() : List.copyOf(buses);
             if (inventory != null) inventory = List.copyOf(inventory);
             drives = drives == null ? List.of() : List.copyOf(drives);
             watched = watched == null ? java.util.Map.of() : java.util.Map.copyOf(watched);
@@ -223,19 +252,25 @@ public final class Ae2Model {
                 Crafting crafting, Kind kind, List<Stack> inventory, List<Drive> drives,
                 java.util.Map<String, Long> watched, java.util.Set<UUID> placers) {
             this(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy, storage,
-                    crafting, kind, inventory, drives, watched, placers, List.of(), null, null);
+                    crafting, kind, inventory, drives, watched, placers, List.of(), null, null, List.of());
         }
 
         /** The same grid with these patterns (cached between scans). */
         public Grid withPatterns(List<Pattern> list) {
             return new Grid(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy,
-                    storage, crafting, kind, inventory, drives, watched, placers, providers, list, offline);
+                    storage, crafting, kind, inventory, drives, watched, placers, providers, list, offline, buses);
+        }
+
+        /** The same grid with these buses. */
+        public Grid withBuses(List<Bus> list) {
+            return new Grid(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy,
+                    storage, crafting, kind, inventory, drives, watched, placers, providers, patterns, offline, list);
         }
 
         /** The same grid with these devices without channel (cached between scans). */
         public Grid withOffline(List<Offline> list) {
             return new Grid(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy,
-                    storage, crafting, kind, inventory, drives, watched, placers, providers, patterns, list);
+                    storage, crafting, kind, inventory, drives, watched, placers, providers, patterns, list, buses);
         }
 
         public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,

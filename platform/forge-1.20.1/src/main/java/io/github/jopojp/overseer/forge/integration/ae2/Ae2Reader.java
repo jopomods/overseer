@@ -256,6 +256,7 @@ final class Ae2Reader {
         List<Ae2Model.Pattern> patterns = kind == Kind.HIDDEN || scan == null ? null : new ArrayList<>();
         if (kind != Kind.HIDDEN) providers(grid, keys, providers, patterns);
         // Channels are handed out after booting; until then every device would count as offline.
+        List<Ae2Model.Bus> buses = kind == Kind.HIDDEN ? List.of() : buses(grid, keys);
         List<Ae2Model.Offline> offline = kind == Kind.HIDDEN || scan == null || pathingBooting(grid) ? null
                 : withoutChannel(grid, keys);
 
@@ -268,7 +269,7 @@ final class Ae2Reader {
                 placers == null || kind == Kind.HIDDEN ? java.util.Set.of()
                         : scan != null || !placers.containsKey(gridId) ? refresh(placers, gridId, grid)
                         : placers.get(gridId),
-                providers, patterns, offline);
+                providers, patterns, offline, buses);
     }
 
     /**
@@ -455,6 +456,76 @@ final class Ae2Reader {
         }
         out.sort(Comparator.comparing(Ae2Model.Provider::id));
         if (patterns != null) patterns.sort(Comparator.comparing(Ae2Model.Pattern::provider));
+    }
+
+    /** Import and export buses of a grid, add-on buses included (anything extending {@code IOBusPart}). */
+    private static List<Ae2Model.Bus> buses(Grid grid, StackCache keys) {
+        var result = new ArrayList<Ae2Model.Bus>();
+        for (Class<?> type : grid.getMachineClasses()) {
+            if (!appeng.parts.automation.IOBusPart.class.isAssignableFrom(type)) continue;
+            for (Object machine : grid.getMachines(type)) {
+                if (!(machine instanceof appeng.parts.automation.IOBusPart bus)) continue;
+                BlockEntity be = bus.getBlockEntity();
+                if (be == null || be.getLevel() == null || be.isRemoved() || bus.getSide() == null) continue;
+                BlockPos pos = be.getBlockPos();
+                String id = dimension(be.getLevel()) + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ() + "/"
+                        + bus.getSide().getSerializedName();
+                String kind = bus instanceof appeng.parts.automation.ImportBusPart ? "import"
+                        : bus instanceof appeng.parts.automation.ExportBusPart ? "export"
+                        : bus.getClass().getSimpleName().toLowerCase(java.util.Locale.ROOT);
+                // What the bus faces, as the player sees it; nothing in an unloaded chunk.
+                BlockPos front = pos.relative(bus.getSide());
+                String target = "";
+                String targetBlock = "";
+                if (be.getLevel().isLoaded(front)) {
+                    var state = be.getLevel().getBlockState(front);
+                    if (!state.isAir()) {
+                        BlockEntity facing = be.getLevel().getBlockEntity(front);
+                        Component custom = facing instanceof net.minecraft.world.Nameable named ? named.getCustomName() : null;
+                        target = custom != null ? custom.getString() : state.getBlock().getName().getString();
+                        targetBlock = String.valueOf(ForgeRegistries.BLOCKS.getKey(state.getBlock()));
+                    }
+                }
+                var filter = new ArrayList<Stack>();
+                var config = bus.getConfig();
+                for (int i = 0; i < config.size(); i++) {
+                    AEKey key = config.getKey(i);
+                    if (key != null) filter.add(keys.stack(key, 0));
+                }
+                var upgrades = new java.util.TreeMap<String, Integer>();
+                var cards = bus.getUpgrades();
+                for (int i = 0; i < cards.size(); i++) {
+                    var card = cards.getStackInSlot(i);
+                    if (!card.isEmpty()) {
+                        upgrades.merge(String.valueOf(ForgeRegistries.ITEMS.getKey(card.getItem())), card.getCount(), Integer::sum);
+                    }
+                }
+                var settings = bus.getConfigManager();
+                Boolean craftOnly = null;
+                String scheduling = null;
+                int requested = 0;
+                if (bus instanceof appeng.parts.automation.ExportBusPart export) {
+                    if (settings.hasSetting(appeng.api.config.Settings.CRAFT_ONLY)) {
+                        craftOnly = settings.getSetting(appeng.api.config.Settings.CRAFT_ONLY) == appeng.api.config.YesNo.YES;
+                    }
+                    if (settings.hasSetting(appeng.api.config.Settings.SCHEDULING_MODE)) {
+                        scheduling = lower(settings.getSetting(appeng.api.config.Settings.SCHEDULING_MODE).name());
+                    }
+                    requested = export.getRequestedJobs().size();
+                }
+                Component custom = bus.getCustomName();
+                IGridNode node = bus.getGridNode();
+                result.add(new Ae2Model.Bus(id, providerBlockOf(bus), kind, custom == null ? null : custom.getString(), target,
+                        targetBlock, filter, upgrades, lower(bus.getRSMode().name()), craftOnly, scheduling, requested,
+                        node != null && node.isActive()));
+            }
+        }
+        result.sort(Comparator.comparing(Ae2Model.Bus::id));
+        return result;
+    }
+
+    private static String providerBlockOf(appeng.api.parts.IPart part) {
+        return part.getPartItem() == null ? "" : String.valueOf(ForgeRegistries.ITEMS.getKey(part.getPartItem().asItem()));
     }
 
     /** Devices of a grid at most reported as without channel; a broken base should not flood the page. */

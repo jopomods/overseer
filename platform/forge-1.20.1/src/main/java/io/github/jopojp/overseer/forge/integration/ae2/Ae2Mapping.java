@@ -77,6 +77,10 @@ public final class Ae2Mapping {
         return new ResourceRef(PROVIDER, "drive", id);
     }
 
+    public static ResourceRef bus(String id) {
+        return new ResourceRef(PROVIDER, "bus", id);
+    }
+
     public static ResourceRef provider(String id) {
         return new ResourceRef(PROVIDER, "provider", id);
     }
@@ -145,6 +149,7 @@ public final class Ae2Mapping {
                 if (cpu.job() != null) jobs.put(cpu(cpu.id()), cpu.job().lines());
             }
             for (Ae2Model.Provider provider : g.providers()) provider(g, provider, resources);
+            for (Ae2Model.Bus bus : g.buses()) bus(g, bus, resources);
             var rows = new ArrayList<Map<String, String>>();
             if (g.patterns() != null) rows.addAll(patternRows(g.patterns()));
             if (g.offline() != null) {
@@ -238,6 +243,35 @@ public final class Ae2Mapping {
     }
 
     private static final com.google.gson.Gson GSON = new com.google.gson.Gson();
+
+    /**
+     * An import or export bus. Its settings are attributes, so changes are events; the filter is a
+     * JSON list of {@code {key, kind, name}}, upgrades {@code <item id>=<count>;...}.
+     */
+    private static void bus(Grid g, Ae2Model.Bus b, Map<ResourceRef, Map<String, String>> resources) {
+        var attrs = new LinkedHashMap<String, String>();
+        attrs.put("grid", g.id());
+        attrs.put("block", b.block());
+        attrs.put("kind", b.kind());
+        attrs.put("name", b.name() == null ? "" : b.name());
+        attrs.put("target", b.target());
+        attrs.put("targetBlock", b.targetBlock());
+        var filter = new ArrayList<Map<String, Object>>();
+        for (var s : b.filter()) filter.add(Map.of("key", s.key(), "kind", s.kind(), "name", s.name()));
+        attrs.put("filter", GSON.toJson(filter));
+        var upgrades = new StringBuilder();
+        new java.util.TreeMap<>(b.upgrades()).forEach((item, count) -> {
+            if (!upgrades.isEmpty()) upgrades.append(';');
+            upgrades.append(item).append('=').append(count);
+        });
+        attrs.put("upgrades", upgrades.toString());
+        attrs.put("redstone", b.redstone());
+        attrs.put("craftOnly", b.craftOnly() == null ? "" : Boolean.toString(b.craftOnly()));
+        attrs.put("scheduling", b.scheduling() == null ? "" : b.scheduling());
+        attrs.put("requested", Integer.toString(b.requested()));
+        attrs.put("active", Boolean.toString(b.active()));
+        resources.put(bus(b.id()), attrs);
+    }
 
     /**
      * The patterns of a grid, one row each: {@code provider}, {@code output}, {@code outputKind},
@@ -359,6 +393,7 @@ public final class Ae2Mapping {
                 for (Ae2Model.Cpu cpu : g.crafting().list()) partGrids.put(cpu(cpu.id()).key(), g.id());
                 for (Ae2Model.Drive drive : g.drives()) partGrids.put(drive(drive.id()).key(), g.id());
                 for (Ae2Model.Provider p : g.providers()) partGrids.put(provider(p.id()).key(), g.id());
+                for (Ae2Model.Bus b : g.buses()) partGrids.put(bus(b.id()).key(), g.id());
                 if (placerAccess && g.kind() != Ae2Model.Kind.HIDDEN && !g.placers().isEmpty()) {
                     viewers.put(g.id(), g.placers());
                 }
