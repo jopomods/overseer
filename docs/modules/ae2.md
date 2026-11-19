@@ -123,7 +123,9 @@ estimates the remaining time from the average pace so far.
 
 Crafting statistics (ADR-0022): `GET /api/v1/jobs/stats` with the CPUs of a network replays these
 events and answers per CPU the busy time and jobs, per item the jobs, the requested amount, the
-busy time and the longest finished job, for any window (default 24 hours).
+busy time and the longest finished job, for any window (default 24 hours). The grid page shows it
+below the CPUs for 24 hours, 7 days or 30 days: jobs, CPU time and usage, each CPU's share, and the
+most requested items with amount, average and longest job. Cancelled jobs count too.
 
 Job lines: every second the reader also copies what each running job holds, like AE2's
 crafting status screen: per key `stored` (in the CPU), `active` (sent to machines) and

@@ -21,6 +21,7 @@ import { GridStateBadge } from '@/components/grid-state-badge'
 import { McText } from '@/components/mc-text'
 import { CraftProvider } from '@/components/craft'
 import { CraftingSection } from '@/components/crafting-cpus'
+import { CraftingStatsSection } from '@/components/crafting-stats'
 import { FlowSection } from '@/components/ae2-flow'
 import { BusEditSlot } from '@/components/bus-edit'
 import { BusesSection } from '@/components/bus-list'
@@ -130,6 +131,7 @@ export function GridPage() {
 
       <CraftProvider grid={key} enabled={allowed.has(AE2_ACTIONS.craftPlan)} patterns={patterns}>
         <CraftingSection cpus={cpus(snapshot.data, grid.id)} grid={key} allowed={allowed} />
+        <CraftingStatsSection grid={key} cpus={cpus(snapshot.data, grid.id)} uptime={snapshot.data?.at.uptimeMillis} />
 
         <Section title={t('chart.history')}>
           <div className="grid min-w-0 gap-3 xl:grid-cols-2">

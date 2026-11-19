@@ -184,7 +184,7 @@ What the crafting CPUs did, from the recorded job events (ADR-0022).
 
 - [x] `GET /api/v1/jobs/stats`: per CPU busy time and jobs, per item jobs, amount, busy time and
   longest job, for any window
-- [ ] UI: statistics on the network page (24 h, 7 d, 30 d): busiest items, CPU usage
+- [x] UI: statistics on the network page (24 h, 7 d, 30 d): busiest items, CPU usage
 
 ## M3: GregTech CEu (GTCEu)
 

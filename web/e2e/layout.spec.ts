@@ -130,6 +130,15 @@ test('no horizontal overflow with every storage shown and a storage bus editor o
   await expectNoHorizontalOverflow(page)
 })
 
+test('no horizontal overflow with all crafting statistics shown', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/ae2/minecraft:overworld@0,64,-0')
+  const stats = page.getByTestId('crafting-stats')
+  await stats.getByRole('button', { name: /Show all/ }).click()
+  await expect(stats.getByTestId('stats-items').getByRole('listitem')).toHaveCount(200)
+  await expectNoHorizontalOverflow(page)
+})
+
 test('no horizontal overflow with the flow open', async ({ page }) => {
   // Extreme data: 300 devices, long names, huge numbers; the Sankey on wide screens.
   await mockApi(page)

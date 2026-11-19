@@ -217,6 +217,18 @@ export function useFlows(resource: string, from: number | undefined, to: number 
   })
 }
 
+/** What the given job-running resources (crafting CPUs) did in a window (ADR-0022). */
+export function useJobStats(grid: string, resources: string[], from: number | undefined, to: number | undefined) {
+  return useQuery({
+    queryKey: ['job-stats', grid, resources.join('|'), from, to] as const,
+    queryFn: () => unwrap(api.GET('/api/v1/jobs/stats', { params: { query: { resource: resources, from, to } } })),
+    enabled: resources.length > 0 && from !== undefined && to !== undefined,
+    refetchInterval: 60_000,
+    placeholderData: keepPreviousData,
+    retry,
+  })
+}
+
 /** Flow per minute of one item or one device (ADR-0020). */
 export function useFlowHistory(resource: string, filter: { item?: string; device?: string }, from: number | undefined, to: number | undefined) {
   return useQuery({

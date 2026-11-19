@@ -272,6 +272,22 @@ test.describe('flows', () => {
     await expect(links).toHaveCount(3)
   })
 
+  test('crafting statistics: jobs per item and CPU usage, window switch', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    const request = page.waitForRequest((r) => r.url().includes('/api/v1/jobs/stats'))
+    await page.goto('/ae2/minecraft:overworld@120,64,-340')
+    const query = new URL((await request).url()).searchParams
+    expect(query.getAll('resource').length).toBeGreaterThan(1)
+    const stats = page.getByTestId('crafting-stats')
+    const items = stats.getByTestId('stats-items').getByRole('listitem')
+    await expect(items.first()).toContainText('Good Electronic Circuit')
+    await expect(items.first()).toContainText('42×')
+    await expect(stats.getByTestId('stats-cpus').getByRole('listitem').first()).toContainText('% busy')
+    const wider = page.waitForRequest((r) => r.url().includes('/api/v1/jobs/stats') && new URL(r.url()).searchParams.get('from') === '0')
+    await page.locator('section', { has: stats }).getByRole('radio', { name: '7 d' }).click()
+    await wider // the mock server has run for less than a week: the window starts at its beginning
+  })
+
   test('colour codes in names show as colours unless turned off', async ({ page }) => {
     await mockApi(page, { realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')
