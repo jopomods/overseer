@@ -74,6 +74,19 @@ test('no horizontal overflow with the Flux editors open', async ({ page }) => {
   await expectNoHorizontalOverflow(page)
 })
 
+test('no horizontal overflow with the AE2 editors open', async ({ page }) => {
+  // Extreme data: CPU names of 50+ characters, huge numbers, many drives.
+  await mockApi(page)
+  await page.goto('/ae2/minecraft:overworld@0,64,-0')
+  const card = page.getByTestId('cpu-list').getByRole('listitem').first()
+  await card.getByRole('button', { expanded: false }).click()
+  await card.getByRole('button', { name: 'Edit CPU' }).click()
+  await expect(card.getByTestId('cpu-edit')).toBeVisible()
+  await page.getByTestId('drive-list').getByRole('button', { name: 'Change priority' }).first().click()
+  await expect(page.getByTestId('drive-priority')).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+})
+
 test('overflow detector catches content wider than the viewport', async ({ page }) => {
   await mockApi(page)
   await page.goto('/login')
