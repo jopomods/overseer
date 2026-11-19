@@ -178,6 +178,14 @@ See where items go: every storage of a network by priority with what it accepts.
 - [x] Edit storage buses: name, priority, partition, access, extractable only
 - [ ] UI: storages ordered by priority, partitions, "where does this item go?", storage bus editor
 
+## M2.13: AE2 crafting statistics (no new mod)
+
+What the crafting CPUs did, from the recorded job events (ADR-0022).
+
+- [x] `GET /api/v1/jobs/stats`: per CPU busy time and jobs, per item jobs, amount, busy time and
+  longest job, for any window
+- [ ] UI: statistics on the network page (24 h, 7 d, 30 d): busiest items, CPU usage
+
 ## M3: GregTech CEu (GTCEu)
 
 - Its own integration; scope to be defined (machine state, maintenance, energy buffers, ...)
@@ -198,7 +206,7 @@ See where items go: every storage of a network by priority with what it accepts.
 - Notifications (push, Discord webhook)
 - Custom dashboard widgets
 - Actions for GTCEu on top of the world actions of ADR-0016
-- AE2: crafting statistics, item search across grids
+- AE2: item search across grids
 - More loaders and versions (NeoForge, Fabric, older ones such as 1.7.10 for GT New Horizons) via
   Stonecutter, only when needed; the GregTech voltage tiers already match GTNH
 - [x] Public repository on GitHub prepared: MIT license, security policy, contributing guide, issue

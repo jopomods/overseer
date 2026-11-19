@@ -491,6 +491,55 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/jobs/stats:
+    get:
+      tags: [data]
+      operationId: getJobStats
+      summary: What jobs resources ran in a window
+      description: |
+        From the recorded attribute events of resources that run jobs (attributes `job`,
+        `jobKind`, `jobName`, `jobAmount`; AE2 crafting CPUs, ADR-0022). Per resource the busy
+        time and the jobs within the window; per item the jobs, the amount they asked for, their
+        busy time within the window and the longest finished one (at most 200 items, most jobs
+        first). Times are uptime milliseconds like `/history`; time the server was down does not
+        count. A job still running at `to` counts up to `to`.
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          description: Resource keys, repeated, at most 64; each must be visible.
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: from
+          in: query
+          description: Uptime in ms; default `to` minus 24 hours.
+          schema:
+            type: integer
+            format: int64
+        - name: to
+          in: query
+          description: Uptime in ms; default now.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: The statistics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStats"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/inventory/history:
     get:
       tags: [data]
@@ -1605,6 +1654,56 @@ components:
         restock:
           type: boolean
           description: Whether the network crafts up to the target (ADR-0021).
+
+    JobStats:
+      type: object
+      required: [from, to, resources, items]
+      properties:
+        from:
+          type: integer
+          format: int64
+        to:
+          type: integer
+          format: int64
+        resources:
+          type: array
+          items:
+            type: object
+            required: [resource, busyMillis, jobs]
+            properties:
+              resource:
+                type: string
+              busyMillis:
+                type: integer
+                format: int64
+              jobs:
+                type: integer
+        items:
+          type: array
+          items:
+            type: object
+            required: [key, kind, name, jobs, amount, busyMillis, longestMillis]
+            properties:
+              key:
+                type: string
+              kind:
+                type: string
+              name:
+                type: string
+              jobs:
+                type: integer
+              amount:
+                type: integer
+                format: int64
+                description: Sum of the amounts the jobs asked for.
+              busyMillis:
+                type: integer
+                format: int64
+                description: CPU time of these jobs within the window.
+              longestMillis:
+                type: integer
+                format: int64
+                description: The longest job that finished within the window; 0 if none.
 
     Job:
       type: object

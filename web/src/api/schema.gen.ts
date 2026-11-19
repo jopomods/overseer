@@ -366,6 +366,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What jobs resources ran in a window
+         * @description From the recorded attribute events of resources that run jobs (attributes `job`,
+         *     `jobKind`, `jobName`, `jobAmount`; AE2 crafting CPUs, ADR-0022). Per resource the busy
+         *     time and the jobs within the window; per item the jobs, the amount they asked for, their
+         *     busy time within the window and the longest finished one (at most 200 items, most jobs
+         *     first). Times are uptime milliseconds like `/history`; time the server was down does not
+         *     count. A job still running at `to` counts up to `to`.
+         */
+        get: operations["getJobStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inventory/history": {
         parameters: {
             query?: never;
@@ -947,6 +972,39 @@ export interface components {
             change24h: number;
             /** @description Whether the network crafts up to the target (ADR-0021). */
             restock: boolean;
+        };
+        JobStats: {
+            /** Format: int64 */
+            from: number;
+            /** Format: int64 */
+            to: number;
+            resources: {
+                resource: string;
+                /** Format: int64 */
+                busyMillis: number;
+                jobs: number;
+            }[];
+            items: {
+                key: string;
+                kind: string;
+                name: string;
+                jobs: number;
+                /**
+                 * Format: int64
+                 * @description Sum of the amounts the jobs asked for.
+                 */
+                amount: number;
+                /**
+                 * Format: int64
+                 * @description CPU time of these jobs within the window.
+                 */
+                busyMillis: number;
+                /**
+                 * Format: int64
+                 * @description The longest job that finished within the window; 0 if none.
+                 */
+                longestMillis: number;
+            }[];
         };
         Job: {
             resource: string;
@@ -1800,6 +1858,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Job"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getJobStats: {
+        parameters: {
+            query: {
+                /** @description Resource keys, repeated, at most 64; each must be visible. */
+                resource: string[];
+                /** @description Uptime in ms; default `to` minus 24 hours. */
+                from?: number;
+                /** @description Uptime in ms; default now. */
+                to?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The statistics. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStats"];
                 };
             };
             400: components["responses"]["BadRequest"];
