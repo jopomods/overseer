@@ -45,6 +45,10 @@ public final class Ae2Provider implements DataProvider {
     private long collections;
     /** Patterns per grid id from the last scan. Server thread. */
     private final Map<String, List<Ae2Model.Pattern>> patterns = new java.util.HashMap<>();
+    /** Devices without channel per grid id from the last scan. Server thread. */
+    private final Map<String, List<Ae2Model.Offline>> offline = new java.util.HashMap<>();
+    /** Jobs without progress (ADR-0017 diagnosis). Server thread. */
+    private final Ae2Mapping.StallTracker stalls = new Ae2Mapping.StallTracker();
 
     /**
      * @param registrations registered grids ({@code dimension@x,y,z} to owner), read every
@@ -93,7 +97,7 @@ public final class Ae2Provider implements DataProvider {
                 placerAccess.getAsBoolean() ? placers : null);
         grids = withCachedPatterns(grids);
         access = Ae2Mapping.AccessIndex.of(grids, teams::teammates, placerAccess.getAsBoolean());
-        return Ae2Mapping.snapshot(at, grids);
+        return Ae2Mapping.snapshot(at, grids, stalls.update(grids, at));
     }
 
     /**
@@ -103,14 +107,16 @@ public final class Ae2Provider implements DataProvider {
     private List<Ae2Model.Grid> withCachedPatterns(List<Ae2Model.Grid> grids) {
         var result = new java.util.ArrayList<Ae2Model.Grid>(grids.size());
         for (Ae2Model.Grid g : grids) {
-            if (g.patterns() != null) {
-                patterns.put(g.id(), g.patterns());
-                result.add(g);
-            } else {
-                result.add(g.withPatterns(patterns.get(g.id())));
-            }
+            if (g.patterns() != null) patterns.put(g.id(), g.patterns());
+            else g = g.withPatterns(patterns.get(g.id()));
+            // Booting grids are not checked: keep the last answer until the next scan.
+            if (g.offline() != null) offline.put(g.id(), g.offline());
+            else g = g.withOffline(offline.get(g.id()));
+            result.add(g);
         }
-        patterns.keySet().retainAll(grids.stream().map(Ae2Model.Grid::id).toList());
+        var ids = grids.stream().map(Ae2Model.Grid::id).toList();
+        patterns.keySet().retainAll(ids);
+        offline.keySet().retainAll(ids);
         return result;
     }
 

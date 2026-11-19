@@ -48,6 +48,8 @@ public final class Ae2Mapping {
     /** Per drive, and summed per grid: storage cells (AE2 basic cells; add-on cells only by state). */
     static final List<MetricDescriptor> CELL_METRICS = List.of(BYTES_USED, BYTES_TOTAL, TYPES_USED, TYPES_TOTAL);
 
+    static final MetricDescriptor NO_CHANNEL = new MetricDescriptor("no_channel", MetricKind.GAUGE, "", 0.0);
+
     /** Prefix of the per-item metrics of watched items: {@code stock:<stack key>}. */
     public static final String STOCK = "stock:";
 
@@ -55,7 +57,7 @@ public final class Ae2Mapping {
     static final List<MetricDescriptor> CPU_METRICS = List.of(JOB_PROGRESS, JOB_TOTAL, JOB_ELAPSED);
 
     static final List<MetricDescriptor> METRICS = List.of(POWER_STORED, POWER_MAX, POWER_USAGE, POWER_INJECTION,
-            ITEM_TYPES, ITEMS, FLUID_TYPES, FLUIDS, CHANNELS, CPUS_BUSY);
+            ITEM_TYPES, ITEMS, FLUID_TYPES, FLUIDS, CHANNELS, CPUS_BUSY, NO_CHANNEL);
 
     /** Grid and CPU metrics: what the provider declares. */
     static final List<MetricDescriptor> ALL_METRICS = java.util.stream.Stream.of(METRICS, CPU_METRICS, CELL_METRICS)
@@ -80,6 +82,11 @@ public final class Ae2Mapping {
     }
 
     public static ProviderSnapshot snapshot(Timestamp at, List<Grid> grids) {
+        return snapshot(at, grids, Map.of());
+    }
+
+    /** @param stalled CPU id to when its job last made progress, for jobs stuck that long ({@link StallTracker}) */
+    public static ProviderSnapshot snapshot(Timestamp at, List<Grid> grids, Map<String, java.time.Instant> stalled) {
         Map<ResourceRef, Map<String, String>> resources = new HashMap<>();
         List<Sample> samples = new ArrayList<>();
         Map<ResourceRef, List<io.github.jopojp.overseer.core.provider.Stack>> inventories = new HashMap<>();
@@ -134,11 +141,17 @@ public final class Ae2Mapping {
                 for (Ae2Model.Drive drive : g.drives()) drive(g, drive, resources, samples);
             }
             for (Ae2Model.Cpu cpu : g.crafting().list()) {
-                cpu(g, cpu, resources, samples);
+                cpu(g, cpu, resources, samples, stalled.get(cpu.id()));
                 if (cpu.job() != null) jobs.put(cpu(cpu.id()), cpu.job().lines());
             }
             for (Ae2Model.Provider provider : g.providers()) provider(g, provider, resources);
-            if (g.patterns() != null && !g.patterns().isEmpty()) details.put(ref, patternRows(g.patterns()));
+            var rows = new ArrayList<Map<String, String>>();
+            if (g.patterns() != null) rows.addAll(patternRows(g.patterns()));
+            if (g.offline() != null) {
+                rows.addAll(offlineRows(g.offline()));
+                samples.add(new Sample(ref, NO_CHANNEL.key(), g.offline().size()));
+            }
+            if (!rows.isEmpty()) details.put(ref, rows);
         }
         return new ProviderSnapshot(PROVIDER, at, resources, samples, inventories, jobs, details);
     }
@@ -153,7 +166,7 @@ public final class Ae2Mapping {
      * for events.
      */
     private static void cpu(Grid g, Ae2Model.Cpu cpu, Map<ResourceRef, Map<String, String>> resources,
-            List<Sample> samples) {
+            List<Sample> samples, java.time.Instant stalledSince) {
         ResourceRef ref = cpu(cpu.id());
         var attrs = new LinkedHashMap<String, String>();
         attrs.put("grid", g.id());
@@ -169,6 +182,7 @@ public final class Ae2Mapping {
         attrs.put("jobName", job == null ? "" : job.name());
         attrs.put("jobAmount", job == null ? "" : Long.toString(job.amount()));
         attrs.put("suspended", Boolean.toString(job != null && cpu.suspended()));
+        attrs.put("stalledSince", job == null || stalledSince == null ? "" : stalledSince.toString());
         resources.put(ref, attrs);
         if (job != null) {
             samples.add(new Sample(ref, JOB_PROGRESS.key(), job.progress()));
@@ -234,6 +248,7 @@ public final class Ae2Mapping {
         var rows = new ArrayList<Map<String, String>>(patterns.size());
         for (Ae2Model.Pattern p : patterns) {
             var row = new LinkedHashMap<String, String>();
+            row.put("row", "pattern");
             row.put("provider", p.provider());
             row.put("output", p.output().key());
             row.put("outputKind", p.output().kind());
@@ -247,6 +262,59 @@ public final class Ae2Mapping {
             rows.add(row);
         }
         return rows;
+    }
+
+    /** Devices without channel as rows of the grid's live table: {@code row=offline}, {@code id}, {@code item}, {@code name}. */
+    static List<Map<String, String>> offlineRows(List<Ae2Model.Offline> offline) {
+        var rows = new ArrayList<Map<String, String>>(offline.size());
+        for (Ae2Model.Offline o : offline) {
+            var row = new LinkedHashMap<String, String>();
+            row.put("row", "offline");
+            row.put("id", o.id());
+            row.put("item", o.item());
+            row.put("name", o.name());
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /**
+     * Finds crafting jobs that make no progress: busy, not suspended, and AE2's progress unchanged
+     * for {@link #STALL_MILLIS}. Remembers per CPU when the progress last changed. Not thread-safe;
+     * the provider calls it on the server thread.
+     */
+    public static final class StallTracker {
+        /** A job counts as stuck after this long without progress. */
+        public static final long STALL_MILLIS = 5 * 60_000L;
+
+        private record Seen(String job, long progress, long sinceUptime, java.time.Instant sinceWall) {}
+
+        private final Map<String, Seen> seen = new HashMap<>();
+
+        /** CPU id to when its job last made progress, for stuck jobs only. */
+        public Map<String, java.time.Instant> update(List<Grid> grids, Timestamp at) {
+            var stalled = new HashMap<String, java.time.Instant>();
+            var present = new java.util.HashSet<String>();
+            for (Grid g : grids) {
+                for (Ae2Model.Cpu cpu : g.crafting().list()) {
+                    Ae2Model.Job job = cpu.job();
+                    if (job == null) continue;
+                    present.add(cpu.id());
+                    Seen before = seen.get(cpu.id());
+                    // A restart starts the clock again: uptime is per session.
+                    if (before == null || !before.job().equals(job.key()) || before.progress() != job.progress()
+                            || at.uptimeMillis() < before.sinceUptime()) {
+                        seen.put(cpu.id(), new Seen(job.key(), job.progress(), at.uptimeMillis(), at.wall()));
+                        continue;
+                    }
+                    if (!cpu.suspended() && at.uptimeMillis() - before.sinceUptime() >= STALL_MILLIS) {
+                        stalled.put(cpu.id(), before.sinceWall());
+                    }
+                }
+            }
+            seen.keySet().retainAll(present);
+            return stalled;
+        }
     }
 
     public static final class AccessIndex {
