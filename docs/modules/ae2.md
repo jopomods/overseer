@@ -189,6 +189,42 @@ Add-on cells that AE2 does not describe in bytes (e.g. bulk cells) show their st
 cell inventories come from the drive's own cache (`getOriginalCellInventory`), so reading them
 costs no NBT parsing. Metrics are skipped while a grid boots.
 
+## Pattern providers
+
+Every pattern provider of a grid, block or part on a cable (anything implementing AE2's
+`PatternProviderLogicHost`, so ExtendedAE's providers too), is a resource
+`ae2/provider/<dimension>@x,y,z` (blocks) or `ae2/provider/<dimension>@x,y,z/<side>` (parts),
+visible like its grid.
+
+| Attribute | Meaning |
+|---|---|
+| `grid` | Id of the grid |
+| `block` | Registry id of the block or part item, e.g. `ae2:pattern_provider`, `ae2:cable_pattern_provider` |
+| `name` | Custom name (anvil or dashboard), empty if none |
+| `group`, `groupIcon` | Name and icon (stack key) AE2's Pattern Access Terminal shows: the custom name, else the machine next to it; the icon chosen in the dashboard, else AE2's |
+| `icon` | Item id chosen from the dashboard, empty if none |
+| `priority` | Provider priority |
+| `blocking` | Blocking mode |
+| `lock` | Lock crafting mode: `none`, `lock_until_pulse`, `lock_while_high`, `lock_while_low`, `lock_until_result` |
+| `locked` | Why the provider waits right now (same values), `none` when it does not. Changes are events |
+| `visible` | Listed in the Pattern Access Terminal |
+| `patterns` | Number of patterns |
+
+**Patterns** are read with the inventory scan (every 10 s) and sent as the grid's live table
+(`GET /api/v1/details?resource=ae2/grid/<id>`), one row per pattern: `provider`, `output`,
+`outputKind`, `outputName`, `amount` (per craft) and `inputs` (JSON list of `{key, kind, name,
+amount}`, the first possible input of each slot). Read only; nothing is stored.
+
+The grid page lists the providers by name with icon, voltage tier (the tier is read from the end
+of the name, like Flux names, or from its start, as GregTech names machines: "HV Assembler"),
+filter by tier, search over names and outputs, lock state, and each provider's patterns.
+
+**Icons in game.** AE2 has no setting for a provider's icon in its terminal. The icon chosen in
+the dashboard is stored in Forge's persistent data of the block entity (the cable bus for parts,
+one entry per side), and an optional mixin (`PatternProviderLogicMixin`, ADR-0018) puts it into the
+group AE2 sends to the terminal. Players need nothing on their client; an open terminal updates at
+once. Without the mixin (another AE2 build) the icon shows in the dashboard only.
+
 ## Contents (inventory scan)
 
 Every 10th collection (every 10 s) the reader also copies the full cached inventory of each
@@ -244,6 +280,7 @@ caller may act. Parts in unloaded chunks answer `unavailable`; chunks are never 
 | `ae2.cpu.suspend` | `cpu`, `suspended` | Suspends or resumes the job. Only offered on AE2 builds that can (the Star Technology fork `15.5.4-uelm`; not AE2 15.4.12): `CraftingCpuLogic#setJobSuspended`, looked up once by reflection (`Ae2Compat`). A suspended job sends nothing to machines but still takes results back; the state is saved with the CPU. |
 | `ae2.cpu.edit` | `cpu`, `name?`, `mode?` (`any`, `player_only`, `machine_only`) | Name like an anvil: at most 50 characters, colour codes count, empty removes it. AE2 joins the custom names of all blocks of a CPU, so the name goes on one block and the others lose theirs. Names are AE2's private `customName` field, set by reflection; the mode goes through AE2's config manager. |
 | `ae2.drive.edit` | `drive`, `priority` | Any 32-bit integer, through AE2's `IPriorityHost` (drives, ME chests, add-on drives that have a priority). |
+| `ae2.provider.edit` | `provider`, `name?`, `icon?` (item id, empty removes it), `priority?`, `blocking?`, `lock?`, `visible?` | Name as for CPUs (also the group in the Pattern Access Terminal); settings through AE2's config manager, which saves the provider like its buttons do. Unknown items are refused. |
 
 CPU ids are `<dimension>@x,y,z` of the lowest corner, or `<grid id>#<index>` for CPUs without
 blocks (add-ons; cancel only). Changes name the CPU or drive, so its log shows them. The grid page
@@ -254,6 +291,8 @@ shows the controls in the expanded CPU card and on each drive, and the grid's ch
 - `Ae2MappingTest`, `Ae2ActionsTest` (JUnit): mapping, access rules, action parameters.
 - `Ae2GameTests` (Forge GameTest, also in CI): discovery, hidden and registered grids, inventory
   scan, CPUs, drives, placer access.
-- `Ae2ActionGameTests`: a real job (processing pattern on a provider without a machine, so it never
+- `Ae2ActionGameTests`: pattern providers (a block and a part on a cable) are read with their
+  patterns, every setting is changed through the action, the icon shows in AE2's terminal group
+  (mixin) and goes away again; a real job (processing pattern on a provider without a machine, so it never
   finishes) is renamed, switched to players only, cancelled; strangers are refused, operators may
   act; suspension is offered exactly where AE2 has it; drive priority, drives of other grids.

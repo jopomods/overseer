@@ -101,10 +101,12 @@ legacyForge {
     }
 }
 
-// One mixin: completes Forge's block entity timer for the tick profiler (ADR-0014).
+// Mixins: Forge's block entity timer for the tick profiler (ADR-0014); AE2 pattern provider
+// icons, applied only with AE2 installed (ADR-0018).
 mixin {
     add(sourceSets.main.get(), "overseer.refmap.json")
     config("overseer.mixins.json")
+    config("overseer.ae2.mixins.json")
 }
 
 dependencies {
@@ -150,7 +152,7 @@ dependencies {
 // references), so it passes through reobfuscation unchanged.
 tasks.jar {
     from(project(":core").sourceSets.main.get().output)
-    manifest.attributes(mapOf("MixinConfigs" to "overseer.mixins.json"))
+    manifest.attributes(mapOf("MixinConfigs" to "overseer.mixins.json,overseer.ae2.mixins.json"))
 }
 
 // Embed the built web dashboard (web/dist) into the jar under /overseer-web.

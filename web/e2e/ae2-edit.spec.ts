@@ -85,4 +85,47 @@ test.describe('ae2 actions', () => {
     await expect(card.getByTestId('cpu-controls')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Change priority' })).toHaveCount(0)
   })
+
+  test('pattern providers: tiers, lock state, patterns and the editor', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto(GRID)
+    const list = page.getByTestId('provider-list')
+    await expect(list.getByRole('listitem')).toHaveCount(3)
+    await expect(page.getByTestId('providers-locked')).toContainText('1 waiting')
+
+    const filter = page.getByTestId('provider-tier-filter')
+    await filter.getByRole('tab', { name: 'MV' }).click()
+    await expect(list.getByRole('listitem')).toHaveCount(1)
+    await expect(list).toContainText('Chemical Reactor MV')
+    await expect(list.getByTestId('provider-locked')).toContainText('Until the result is back')
+    await filter.getByRole('tab', { name: 'All tiers' }).click()
+    await page.getByLabel('Search providers and outputs').fill('resistor')
+    await expect(list.getByRole('listitem')).toHaveCount(1)
+    await page.getByLabel('Search providers and outputs').fill('')
+
+    const card = list.getByRole('listitem').filter({ hasText: 'Assembler' })
+    await card.getByRole('button', { expanded: false }).click()
+    await expect(card.getByTestId('pattern-list')).toContainText('Good Electronic Circuit')
+    await card.getByRole('button', { name: 'Edit provider' }).click()
+    const editor = card.getByTestId('provider-editor')
+    await editor.getByLabel('Voltage tier').selectOption('EV')
+    await expect(editor.getByLabel('Name')).toHaveValue('§6Assembler EV')
+    await editor.getByLabel('Icon').fill('Not An Id')
+    await expect(editor.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await editor.getByLabel('Icon').fill('gtceu:ev_assembler')
+    await editor.getByRole('radiogroup').first().getByRole('radio', { name: 'off' }).click()
+    await editor.getByLabel('Lock crafting').selectOption('lock_until_pulse')
+
+    const request = page.waitForRequest((r) => r.url().endsWith('/api/v1/actions') && r.method() === 'POST')
+    await editor.getByRole('button', { name: 'Save' }).click()
+    expect((await request).postDataJSON()).toEqual({
+      type: 'ae2.provider.edit',
+      resource: 'ae2/grid/minecraft:overworld@120,64,-340',
+      params: { provider: 'minecraft:overworld@110,64,-338', name: '§6Assembler EV', icon: 'gtceu:ev_assembler', blocking: false, lock: 'lock_until_pulse' },
+    })
+    await expect(editor).toHaveCount(0)
+    await expect(card).toContainText('Assembler EV')
+    await expect(card.getByTestId('provider-details')).toContainText('Until redstone pulse')
+    await expect(page.getByTestId('action-log')).toContainText('Assembler EV: Icon gtceu:hv_assembler → gtceu:ev_assembler')
+  })
 })

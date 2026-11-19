@@ -15,6 +15,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.CellState;
 import appeng.me.cells.BasicCellInventory;
 import appeng.blockentity.networking.ControllerBlockEntity;
+import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.Grid;
 import appeng.me.InWorldGridNode;
@@ -251,6 +252,9 @@ final class Ae2Reader {
         cpuList.sort(Comparator.comparing(Ae2Model.Cpu::id));
 
         List<Ae2Model.Drive> drives = kind == Kind.HIDDEN ? List.of() : drives(grid);
+        List<Ae2Model.Provider> providers = new ArrayList<>();
+        List<Ae2Model.Pattern> patterns = kind == Kind.HIDDEN || scan == null ? null : new ArrayList<>();
+        if (kind != Kind.HIDDEN) providers(grid, keys, providers, patterns);
 
         IPathingService pathing = grid.getPathingService();
         return new Ae2Model.Grid(dimension, pos.getX(), pos.getY(), pos.getZ(), owner,
@@ -260,7 +264,8 @@ final class Ae2Reader {
                 inventory, drives, watched(cached, watches.get(gridId), keys),
                 placers == null || kind == Kind.HIDDEN ? java.util.Set.of()
                         : scan != null || !placers.containsKey(gridId) ? refresh(placers, gridId, grid)
-                        : placers.get(gridId));
+                        : placers.get(gridId),
+                providers, patterns);
     }
 
     /**
@@ -397,6 +402,73 @@ final class Ae2Reader {
         }
         result.sort(Comparator.comparing(Ae2Model.Drive::id));
         return result;
+    }
+
+    /**
+     * Pattern providers of a grid, blocks and parts, add-on providers included (anything implementing
+     * {@code PatternProviderLogicHost}). Patterns only when {@code patterns} is given (scans).
+     */
+    private static void providers(Grid grid, StackCache keys, List<Ae2Model.Provider> out,
+            List<Ae2Model.Pattern> patterns) {
+        for (Class<?> type : grid.getMachineClasses()) {
+            if (!PatternProviderLogicHost.class.isAssignableFrom(type)) continue;
+            for (Object machine : grid.getMachines(type)) {
+                if (!(machine instanceof PatternProviderLogicHost host)) continue;
+                BlockEntity be = host.getBlockEntity();
+                if (be == null || be.getLevel() == null || be.isRemoved()) continue;
+                String id = providerId(host);
+                var logic = host.getLogic();
+                var config = logic.getConfigManager();
+                var group = logic.getTerminalGroup();
+                Component custom = host instanceof net.minecraft.world.Nameable named ? named.getCustomName() : null;
+                var available = logic.getAvailablePatterns();
+                out.add(new Ae2Model.Provider(id, providerBlock(host), custom == null ? null : custom.getString(),
+                        group == null || group.name() == null ? "" : group.name().getString(),
+                        group == null || group.icon() == null ? null : StackCache.id(group.icon()),
+                        logic.getPriority(),
+                        config.getSetting(appeng.api.config.Settings.BLOCKING_MODE) == appeng.api.config.YesNo.YES,
+                        lower(config.getSetting(appeng.api.config.Settings.LOCK_CRAFTING_MODE).name()),
+                        lower(logic.getCraftingLockedReason().name()),
+                        config.getSetting(appeng.api.config.Settings.PATTERN_ACCESS_TERMINAL) == appeng.api.config.YesNo.YES,
+                        available.size(), ProviderIcons.id(host)));
+                if (patterns == null) continue;
+                for (var pattern : available) {
+                    var output = pattern.getPrimaryOutput();
+                    if (output == null) continue;
+                    var inputs = new ArrayList<Stack>();
+                    for (var input : pattern.getInputs()) {
+                        var possible = input.getPossibleInputs();
+                        if (possible.length == 0) continue;
+                        inputs.add(keys.stack(possible[0].what(), possible[0].amount() * input.getMultiplier()));
+                    }
+                    patterns.add(new Ae2Model.Pattern(id, keys.stack(output.what(), output.amount()), inputs));
+                }
+            }
+        }
+        out.sort(Comparator.comparing(Ae2Model.Provider::id));
+        if (patterns != null) patterns.sort(Comparator.comparing(Ae2Model.Pattern::provider));
+    }
+
+    /** {@code dimension@x,y,z}, plus {@code /<side>} for a part. */
+    static String providerId(PatternProviderLogicHost host) {
+        BlockEntity be = host.getBlockEntity();
+        BlockPos pos = be.getBlockPos();
+        String id = dimension(be.getLevel()) + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ();
+        if (host instanceof appeng.parts.AEBasePart part && part.getSide() != null) {
+            id += "/" + part.getSide().getSerializedName();
+        }
+        return id;
+    }
+
+    private static String providerBlock(PatternProviderLogicHost host) {
+        if (host instanceof appeng.api.parts.IPart part && part.getPartItem() != null) {
+            return String.valueOf(ForgeRegistries.ITEMS.getKey(part.getPartItem().asItem()));
+        }
+        return String.valueOf(ForgeRegistries.BLOCKS.getKey(host.getBlockEntity().getBlockState().getBlock()));
+    }
+
+    private static String lower(String name) {
+        return name.toLowerCase(java.util.Locale.ROOT);
     }
 
     /** Lines shown per job; large jobs keep the most active ones. */

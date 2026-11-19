@@ -84,6 +84,11 @@ test('no horizontal overflow with the AE2 editors open', async ({ page }) => {
   await expect(card.getByTestId('cpu-edit')).toBeVisible()
   await page.getByTestId('drive-list').getByRole('button', { name: 'Change priority' }).first().click()
   await expect(page.getByTestId('drive-priority')).toBeVisible()
+  const provider = page.getByTestId('provider-list').getByRole('listitem').nth(1)
+  await provider.getByRole('button', { expanded: false }).click()
+  await expect(provider.getByTestId('pattern-list')).toBeVisible()
+  await provider.getByRole('button', { name: 'Edit provider' }).click()
+  await expect(provider.getByTestId('provider-editor')).toBeVisible()
   await expectNoHorizontalOverflow(page)
 })
 

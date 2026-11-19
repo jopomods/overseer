@@ -229,4 +229,35 @@ class Ae2MappingTest {
                 "an idle CPU is never suspended");
         assertEquals("7", resources.get(Ae2Mapping.drive("minecraft:overworld@4,64,0")).get("priority"));
     }
+
+    @Test
+    void providersAreResourcesAndTheirPatternsTheGridsTable() {
+        var provider = new Ae2Model.Provider("minecraft:overworld@4,64,0/north", "ae2:cable_pattern_provider", null,
+                "Electric Furnace", "item:gtceu:lv_electric_furnace", 2, true, "none", "lock_until_result", true, 1,
+                "minecraft:furnace");
+        var stack = new io.github.jopojp.overseer.core.provider.Stack("item:minecraft:iron_ingot", "item", "Iron Ingot", 1);
+        var input = new io.github.jopojp.overseer.core.provider.Stack("item:minecraft:raw_iron", "item", "Raw \"Iron\"", 2);
+        var pattern = new Ae2Model.Pattern(provider.id(), stack, List.of(input));
+        Grid g = grid(OWNER, 10);
+        var full = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(), g.controllers(),
+                g.state(), false, g.channels(), g.energy(), g.storage(), g.crafting(), Ae2Model.Kind.CONTROLLER, null,
+                List.of(), java.util.Map.of(), java.util.Set.of(), List.of(provider), List.of(pattern));
+        var snapshot = Ae2Mapping.snapshot(AT, List.of(full));
+        var ref = Ae2Mapping.provider("minecraft:overworld@4,64,0/north");
+        var attrs = snapshot.resources().get(ref);
+        assertEquals("", attrs.get("name"));
+        assertEquals("Electric Furnace", attrs.get("group"));
+        assertEquals("lock_until_result", attrs.get("locked"));
+        assertEquals("minecraft:furnace", attrs.get("icon"));
+        assertEquals("2", attrs.get("priority"));
+        var rows = snapshot.details().get(Ae2Mapping.grid(g.id()));
+        assertEquals(1, rows.size());
+        assertEquals("item:minecraft:iron_ingot", rows.get(0).get("output"));
+        var inputs = com.google.gson.JsonParser.parseString(rows.get(0).get("inputs")).getAsJsonArray();
+        assertEquals("Raw \"Iron\"", inputs.get(0).getAsJsonObject().get("name").getAsString(), "names are escaped JSON");
+        assertEquals(2, inputs.get(0).getAsJsonObject().get("amount").getAsLong());
+        assertEquals(Ae2Mapping.grid(g.id()), Ae2Mapping.AccessIndex.of(List.of(full)).parent(ref));
+        var noPatterns = Ae2Mapping.snapshot(AT, List.of(full.withPatterns(null)));
+        assertFalse(noPatterns.details().containsKey(Ae2Mapping.grid(g.id())), "no table without patterns");
+    }
 }

@@ -14,7 +14,12 @@ export const AE2_ACTIONS = {
   cpuSuspend: 'ae2.cpu.suspend',
   cpuEdit: 'ae2.cpu.edit',
   driveEdit: 'ae2.drive.edit',
+  providerEdit: 'ae2.provider.edit',
 } as const
+
+/** AE2's lock crafting modes (pattern providers). */
+export const LOCK_MODES = ['none', 'lock_until_pulse', 'lock_while_high', 'lock_while_low', 'lock_until_result'] as const
+export type LockMode = (typeof LOCK_MODES)[number]
 
 /** AE2 names blocks like an anvil: at most 50 characters, colour codes included. */
 export const MAX_AE2_NAME = 50
@@ -340,4 +345,93 @@ export function jobProgressKnown(job: Ae2Job): boolean {
 /** Whether total and progress are real item counts (other AE2 versions) rather than a scale. */
 export function jobCountsAreItems(job: Ae2Job): boolean {
   return job.total < INFINITE
+}
+
+export interface Ae2PatternProvider {
+  resource: Resource
+  id: string
+  /** Registry id of the block or part, e.g. ae2:pattern_provider, ae2:cable_pattern_provider. */
+  block: string
+  /** A part on a cable: the side it faces. */
+  side: string | null
+  /** Custom name, else null. */
+  name: string | null
+  /** What AE2's Pattern Access Terminal shows: the custom name, else the machine next to it. */
+  group: string
+  /** Stack key of the icon the terminal shows. */
+  groupIcon: string | null
+  /** Item id chosen from the dashboard, else null. */
+  icon: string | null
+  priority: number
+  blocking: boolean
+  lock: LockMode
+  /** Why the provider waits right now; 'none' when it does not. */
+  locked: LockMode
+  /** Listed in the Pattern Access Terminal. */
+  visible: boolean
+  patterns: number
+}
+
+const asLock = (value: string | undefined): LockMode => (LOCK_MODES.includes(value as LockMode) ? (value as LockMode) : 'none')
+
+/** Pattern providers of one grid, by name (what the terminal shows). */
+export function patternProviders(snapshot: Snapshot | undefined, gridId: string): Ae2PatternProvider[] {
+  return ofType(snapshot, 'provider')
+    .filter((r) => r.attributes.grid === gridId)
+    .map((r): Ae2PatternProvider => {
+      const a = r.attributes
+      const slash = r.ref.id.indexOf('/', r.ref.id.indexOf('@'))
+      return {
+        resource: r,
+        id: r.ref.id,
+        block: a.block ?? '',
+        side: slash < 0 ? null : r.ref.id.slice(slash + 1),
+        name: a.name || null,
+        group: a.group ?? '',
+        groupIcon: a.groupIcon || null,
+        icon: a.icon || null,
+        priority: num(a.priority),
+        blocking: a.blocking === 'true',
+        lock: asLock(a.lock),
+        locked: asLock(a.locked),
+        visible: a.visible !== 'false',
+        patterns: num(a.patterns),
+      }
+    })
+    .sort((a, b) => plainLabel(a).localeCompare(plainLabel(b), undefined, { numeric: true }) || a.id.localeCompare(b.id))
+}
+
+/** What to call a provider: its name, else the terminal's name for it. */
+export function providerLabel(p: Ae2PatternProvider): string {
+  return p.name ?? p.group
+}
+
+const plainLabel = (p: Ae2PatternProvider) => providerLabel(p).replace(/§./g, '')
+
+export interface PatternStack {
+  key: string
+  kind: string
+  name: string
+  amount: number
+}
+
+export interface Ae2Pattern {
+  provider: string
+  output: PatternStack
+  inputs: PatternStack[]
+}
+
+/** Patterns from the grid's live table (rows of `provider`, `output*`, `amount`, `inputs` JSON). */
+export function patternsOf(rows: Record<string, string>[] | undefined): Ae2Pattern[] {
+  return (rows ?? []).flatMap((r) => {
+    if (!r.output) return []
+    let inputs: PatternStack[] = []
+    try {
+      const parsed: unknown = JSON.parse(r.inputs ?? '[]')
+      if (Array.isArray(parsed)) inputs = parsed as PatternStack[]
+    } catch {
+      inputs = []
+    }
+    return [{ provider: r.provider ?? '', output: { key: r.output, kind: r.outputKind ?? 'item', name: r.outputName || r.output, amount: num(r.amount) }, inputs }]
+  })
 }

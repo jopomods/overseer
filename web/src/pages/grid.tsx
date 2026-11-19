@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { ArrowLeft, Check, Pencil, UserPlus, X } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import {
   ApiError,
   useAccessRequests,
@@ -20,6 +20,7 @@ import { GridStateBadge } from '@/components/grid-state-badge'
 import { McText } from '@/components/mc-text'
 import { CraftingSection } from '@/components/crafting-cpus'
 import { DrivesSection } from '@/components/drives-section'
+import { PatternProvidersSection } from '@/components/pattern-providers'
 import { HistoryChart } from '@/components/history-chart'
 import { InventorySection } from '@/components/inventory-list'
 import { WatchlistSection } from '@/components/watchlist'
@@ -30,11 +31,12 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AE2_ACTIONS, cpus, drives, formatAe, formatAeRate, formatBuckets, formatPos, grids, idPos, shortDimension, type Ae2Grid } from '@/lib/ae2'
+import { AE2_ACTIONS, cpus, drives, patternProviders, providerLabel, formatAe, formatAeRate, formatBuckets, formatPos, grids, idPos, shortDimension, type Ae2Grid } from '@/lib/ae2'
 import { formatBytes, formatDuration, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { plainText } from '@/lib/mc-text'
 import { usePreferences, type Locale } from '@/lib/preferences'
+import { tiersOf, type TierScheme } from '@/lib/tiers'
 
 /** One AE2 network: power, inventory totals, crafting CPUs, history. */
 export function GridPage() {
@@ -47,6 +49,9 @@ export function GridPage() {
   const grid = grids(snapshot.data, overrides).find((g) => g.id === gridId && g.kind !== 'hidden')
   const [renaming, setRenaming] = useState(false)
   const allowed = useAllowedActions(grid?.resource.ref.key ?? '', grid !== undefined).data ?? NONE
+  const server = useSnapshot('server').data
+  const scheme = server?.resources.find((r) => r.ref.key === 'server/server/main')?.attributes.energyTiers as TierScheme | undefined
+  const tiers = useMemo(() => tiersOf(scheme), [scheme])
 
   if (snapshot.isPending) return <Skeleton className="h-64" />
   if (!grid) {
@@ -144,6 +149,13 @@ export function GridPage() {
 
       <DrivesSection drives={drives(snapshot.data, grid.id)} grid={key} editable={allowed.has(AE2_ACTIONS.driveEdit)} />
 
+      <PatternProvidersSection
+        grid={key}
+        providers={patternProviders(snapshot.data, grid.id)}
+        editable={allowed.has(AE2_ACTIONS.providerEdit)}
+        tiers={tiers}
+      />
+
       <WatchlistSection grid={grid.resource} canEdit={grid.canEdit} />
 
       <InventorySection resource={key} canEdit={grid.canEdit} />
@@ -184,6 +196,8 @@ function describePart(snapshot: Snapshot | undefined, gridId: string, ref: strin
   if (cpu) return plainText(cpu.name ?? t('cpu.unnamed', { n: cpu.number }))
   const drive = drives(snapshot, gridId).find((d) => d.resource.ref.key === ref)
   if (drive) return `${t(drive.block === 'ae2:chest' ? 'drive.chest' : 'drive.drive')} · ${idPos(drive.id)}`
+  const provider = patternProviders(snapshot, gridId).find((p) => p.resource.ref.key === ref)
+  if (provider) return plainText(providerLabel(provider)) || t('provider.unnamed')
   return undefined
 }
 

@@ -20,9 +20,10 @@ public final class Ae2Actions {
     public static final String CPU_SUSPEND = "ae2.cpu.suspend";
     public static final String CPU_EDIT = "ae2.cpu.edit";
     public static final String DRIVE_EDIT = "ae2.drive.edit";
+    public static final String PROVIDER_EDIT = "ae2.provider.edit";
 
     /** Actions every AE2 build supports. */
-    public static final Set<String> BASE_TYPES = Set.of(CPU_CANCEL, CPU_EDIT, DRIVE_EDIT);
+    public static final Set<String> BASE_TYPES = Set.of(CPU_CANCEL, CPU_EDIT, DRIVE_EDIT, PROVIDER_EDIT);
 
     /** Minecraft's anvil limit; AE2 names blocks and parts like an anvil does. */
     public static final int MAX_NAME = 50;
@@ -30,6 +31,12 @@ public final class Ae2Actions {
     /** AE2 CPU selection modes, lower case as in the snapshot. */
     public enum Mode { ANY, PLAYER_ONLY, MACHINE_ONLY }
 
+    /** AE2 lock crafting modes, lower case as in the snapshot. */
+    public enum Lock { NONE, LOCK_UNTIL_PULSE, LOCK_WHILE_HIGH, LOCK_WHILE_LOW, LOCK_UNTIL_RESULT }
+
+    private static final Pattern PROVIDER_ID = Pattern.compile(
+            "[a-z0-9_.-]+:[a-z0-9_./-]+@-?\\d+,-?\\d+,-?\\d+(/(down|up|north|south|west|east))?");
+    private static final Pattern ITEM_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
     private static final Pattern POS_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+@-?\\d+,-?\\d+,-?\\d+");
     /** CPUs that are no multiblock (add-ons) are numbered within their grid. */
     private static final Pattern INDEX_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+@-?\\d+,-?\\d+,-?\\d+#\\d+");
@@ -49,6 +56,13 @@ public final class Ae2Actions {
     public record CpuSuspend(String cpu, boolean suspended) {}
 
     public record DriveEdit(String drive, int priority) {}
+
+    /**
+     * Settings of a pattern provider; {@code null} fields stay as they are. An empty name or icon
+     * removes it.
+     */
+    public record ProviderEdit(String provider, String name, Integer priority, Boolean blocking, Lock lock,
+            Boolean visible, String icon) {}
 
     /** The grid id of the target. */
     public static String gridId(ResourceRef target) {
@@ -101,6 +115,43 @@ public final class Ae2Actions {
         if (priority == null) throw new Invalid("priority is required.");
         if (priority < Integer.MIN_VALUE || priority > Integer.MAX_VALUE) throw new Invalid("priority is out of range.");
         return new DriveEdit(drive, priority.intValue());
+    }
+
+    /**
+     * {@code provider}, {@code name?}, {@code priority?}, {@code blocking?}, {@code lock?},
+     * {@code visible?}, {@code icon?} (item registry id, empty removes it).
+     */
+    public static ProviderEdit providerEdit(JsonObject params) {
+        String provider = optString(params, "provider");
+        if (provider == null) throw new Invalid("provider is required.");
+        if (!PROVIDER_ID.matcher(provider).matches()) throw new Invalid("Unknown pattern provider: " + provider);
+        String name = optString(params, "name");
+        if (name != null) name = name(name);
+        Long priority = optLong(params, "priority");
+        if (priority != null && (priority < Integer.MIN_VALUE || priority > Integer.MAX_VALUE)) {
+            throw new Invalid("priority is out of range.");
+        }
+        Lock lock = null;
+        String lockText = optString(params, "lock");
+        if (lockText != null) {
+            try {
+                lock = Lock.valueOf(lockText.strip().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new Invalid("Unknown lock mode: " + lockText);
+            }
+        }
+        String icon = optString(params, "icon");
+        if (icon != null) {
+            icon = icon.strip();
+            if (!icon.isEmpty() && !ITEM_ID.matcher(icon).matches()) throw new Invalid("icon must be an item id like minecraft:diamond.");
+        }
+        var edit = new ProviderEdit(provider, name, priority == null ? null : priority.intValue(), optBool(params, "blocking"),
+                lock, optBool(params, "visible"), icon);
+        if (name == null && priority == null && edit.blocking() == null && lock == null && edit.visible() == null
+                && icon == null) {
+            throw new Invalid("Nothing to change.");
+        }
+        return edit;
     }
 
     /**

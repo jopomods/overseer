@@ -54,3 +54,18 @@ export function withTier(name: string, tier: Tier | null, tiers: Tier[]): string
   if (!tier) return base
   return base ? `${base} ${tier.name}` : tier.name
 }
+
+/** The first word, ignoring colour codes: "§bHV Assembler" -> "HV". */
+const FIRST_WORD = /^\s*(?:§[0-9a-fk-or])*([A-Za-z]{2,3})(?:§[0-9a-fk-or])*(?:\s|$)/i
+
+/**
+ * The tier of a machine name: at the end like the naming convention ("Assembler HV"), else at the
+ * start as GregTech names its machines ("HV Assembler").
+ */
+export function tierOfMachine(name: string, tiers: Tier[]): Tier | undefined {
+  const end = tierInName(name, tiers)
+  if (end || tiers.length === 0) return end
+  const m = FIRST_WORD.exec(name)
+  const tier = m ? BY_NAME.get(m[1].toLowerCase()) : undefined
+  return tier && tiers.includes(tier) ? tier : undefined
+}
