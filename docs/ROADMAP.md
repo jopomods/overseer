@@ -131,7 +131,7 @@ inventory.
 - [x] Crafting CPUs: cancel a job, suspend and resume it (when the installed AE2 supports it, e.g.
   the Star Technology fork), rename the CPU, change its selection mode; drive and ME chest
   priority. GameTests against AE2.
-- [ ] Pattern providers as resources: name with colour codes and voltage tier (filter by tier),
+- [x] Pattern providers as resources: name with colour codes and voltage tier (filter by tier),
   icon (also in AE2's Pattern Access Terminal), priority, blocking mode, lock crafting, terminal
   visibility, lock state; their patterns, read only
 - [ ] Remote crafting: plan a job (bytes, used and missing items), choose a CPU, start it
