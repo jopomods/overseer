@@ -294,13 +294,20 @@ export function useWatches(resource: string) {
   })
 }
 
-/** Watch an item, or change its target (null = just watch). */
+/**
+ * Watch an item, or change its target (null = just watch, which also ends auto-crafting).
+ * {@code restock} switches auto-crafting on or off; undefined keeps it (ADR-0021).
+ */
 export function useSetWatch(resource: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: ({ item, target }: { item: string; target?: number | null }) =>
-      unwrap(api.POST('/api/v1/watches', { body: { resource, item, target: target ?? undefined } })),
-    onSuccess: () => client.invalidateQueries({ queryKey: keys.watches(resource) }),
+    mutationFn: ({ item, target, restock }: { item: string; target?: number | null; restock?: boolean }) =>
+      unwrap(api.POST('/api/v1/watches', { body: { resource, item, target: target ?? undefined, restock } })),
+    onSuccess: (_data, { restock }) => {
+      void client.invalidateQueries({ queryKey: keys.watches(resource) })
+      // The auto-crafting state is a row of the live table.
+      if (restock !== undefined) void client.invalidateQueries({ queryKey: ['details', resource] })
+    },
   })
 }
 

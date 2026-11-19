@@ -18,7 +18,24 @@ export const AE2_ACTIONS = {
   busEdit: 'ae2.bus.edit',
   craftPlan: 'ae2.craft.plan',
   craftStart: 'ae2.craft.start',
+  /** The right to switch on auto-crafting for a watched item (ADR-0021); never run as an action. */
+  restock: 'ae2.restock',
 } as const
+
+/** What auto-crafting of a watched item is doing (docs/modules/ae2.md). */
+export type RestockState = 'ok' | 'planning' | 'crafting' | 'missing' | 'no_pattern' | 'no_cpu' | 'denied' | 'unavailable'
+
+/** States that need a player's attention. */
+export const RESTOCK_PROBLEMS: ReadonlySet<string> = new Set(['missing', 'no_pattern', 'no_cpu', 'denied', 'unavailable'])
+
+/** Auto-crafting state per stack key from the grid's live table ({@code row=restock}). */
+export function restocksOf(rows: Record<string, string>[] | undefined): Map<string, { state: RestockState; since: string }> {
+  const result = new Map<string, { state: RestockState; since: string }>()
+  for (const r of rows ?? []) {
+    if (r.row === 'restock' && r.key && r.state) result.set(r.key, { state: r.state as RestockState, since: r.since ?? '' })
+  }
+  return result
+}
 
 /** AE2's lock crafting modes (pattern providers). */
 export const LOCK_MODES = ['none', 'lock_until_pulse', 'lock_while_high', 'lock_while_low', 'lock_until_result'] as const

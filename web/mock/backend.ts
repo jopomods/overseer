@@ -635,12 +635,12 @@ export function createMockBackend(options: MockOptions = {}) {
     ? [{ resource: 'ae2/grid/minecraft:overworld@120,64,-340', resourceName: 'Main base', player: '00000000-0000-0000-0000-0000000057e7', name: 'Steve', requestedAt: now() }]
     : [{ resource: 'ae2/grid/minecraft:overworld@0,64,-0', resourceName: null, player: 'uuid-req', name: LONG.slice(0, 16), requestedAt: now() }]
   const grid = 'ae2/grid/minecraft:overworld@120,64,-340'
-  const watches: Array<{ resource: string; item: string; name: string; kind: string; target?: number; createdAt: string; change1h: number; change24h: number }> =
+  const watches: Array<{ resource: string; item: string; name: string; kind: string; target?: number; createdAt: string; change1h: number; change24h: number; restock: boolean; restockState?: string }> =
     options.realistic
       ? [
-          { resource: grid, item: 'item:gtceu:good_electronic_circuit', name: 'Good Electronic Circuit', kind: 'item', target: 128, createdAt: now(), change1h: 4, change24h: 16 },
-          { resource: grid, item: 'item:minecraft:iron_ingot', name: 'Iron Ingot', kind: 'item', target: 100_000, createdAt: now(), change1h: -3_512, change24h: -20_410 },
-          { resource: grid, item: 'fluid:gtceu:oxygen', name: 'Oxygen', kind: 'fluid', createdAt: now(), change1h: 16_000, change24h: 64_000 },
+          { resource: grid, item: 'item:gtceu:good_electronic_circuit', name: 'Good Electronic Circuit', kind: 'item', target: 128, createdAt: now(), change1h: 4, change24h: 16, restock: false },
+          { resource: grid, item: 'item:minecraft:iron_ingot', name: 'Iron Ingot', kind: 'item', target: 100_000, createdAt: now(), change1h: -3_512, change24h: -20_410, restock: true, restockState: 'ok' },
+          { resource: grid, item: 'fluid:gtceu:oxygen', name: 'Oxygen', kind: 'fluid', createdAt: now(), change1h: 16_000, change24h: 64_000, restock: false },
         ]
       : []
   const profiler: { mode: 'off' | 'timed' | 'continuous'; until?: string; intervalSeconds: number } = { mode: 'off', intervalSeconds: 10 }
@@ -950,7 +950,10 @@ export function createMockBackend(options: MockOptions = {}) {
         if (resource === 'profiler/total/all') {
           return json({ resource, at: { wall: now(), uptimeMillis: 123_456_789, session: 3 }, rows: profilerTop(options.realistic === true) })
         }
-        const rows = resource.startsWith('ae2/grid/') ? patternRows(resource, options.realistic === true) : []
+        const restockRows = watches
+          .filter((w) => w.resource === resource && w.restock && w.restockState)
+          .map((w) => ({ row: 'restock', key: w.item, state: w.restockState!, since: new Date(Date.now() - 4 * 60_000).toISOString() }))
+        const rows = resource.startsWith('ae2/grid/') ? [...patternRows(resource, options.realistic === true), ...restockRows] : []
         return rows.length > 0
           ? json({ resource, at: { wall: now(), uptimeMillis: 123_456_789, session: 3 }, rows })
           : json({ error: { code: 'not_found', message: 'no' } }, 404)
@@ -1060,12 +1063,22 @@ export function createMockBackend(options: MockOptions = {}) {
         const resource = method === 'POST' ? (body as { resource: string }).resource : url.searchParams.get('resource') ?? ''
         if (method === 'POST') {
           if (!editable) return json({ error: { code: 'forbidden', message: 'no' } }, 403)
-          const b = body as { item: string; target?: number }
+          const b = body as { item: string; target?: number; restock?: boolean }
+          if (b.restock === true && b.target === undefined) return json({ error: { code: 'bad_request', message: 'Auto-crafting needs a target.' } }, 400)
           const stack = inventoryStacks(true).find((s) => s.key === b.item)
           const existing = watches.find((w) => w.resource === resource && w.item === b.item)
           if (existing) existing.target = b.target
-          else if (stack) watches.push({ resource, item: b.item, name: stack.name, kind: stack.kind, target: b.target, createdAt: now(), change1h: stack.change1h, change24h: stack.change24h })
+          else if (stack) watches.push({ resource, item: b.item, name: stack.name, kind: stack.kind, target: b.target, createdAt: now(), change1h: stack.change1h, change24h: stack.change24h, restock: false })
           else return json({ error: { code: 'bad_request', message: 'unknown item' } }, 400)
+          const w = watches.find((x) => x.resource === resource && x.item === b.item)!
+          if (b.restock !== undefined) {
+            w.restock = b.restock
+            w.restockState = b.restock ? 'planning' : undefined
+          }
+          if (w.target === undefined) {
+            w.restock = false
+            w.restockState = undefined
+          }
           return { status: 204 }
         }
         if (method === 'DELETE') {
@@ -1075,7 +1088,7 @@ export function createMockBackend(options: MockOptions = {}) {
           watches.splice(i, 1)
           return { status: 204 }
         }
-        return json(watches.filter((w) => w.resource === resource).map(({ resource: _r, ...w }) => w))
+        return json(watches.filter((w) => w.resource === resource).map(({ resource: _r, restockState: _s, ...w }) => w))
       }
       case '/api/v1/events':
         return json(eventsBody(url))
@@ -1123,7 +1136,7 @@ export function createMockBackend(options: MockOptions = {}) {
           : resource.startsWith('flux/network/')
             ? ['flux.device.connect', 'flux.device.edit', 'flux.member.edit', 'flux.network.edit']
             : resource.startsWith('ae2/grid/')
-              ? ['ae2.bus.edit', 'ae2.cpu.cancel', 'ae2.cpu.edit', 'ae2.cpu.suspend', 'ae2.craft.plan', 'ae2.craft.start', 'ae2.drive.edit', 'ae2.provider.edit']
+              ? ['ae2.bus.edit', 'ae2.cpu.cancel', 'ae2.cpu.edit', 'ae2.cpu.suspend', 'ae2.craft.plan', 'ae2.craft.start', 'ae2.drive.edit', 'ae2.provider.edit', 'ae2.restock']
               : []
         return json({ resource, types })
       }

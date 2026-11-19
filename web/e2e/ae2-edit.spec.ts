@@ -268,4 +268,27 @@ test.describe('ae2 actions', () => {
     await expect(card).toContainText('Without redstone')
     await expect(card).toContainText('Random')
   })
+
+  test('auto-crafting: switched on for a watched item, with its state', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto(GRID)
+    const list = page.getByTestId('watchlist').getByRole('listitem')
+    const iron = list.filter({ hasText: 'Iron Ingot' })
+    await expect(iron.getByRole('button', { name: 'Auto-craft to target' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(iron.getByTestId('restock')).toContainText('at target')
+    await expect(list.filter({ hasText: 'Oxygen' }).getByTestId('restock')).toHaveCount(0) // no target
+
+    const circuit = list.filter({ hasText: 'Good Electronic Circuit' })
+    const request = page.waitForRequest((r) => r.url().endsWith('/api/v1/watches') && r.method() === 'POST')
+    await circuit.getByRole('button', { name: 'Auto-craft to target' }).click()
+    expect((await request).postDataJSON()).toEqual({
+      resource: 'ae2/grid/minecraft:overworld@120,64,-340',
+      item: 'item:gtceu:good_electronic_circuit',
+      target: 128,
+      restock: true,
+    })
+    await expect(circuit.getByRole('button', { name: 'Auto-craft to target' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(circuit.getByTestId('restock')).toContainText('planning a job')
+    await expect(circuit.getByRole('button', { name: 'Craft the missing amount' })).toHaveCount(0)
+  })
 })

@@ -158,7 +158,7 @@ Keep watched items in stock without pressing "Craft" (ADR-0021).
   `ae2.restock` (owner, party, operators; server setting `actions.ae2Restock`, default on)
 - [x] Restocker: every 5 s, plans and starts the deficit as that player while no job for the item
   runs; waits a minute after missing items or no free CPU; state per item in the grid's live table
-- [ ] UI: switch on the watch card, state and reason, mock and tests
+- [x] UI: switch on the watch card, state and reason, mock and tests
 
 ## M3: GregTech CEu (GTCEu)
 

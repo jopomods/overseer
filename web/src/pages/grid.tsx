@@ -37,7 +37,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AE2_ACTIONS, buses, cpus, drives, offlineOf, patternProviders, patternsOf, providerLabel, formatAe, formatAeRate, formatBuckets, formatPos, grids, idPos, shortDimension, type Ae2Grid } from '@/lib/ae2'
+import { AE2_ACTIONS, buses, cpus, drives, offlineOf, patternProviders, patternsOf, providerLabel, restocksOf, formatAe, formatAeRate, formatBuckets, formatPos, grids, idPos, shortDimension, type Ae2Grid } from '@/lib/ae2'
 import { formatBytes, formatDuration, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { plainText } from '@/lib/mc-text'
@@ -61,6 +61,7 @@ export function GridPage() {
   const patternRows = useDetails(grid?.resource.ref.key ?? '', grid !== undefined).data
   const patterns = useMemo(() => patternsOf(patternRows), [patternRows])
   const offline = useMemo(() => offlineOf(patternRows), [patternRows])
+  const restocks = useMemo(() => restocksOf(patternRows), [patternRows])
 
   if (snapshot.isPending) return <Skeleton className="h-64" />
   if (!grid) {
@@ -175,7 +176,7 @@ export function GridPage() {
           extra={allowed.has(AE2_ACTIONS.busEdit) ? (b) => <BusEditSlot grid={key} bus={b} /> : undefined}
         />
 
-        <WatchlistSection grid={grid.resource} canEdit={grid.canEdit} />
+        <WatchlistSection grid={grid.resource} canEdit={grid.canEdit} canRestock={allowed.has(AE2_ACTIONS.restock)} restocks={restocks} />
 
         <InventorySection resource={key} canEdit={grid.canEdit} />
       </CraftProvider>

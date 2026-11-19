@@ -181,6 +181,10 @@ chooses (`planning`, then `crafting`). Missing ingredients (`missing`), no free 
 `denied`. The state goes into the grid's live table as rows `row=restock` (`key`, `state`, `since`),
 in memory only. Removing the target switches auto-crafting off.
 
+In the UI, a watched item with a target shows "Auto-craft to target" to those who may switch it on
+(and to everyone who may edit the watchlist once it is on, to switch it off), with the state in
+words; problems are red. "Craft the missing amount" is hidden while auto-crafting is on.
+
 ## Drives and cells
 
 Every drive and ME chest of a grid (anything implementing AE2's `IChestOrDrive`, add-on drives
