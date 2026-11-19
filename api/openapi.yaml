@@ -1949,6 +1949,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ActionChange"
+        data:
+          type: [object, "null"]
+          additionalProperties: true
+          description: |
+            What the action found out for the caller, never logged (ADR-0019). Its shape belongs to
+            the action type, e.g. the crafting plan of `ae2.craft.plan` (docs/modules/ae2.md).
 
     ActionLogEntry:
       type: object

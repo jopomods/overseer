@@ -101,7 +101,7 @@ public final class ActionService {
         } else if (!canPerform(principal, request.target(), request.type())) {
             result = ActionResult.error(ActionResult.Status.DENIED, "You may not change this.");
         } else {
-            result = queue.await(queue.submit(() -> handler.perform(actor, request)), timeout);
+            result = queue.await(queue.submitAsync(() -> handler.start(actor, request)), timeout);
         }
         var logged = new ActionRequest(request.type(), request.target(), redact(request.params()));
         try {

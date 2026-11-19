@@ -1155,6 +1155,13 @@ export interface components {
             /** @description Why it was not applied. */
             message?: string | null;
             changes: components["schemas"]["ActionChange"][];
+            /**
+             * @description What the action found out for the caller, never logged (ADR-0019). Its shape belongs to
+             *     the action type, e.g. the crafting plan of `ae2.craft.plan` (docs/modules/ae2.md).
+             */
+            data?: {
+                [key: string]: unknown;
+            } | null;
         };
         ActionLogEntry: {
             /** Format: int64 */

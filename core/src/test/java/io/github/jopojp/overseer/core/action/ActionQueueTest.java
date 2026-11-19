@@ -83,4 +83,47 @@ class ActionQueueTest {
         assertEquals(ActionResult.Status.BUSY, queue.await(late, Duration.ofMillis(1)).status());
         assertEquals(0, queue.size());
     }
+
+    @Test
+    void anActionMayFinishAfterItsTurn() {
+        var queue = new ActionQueue(8);
+        var later = new CompletableFuture<ActionResult>();
+        var ticket = queue.submitAsync(() -> later);
+        var waiter = CompletableFuture.supplyAsync(() -> queue.await(ticket, Duration.ofMillis(50)));
+        queue.drain(1_000_000, System::nanoTime);
+        // Past the timeout: the action was started, so the caller keeps waiting instead of "busy".
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        var data = new com.google.gson.JsonObject();
+        data.addProperty("plan", "p1");
+        later.complete(ActionResult.ok(List.of(), data));
+        var result = waiter.join();
+        assertEquals(ActionResult.Status.OK, result.status());
+        assertEquals("p1", result.data().get("plan").getAsString());
+    }
+
+    @Test
+    void unfinishedActionsAnswerWhenTheServerStops() {
+        var queue = new ActionQueue(8);
+        var ticket = queue.submitAsync(CompletableFuture::new);
+        queue.drain(1_000_000, System::nanoTime);
+        var waiter = CompletableFuture.supplyAsync(() -> queue.await(ticket, Duration.ofMillis(10)));
+        queue.close();
+        assertEquals(ActionResult.Status.FAILED, waiter.join().status());
+    }
+
+    @Test
+    void aFailedStageBecomesAFailedResult() {
+        var queue = new ActionQueue(8);
+        var later = new CompletableFuture<ActionResult>();
+        var ticket = queue.submitAsync(() -> later);
+        queue.drain(1_000_000, System::nanoTime);
+        later.completeExceptionally(new IllegalStateException("boom"));
+        var result = queue.await(ticket, Duration.ofSeconds(1));
+        assertEquals(ActionResult.Status.FAILED, result.status());
+        assertEquals("The change failed on the server: IllegalStateException", result.message());
+    }
 }

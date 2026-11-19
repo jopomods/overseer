@@ -36,8 +36,10 @@ public final class Ae2Provider implements DataProvider {
     private final Supplier<Map<String, UUID>> registrations;
     private final Supplier<Map<String, Set<String>>> watches;
     private java.util.function.BooleanSupplier placerAccess = () -> false;
+    private java.util.function.BooleanSupplier remoteCrafting = () -> true;
     private volatile Ae2Mapping.AccessIndex access = Ae2Mapping.AccessIndex.EMPTY;
     private final Ae2Reader.StackCache stacks = new Ae2Reader.StackCache();
+    private final Ae2Crafting crafting = new Ae2Crafting(stacks, System::nanoTime);
     /** Placers per grid id, refreshed with every inventory scan (10 s); walking all nodes costs. */
     private final Map<String, Set<UUID>> placers = new java.util.HashMap<>();
     private long collections;
@@ -72,6 +74,12 @@ public final class Ae2Provider implements DataProvider {
         return this;
     }
 
+    /** Players may plan and start crafting jobs from the dashboard (server setting {@code actions.ae2Crafting}). */
+    public Ae2Provider remoteCrafting(java.util.function.BooleanSupplier enabled) {
+        this.remoteCrafting = enabled;
+        return this;
+    }
+
     @Override
     public ProviderDescriptor descriptor() {
         return DESCRIPTOR;
@@ -79,6 +87,7 @@ public final class Ae2Provider implements DataProvider {
 
     @Override
     public ProviderSnapshot collect(Timestamp at) {
+        crafting.tick();
         boolean scan = collections++ % SCAN_EVERY == 0;
         List<Ae2Model.Grid> grids = Ae2Reader.readAll(server, registrations.get(), watches.get(), stacks, scan,
                 placerAccess.getAsBoolean() ? placers : null);
@@ -130,12 +139,34 @@ public final class Ae2Provider implements DataProvider {
     public ActionHandler actions() {
         var types = new java.util.HashSet<>(Ae2Actions.BASE_TYPES);
         if (Ae2Compat.canSuspend()) types.add(Ae2Actions.CPU_SUSPEND);
-        Set<String> offered = Set.copyOf(types);
+        Set<String> base = Set.copyOf(types);
+        types.addAll(Ae2Actions.CRAFT_TYPES);
+        Set<String> withCrafting = Set.copyOf(types);
         var context = new Ae2Writer.Context(server, registrations, teams);
         return new ActionHandler() {
+            /** Read on every request, so the server setting applies without a restart. */
             @Override
             public Set<String> types() {
-                return offered;
+                return remoteCrafting.getAsBoolean() ? withCrafting : base;
+            }
+
+            /** Plans finish later: AE2 computes them on a thread of its own (ADR-0019). */
+            @Override
+            public java.util.concurrent.CompletionStage<ActionResult> start(Actor actor, ActionRequest request) {
+                if (!request.type().equals(Ae2Actions.CRAFT_PLAN)) {
+                    return java.util.concurrent.CompletableFuture.completedFuture(perform(actor, request));
+                }
+                try {
+                    if (!remoteCrafting.getAsBoolean()) {
+                        return java.util.concurrent.CompletableFuture.completedFuture(ActionResult.error(
+                                ActionResult.Status.DENIED, "Crafting from the dashboard is switched off on this server."));
+                    }
+                    return crafting.plan(context, actor, Ae2Actions.gridId(request.target()),
+                            Ae2Actions.craftPlan(request.params()));
+                } catch (Ae2Actions.Invalid e) {
+                    return java.util.concurrent.CompletableFuture.completedFuture(
+                            ActionResult.error(ActionResult.Status.INVALID, e.getMessage()));
+                }
             }
 
             @Override
@@ -155,6 +186,12 @@ public final class Ae2Provider implements DataProvider {
                         case Ae2Actions.DRIVE_EDIT -> Ae2Writer.editDrive(context, actor, grid, Ae2Actions.driveEdit(params));
                         case Ae2Actions.PROVIDER_EDIT -> Ae2Writer.editProvider(context, actor, grid,
                                 Ae2Actions.providerEdit(params));
+                        case Ae2Actions.CRAFT_START -> remoteCrafting.getAsBoolean()
+                                ? crafting.start(context, actor, grid, Ae2Actions.craftStart(params))
+                                : ActionResult.error(ActionResult.Status.DENIED,
+                                        "Crafting from the dashboard is switched off on this server.");
+                        case Ae2Actions.CRAFT_PLAN -> ActionResult.error(ActionResult.Status.INVALID,
+                                "Plans are computed through start().");
                         default -> ActionResult.error(ActionResult.Status.INVALID, "Unknown action.");
                     };
                 } catch (Ae2Actions.Invalid e) {

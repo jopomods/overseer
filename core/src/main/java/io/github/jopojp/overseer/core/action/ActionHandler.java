@@ -29,6 +29,17 @@ public interface ActionHandler {
      */
     ActionResult perform(Actor actor, ActionRequest request);
 
+    /**
+     * Starts the action; its outcome may come later (ADR-0019), e.g. when the mod computes
+     * something on a thread of its own. <b>Server thread only</b>, like {@link #perform}. A stage
+     * that is not complete on return must be completed by the provider on the server thread, and
+     * within {@link ActionQueue#CLAIMED_LIMIT}; the caller gets {@code FAILED} after that. Changes
+     * to the world still happen only on the server thread. Default: {@link #perform} right away.
+     */
+    default java.util.concurrent.CompletionStage<ActionResult> start(Actor actor, ActionRequest request) {
+        return java.util.concurrent.CompletableFuture.completedFuture(perform(actor, request));
+    }
+
     ActionHandler NONE = new ActionHandler() {
         @Override
         public Set<String> types() {

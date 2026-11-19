@@ -281,6 +281,16 @@ caller may act. Parts in unloaded chunks answer `unavailable`; chunks are never 
 | `ae2.cpu.edit` | `cpu`, `name?`, `mode?` (`any`, `player_only`, `machine_only`) | Name like an anvil: at most 50 characters, colour codes count, empty removes it. AE2 joins the custom names of all blocks of a CPU, so the name goes on one block and the others lose theirs. Names are AE2's private `customName` field, set by reflection; the mode goes through AE2's config manager. |
 | `ae2.drive.edit` | `drive`, `priority` | Any 32-bit integer, through AE2's `IPriorityHost` (drives, ME chests, add-on drives that have a priority). |
 | `ae2.provider.edit` | `provider`, `name?`, `icon?` (item id, empty removes it), `priority?`, `blocking?`, `lock?`, `visible?` | Name as for CPUs (also the group in the Pattern Access Terminal); settings through AE2's config manager, which saves the provider like its buttons do. Unknown items are refused. |
+| `ae2.craft.plan` | `key` (stack key), `amount` (1 to 10^12) | Plans a job like AE2's craft confirm screen and answers with the plan (below). AE2 computes it on its own thread; the answer comes with the next collection, at most a second later (ADR-0019). Refused when no pattern makes the key. Server setting `actions.ae2Crafting` (default on). |
+| `ae2.craft.start` | `plan` (id from the plan), `cpu?` | Starts a kept plan, on the given CPU or where AE2 chooses (`submitJob`). Plans are kept 5 minutes, at most 64 on the server, and start once; only the player who planned (or an operator) may start one. Refused while items are missing, with AE2's reason when it refuses (no free CPU, too small, busy, offline). The result goes into the network. |
+
+**Plans** (`data` of the `ae2.craft.plan` answer): `plan` (id), `output` (`{key, kind, name,
+amount}`), `bytes`, `missing` (items are missing: the plan cannot start), `multiplePaths`,
+`expiresInSeconds`, `used`, `missingItems`, `crafted` (lists of stacks, most first, at most 300
+each) and `cpus` (`id`, `number`, `name`, `storage`, `coProcessors`, `busy`, `mode`, `fits`).
+Jobs are requested as the player: online, or a stand-in with their profile while offline (Forge's
+fake player), so CPUs reserved for players take them. Keys come from scans and patterns; plain items
+and fluids also by registry id.
 
 CPU ids are `<dimension>@x,y,z` of the lowest corner, or `<grid id>#<index>` for CPUs without
 blocks (add-ons; cancel only). Changes name the CPU or drive, so its log shows them. The grid page
@@ -291,7 +301,9 @@ shows the controls in the expanded CPU card and on each drive, and the grid's ch
 - `Ae2MappingTest`, `Ae2ActionsTest` (JUnit): mapping, access rules, action parameters.
 - `Ae2GameTests` (Forge GameTest, also in CI): discovery, hidden and registered grids, inventory
   scan, CPUs, drives, placer access.
-- `Ae2ActionGameTests`: pattern providers (a block and a part on a cable) are read with their
+- `Ae2ActionGameTests`: remote crafting (a plan comes back with the next collection, missing
+  items block the start, a good plan starts once on the chosen CPU, strangers and unknown items are
+  refused, the server setting hides it); pattern providers (a block and a part on a cable) are read with their
   patterns, every setting is changed through the action, the icon shows in AE2's terminal group
   (mixin) and goes away again; a real job (processing pattern on a provider without a machine, so it never
   finishes) is renamed, switched to players only, cancelled; strangers are refused, operators may

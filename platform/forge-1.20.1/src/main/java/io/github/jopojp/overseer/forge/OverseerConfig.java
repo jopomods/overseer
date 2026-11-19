@@ -20,6 +20,7 @@ public final class OverseerConfig {
     static final ForgeConfigSpec.BooleanValue FORCE_SECURE_COOKIES;
     static final ForgeConfigSpec.ConfigValue<String> PUBLIC_URL;
     static final ForgeConfigSpec.BooleanValue AE2_PLACER_ACCESS;
+    static final ForgeConfigSpec.BooleanValue AE2_CRAFTING;
     static final ForgeConfigSpec.EnumValue<EnergyTiers> ENERGY_TIERS;
 
     /** Voltage tiers in device names (docs/modules/flux.md). */
@@ -61,6 +62,12 @@ public final class OverseerConfig {
                         "Off by default: anyone could place a cable on a neighbour's network and watch it.")
                 .define("ae2PlacerAccess", false);
         builder.pop();
+        builder.comment("What players may change from the dashboard, on top of the mods' own rules").push("actions");
+        AE2_CRAFTING = builder.comment(
+                        "AE2: owners of an ME network (and their FTB Teams party) may plan and start crafting jobs",
+                        "from the dashboard, like from a terminal anywhere. Results go into the network.")
+                .define("ae2Crafting", true);
+        builder.pop();
         builder.comment("How the dashboard shows things").push("dashboard");
         ENERGY_TIERS = builder.comment(
                         "Voltage tiers at the end of Flux device names (\"Factory: Assembler MV\"): coloured, filterable.",
@@ -80,6 +87,11 @@ public final class OverseerConfig {
     /** Read every collection, so a change applies without a restart. */
     public static boolean ae2PlacerAccess() {
         return SPEC.isLoaded() && AE2_PLACER_ACCESS.get();
+    }
+
+    /** Read on every request, so a change applies without a restart. */
+    public static boolean ae2Crafting() {
+        return !SPEC.isLoaded() || AE2_CRAFTING.get();
     }
 
     /** The tier scheme for the dashboard: {@code gregtech} or {@code none}. Read every collection. */

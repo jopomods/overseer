@@ -134,7 +134,7 @@ inventory.
 - [x] Pattern providers as resources: name with colour codes and voltage tier (filter by tier),
   icon (also in AE2's Pattern Access Terminal), priority, blocking mode, lock crafting, terminal
   visibility, lock state; their patterns, read only
-- [ ] Remote crafting: plan a job (bytes, used and missing items), choose a CPU, start it
+- [x] Remote crafting: plan a job (bytes, used and missing items), choose a CPU, start it
   (server setting `actions.ae2Crafting`, default on)
 - [ ] UI: craft dialog from the contents list, watchlist deficits and the pattern overview
 - [ ] Diagnosis: stuck jobs (no progress for a while, locked providers) and devices without a channel

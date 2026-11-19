@@ -324,12 +324,17 @@ final class Ae2Reader {
         }
     }
 
-    private static Ae2Model.Cpu cpu(ICraftingCPU cpu, String gridId, int index, StackCache keys) {
-        String id = gridId + "#" + index;
+    /** {@code dimension@x,y,z} of the lowest corner, or {@code <grid>#<index>} for CPUs without blocks. */
+    static String cpuId(ICraftingCPU cpu, String gridId, int index) {
         if (cpu instanceof CraftingCPUCluster cluster && cluster.getLevel() != null) {
             BlockPos min = cluster.getBoundsMin();
-            id = dimension(cluster.getLevel()) + "@" + min.getX() + "," + min.getY() + "," + min.getZ();
+            return dimension(cluster.getLevel()) + "@" + min.getX() + "," + min.getY() + "," + min.getZ();
         }
+        return gridId + "#" + index;
+    }
+
+    private static Ae2Model.Cpu cpu(ICraftingCPU cpu, String gridId, int index, StackCache keys) {
+        String id = cpuId(cpu, gridId, index);
         Component name = cpu.getName();
         Ae2Model.Job job = null;
         CraftingJobStatus status = cpu.getJobStatus();

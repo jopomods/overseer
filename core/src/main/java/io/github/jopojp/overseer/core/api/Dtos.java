@@ -89,7 +89,7 @@ public final class Dtos {
 
     public record ChangeDto(String resource, String field, String before, String after) {}
 
-    public record ActionResultDto(String status, String message, List<ChangeDto> changes) {}
+    public record ActionResultDto(String status, String message, List<ChangeDto> changes, com.google.gson.JsonObject data) {}
 
     public record ActionLogEntryDto(long id, String at, String actor, String actorName, boolean operator,
             String action, String resource, String status, String message, List<ChangeDto> changes) {}
@@ -101,7 +101,8 @@ public final class Dtos {
     }
 
     public static ActionResultDto actionResult(io.github.jopojp.overseer.core.action.ActionResult r) {
-        return new ActionResultDto(r.status().name().toLowerCase(java.util.Locale.ROOT), r.message(), changes(r.changes()));
+        return new ActionResultDto(r.status().name().toLowerCase(java.util.Locale.ROOT), r.message(), changes(r.changes()),
+                r.data());
     }
 
     /** Parameters are left out: they may hold secrets, and the changes say what happened. */
