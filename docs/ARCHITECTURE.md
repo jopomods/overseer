@@ -117,6 +117,9 @@ Changes to the game (renaming a Flux device, ...) go through one endpoint,
 action to the server thread through `ActionQueue`, waits for the result and logs it in
 `action_log`. The provider's `ActionHandler` checks permissions again against live state and
 applies the change. See [ADR-0016](adr/0016-world-actions.md).
+An action may finish later (AE2 computes crafting plans on its own thread): the provider completes
+it on the server thread, the caller waits up to 60 s, and the result may carry data such as the
+plan ([ADR-0019](adr/0019-actions-that-finish-later.md)).
 
 ## Security model (summary)
 
