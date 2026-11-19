@@ -43,6 +43,8 @@ public final class StorageAdmin {
                 + " (SELECT COUNT(*) FROM sample_minute x JOIN series y ON y.id = x.series_id JOIN resource z ON z.id = y.resource_id WHERE z.provider = r.provider),"
                 + " (SELECT COUNT(*) FROM sample_hour x JOIN series y ON y.id = x.series_id JOIN resource z ON z.id = y.resource_id WHERE z.provider = r.provider),"
                 + " (SELECT COUNT(*) FROM inventory_change x JOIN resource z ON z.id = x.resource_id WHERE z.provider = r.provider)"
+                + " + (SELECT COUNT(*) FROM flow_minute x JOIN flow_device y ON y.id = x.device_id"
+                + " JOIN resource z ON z.id = y.resource_id WHERE z.provider = r.provider)"
                 + " FROM resource r LEFT JOIN series s ON s.resource_id = r.id GROUP BY r.provider ORDER BY r.provider")) {
             while (rs.next()) {
                 providers.add(new ProviderUsage(rs.getString(1), rs.getLong(2), rs.getLong(3), rs.getLong(4), rs.getLong(5),
@@ -98,6 +100,13 @@ public final class StorageAdmin {
                 if (beforeUptime != null) ps.setLong(2, beforeUptime);
                 deleted += ps.executeUpdate();
             }
+        }
+        // Flows of the provider's networks go too (ADR-0020).
+        try (var ps = c.prepareStatement("DELETE FROM flow_minute WHERE device_id IN (SELECT d.id FROM flow_device d"
+                + " JOIN resource r ON r.id = d.resource_id WHERE r.provider = ?)" + (beforeUptime == null ? "" : " AND bucket < ?"))) {
+            ps.setString(1, provider);
+            if (beforeUptime != null) ps.setLong(2, beforeUptime);
+            deleted += ps.executeUpdate();
         }
         // Inventory changes of the provider's resources go too; current amounts stay.
         try (var ps = c.prepareStatement("DELETE FROM inventory_change WHERE resource_id IN"

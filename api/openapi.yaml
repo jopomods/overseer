@@ -536,6 +536,91 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/flows:
+    get:
+      tags: [data]
+      operationId: getFlows
+      summary: What moved into and out of a storage network, per device and item
+      description: |
+        Totals per device and key between `from` and `to` (uptime; default the last hour), largest
+        first, at most 5000 rows (ADR-0020). Minute resolution, kept for the raw retention (48 h by
+        default). Devices are positions (`dimension@x,y,z[/side]`), `player:<uuid>` or `other`.
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: to
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: The totals.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Flows"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/flows/history:
+    get:
+      tags: [data]
+      operationId: getFlowHistory
+      summary: Flow per minute of one item, one device, or the whole network
+      description: |
+        Points `[uptime of the minute, inserted, extracted]` for the minutes that had flow, filtered
+        by `item` and/or `device` (ADR-0020).
+      parameters:
+        - name: resource
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: item
+          in: query
+          schema:
+            type: string
+        - name: device
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: to
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: The minutes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlowHistory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/icon:
     get:
       tags: [data]
@@ -1642,6 +1727,71 @@ components:
               format: int64
             minItems: 2
             maxItems: 2
+
+    Flows:
+      type: object
+      required: [resource, from, to, rows]
+      properties:
+        resource:
+          type: string
+        from:
+          type: integer
+          format: int64
+        to:
+          type: integer
+          format: int64
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/FlowRow"
+
+    FlowRow:
+      type: object
+      required: [device, deviceKind, deviceName, key, kind, name, inserted, extracted]
+      properties:
+        device:
+          type: string
+        deviceKind:
+          type: string
+          description: e.g. import_bus, export_bus, interface, pattern_provider, crafting, player, other
+        deviceName:
+          type: string
+        key:
+          type: string
+        kind:
+          type: string
+        name:
+          type: string
+        inserted:
+          type: integer
+          format: int64
+          description: Put into the network by the device (items, mB for fluids).
+        extracted:
+          type: integer
+          format: int64
+          description: Taken out of the network by the device.
+
+    FlowHistory:
+      type: object
+      required: [resource, from, to, points]
+      properties:
+        resource:
+          type: string
+        from:
+          type: integer
+          format: int64
+        to:
+          type: integer
+          format: int64
+        points:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+              format: int64
+            minItems: 3
+            maxItems: 3
 
     InventoryItem:
       type: object

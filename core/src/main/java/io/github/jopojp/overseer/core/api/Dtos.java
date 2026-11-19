@@ -96,6 +96,13 @@ public final class Dtos {
 
     public record AllowedActionsDto(String resource, List<String> types) {}
 
+    public record Flows(String resource, long from, long to, List<FlowRow> rows) {}
+
+    public record FlowRow(String device, String deviceKind, String deviceName, String key, String kind, String name,
+            long inserted, long extracted) {}
+
+    public record FlowHistory(String resource, long from, long to, List<long[]> points) {}
+
     static List<ChangeDto> changes(List<io.github.jopojp.overseer.core.action.ActionResult.Change> changes) {
         return changes.stream().map(c -> new ChangeDto(c.resource().key(), c.field(), c.before(), c.after())).toList();
     }

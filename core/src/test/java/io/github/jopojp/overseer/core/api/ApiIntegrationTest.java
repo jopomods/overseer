@@ -455,6 +455,31 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void flowsShowWhatDevicesMovedToViewersOnly() throws Exception {
+        var ore = new Stack("item:minecraft:raw_iron", "item", "Raw Iron", 0);
+        flux.flows(ALEX_NET, List.of(new io.github.jopojp.overseer.core.provider.Flow("minecraft:overworld@1,64,0/east",
+                "import_bus", "Ore intake", ore, 32, 0)));
+        collect();
+        var alex = new Browser().loginAs(ALEX);
+        var steve = new Browser().loginAs(STEVE);
+        assertEquals(404, steve.get("/api/v1/flows?resource=flux/network/1").statusCode());
+        assertEquals(404, steve.get("/api/v1/flows/history?resource=flux/network/1").statusCode());
+        assertEquals(400, alex.get("/api/v1/flows?resource=flux/network/1&from=10&to=5").statusCode());
+        JsonObject body = null;
+        for (int i = 0; i < 50; i++) { // the storage writer is asynchronous
+            body = json(alex.get("/api/v1/flows?resource=flux/network/1"));
+            if (body.getAsJsonArray("rows").size() == 1) break;
+            Thread.sleep(100);
+        }
+        var row = body.getAsJsonArray("rows").get(0).getAsJsonObject();
+        assertEquals("Ore intake", row.get("deviceName").getAsString());
+        assertEquals("import_bus", row.get("deviceKind").getAsString());
+        assertEquals(32, row.get("inserted").getAsLong());
+        var history = json(alex.get("/api/v1/flows/history?resource=flux/network/1&item=item:minecraft:raw_iron"));
+        assertEquals(32, history.getAsJsonArray("points").get(0).getAsJsonArray().get(1).getAsLong());
+    }
+
+    @Test
     void inventoryShowsContentsAndChangesToViewersOnly() throws Exception {
         var iron = "item:minecraft:iron_ingot";
         flux.inventory(ALEX_NET, List.of(new Stack(iron, "item", "Iron Ingot", 100),

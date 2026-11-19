@@ -24,6 +24,7 @@ import io.github.jopojp.overseer.core.storage.ActionLogStore;
 import io.github.jopojp.overseer.core.storage.Database;
 import io.github.jopojp.overseer.core.storage.EventQuery;
 import io.github.jopojp.overseer.core.storage.HistoryQuery;
+import io.github.jopojp.overseer.core.storage.FlowQuery;
 import io.github.jopojp.overseer.core.storage.InventoryQuery;
 import io.github.jopojp.overseer.core.storage.NotificationStore;
 import io.github.jopojp.overseer.core.storage.OverrideStore;
@@ -146,6 +147,8 @@ public final class ApiRoutes {
                 .get("/api/v1/sessions", this::sessions)
                 .get("/api/v1/inventory", this::inventory)
                 .get("/api/v1/inventory/history", this::inventoryHistory)
+                .get("/api/v1/flows", this::flows)
+                .get("/api/v1/flows/history", this::flowHistory)
                 .get("/api/v1/events", this::events)
                 .get("/api/v1/jobs", this::job)
                 .get("/api/v1/watches", this::listWatches)
@@ -502,6 +505,40 @@ public final class ApiRoutes {
         Long now = inventories.get(ref).flatMap(scan -> scan.stacks().stream()
                 .filter(s -> s.key().equals(item)).findFirst()).map(s -> s.amount()).orElse(null);
         return Response.json(new Dtos.InventoryHistory(ref.key(), item, from, to, history.start(), now, history.points()));
+    }
+
+    /** What moved into and out of a network, per device and key (ADR-0020). */
+    private Response flows(Request r) throws SQLException {
+        Principal p = principal(r);
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        long to = longParam(r, "to", uptime.getAsLong());
+        long from = longParam(r, "from", to - CHANGE_RECENT);
+        if (to <= from) throw HttpError.badRequest("to must be after from.");
+        List<FlowQuery.Row> rows;
+        try (var reader = db.openReader()) {
+            rows = FlowQuery.totals(reader, ref, Math.max(0, from), to);
+        }
+        return Response.json(new Dtos.Flows(ref.key(), from, to, rows.stream()
+                .map(x -> new Dtos.FlowRow(x.device(), x.deviceKind(), x.deviceName(), x.key(), x.kind(), x.name(),
+                        x.inserted(), x.extracted()))
+                .toList()));
+    }
+
+    /** Flow per minute of one item, one device or the whole network (ADR-0020). */
+    private Response flowHistory(Request r) throws SQLException {
+        Principal p = principal(r);
+        ResourceRef ref = parseRef(r.queryParam("resource").orElseThrow(() -> HttpError.badRequest("resource is required.")));
+        if (!access.canView(p, ref)) throw HttpError.notFound();
+        long to = longParam(r, "to", uptime.getAsLong());
+        long from = longParam(r, "from", to - CHANGE_RECENT);
+        if (to <= from) throw HttpError.badRequest("to must be after from.");
+        List<long[]> points;
+        try (var reader = db.openReader()) {
+            points = FlowQuery.perMinute(reader, ref, r.queryParam("item").orElse(null), r.queryParam("device").orElse(null),
+                    Math.max(0, from), to);
+        }
+        return Response.json(new Dtos.FlowHistory(ref.key(), from, to, points));
     }
 
     /** Current contents from the newest scan, with net changes from the database (ADR-0011). */

@@ -92,7 +92,8 @@ final class InventoryWriter {
         }
     }
 
-    private long keyId(Stack stack) throws SQLException {
+    /** The id of a key, created on first use; shared with {@link FlowWriter}. */
+    long keyId(Stack stack) throws SQLException {
         Key known = keys.get(stack.key());
         if (known != null) {
             if (!known.name().equals(stack.name())) {
