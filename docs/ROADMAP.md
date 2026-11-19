@@ -4,6 +4,20 @@ Milestones are cut so that each one ends with something usable. Decisions behind
 scope are in the [ADRs](adr/README.md). Each mod integration is a milestone of its own
 (see AGENTS.md); refinements and features without a new mod go into their own milestones.
 
+## Where we are (2026-11-19)
+
+Latest release: **0.7.0** (M2.7, Flux in the dashboard). Open choices for what comes next, none
+started:
+
+- **Go public**: follow [repository settings](guides/repository-settings.md) (visibility, ruleset
+  requiring **CI ok** and the PR title check, security features).
+- **M2.6 leftover**: collector cost history.
+- **Small ideas** (no milestone yet): optional in-game colour for voltage tiers (`§6HV`, costs two of
+  Flux's 24 characters); realistic AE2 data in `npm run dev:mock` and the layout tests from
+  `fixtures/recordings/ae2-real-01.jsonl` (the mock uses hand-written AE2 data and fixed grid ids).
+- **AE2 actions** on top of ADR-0016 (e.g. request or cancel crafting jobs): its own milestone.
+- **Notifications** (later milestone), **M3 GTCEu**, **M4 Tom's Storage**.
+
 ## M0: Foundation
 
 - [x] Repository renamed to `overseer`, default branch `main`, squash-only merges
@@ -133,6 +147,8 @@ allowed for network owners and admins (Flux's rules) and server operators (ADR-0
 
 - **Notifications:** watched items below target, grids without power, profiler findings; in-game
   chat first, Discord webhook later.
+- **AE2 in the dashboard:** world actions for AE2 (request and cancel crafting jobs, ...), like
+  M2.7 for Flux.
 
 ## Backlog
 
