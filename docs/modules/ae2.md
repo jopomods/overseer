@@ -196,6 +196,7 @@ included) is a resource `ae2/drive/<dimension>@x,y,z`, visible like its grid.
 | `block` | Registry id, e.g. `ae2:drive`, `ae2:chest` |
 | `priority` | Storage priority; missing for add-on drives without one |
 | `cells` | `slot=item=state;…`; state `empty`, `not_empty`, `types_full`, `full`. Changes when a cell is inserted, removed or fills up, so these moments are events |
+| `partitions` | Partitioned cells as JSON `[{slot, keys, exclude, fuzzy}]` (`keys`: `{key, kind, name}`; `exclude`: inverter card; `fuzzy`: fuzzy card); empty when no cell is partitioned |
 
 | Metric (per drive, and summed per grid) | |
 |---|---|
@@ -205,6 +206,25 @@ included) is a resource `ae2/drive/<dimension>@x,y,z`, visible like its grid.
 Add-on cells that AE2 does not describe in bytes (e.g. bulk cells) show their state only. The
 cell inventories come from the drive's own cache (`getOriginalCellInventory`), so reading them
 costs no NBT parsing. Metrics are skipped while a grid boots.
+
+## Storage order
+
+AE2 puts new items into the storage with the highest priority that accepts them; at equal
+priority it prefers storage that already holds the item. What a storage accepts is its
+partition: a partitioned cell or storage bus takes only the listed keys, with an inverter card
+everything but them. Drives (above) and storage buses carry both.
+
+Every storage bus is a resource `ae2/storage_bus/<dimension>@x,y,z/<side>`, visible like its grid:
+
+| Attribute | Meaning |
+|---|---|
+| `grid`, `block`, `name` | Grid id, registry id of the part, custom name (empty if none) |
+| `target`, `targetBlock` | The block it mounts (name as the player sees it, registry id); empty when there is none |
+| `priority` | Storage priority |
+| `partition` | JSON `{keys, exclude, fuzzy}` as for cells; empty when it accepts everything |
+| `access` | `read_write`, `read`, `write` or `no_access` |
+| `extractableOnly` | Shows only what can be extracted (AE2's default) |
+| `active` | Power and channel |
 
 ## Import and export buses
 
@@ -378,6 +398,7 @@ caller may act. Parts in unloaded chunks answer `unavailable`; chunks are never 
 | `ae2.drive.edit` | `drive`, `priority` | Any 32-bit integer, through AE2's `IPriorityHost` (drives, ME chests, add-on drives that have a priority). |
 | `ae2.provider.edit` | `provider`, `name?`, `icon?` (item id, empty removes it), `priority?`, `blocking?`, `lock?`, `visible?` | Name as for CPUs (also the group in the Pattern Access Terminal); settings through AE2's config manager, which saves the provider like its buttons do. Unknown items are refused. |
 | `ae2.bus.edit` | `bus`, `name?`, `filter?` (list of stack keys, at most 9; empty clears it), `redstone?` (`ignore`, `low_signal`, `high_signal`, `signal_pulse`), `craftOnly?`, `scheduling?` (`default`, `roundrobin`, `random`) | Import and export buses. The filter replaces the whole configuration; slots locked behind capacity cards in game accept entries that then do nothing. Craft only and scheduling exist on export buses only. Settings through AE2's config manager; the redstone mode matters only with a redstone card. |
+| `ae2.storagebus.edit` | `bus`, `name?`, `priority?`, `filter?` (the partition: list of stack keys, at most 63; empty accepts everything), `access?` (`read_write`, `read`, `write`, `no_access`), `extractableOnly?` | Storage buses. The partition replaces the whole configuration; slots locked behind capacity cards in game accept entries that then do nothing. Settings through AE2's config manager. |
 | `ae2.craft.plan` | `key` (stack key), `amount` (1 to 10^12) | Plans a job like AE2's craft confirm screen and answers with the plan (below). AE2 computes it on its own thread; the answer comes with the next collection, at most a second later (ADR-0019). Refused when no pattern makes the key. Server setting `actions.ae2Crafting` (default on). |
 | `ae2.craft.start` | `plan` (id from the plan), `cpu?` | Starts a kept plan, on the given CPU or where AE2 chooses (`submitJob`). Plans are kept 5 minutes, at most 64 on the server, and start once; only the player who planned (or an operator) may start one. Refused while items are missing, with AE2's reason when it refuses (no free CPU, too small, busy, offline). The result goes into the network. |
 | `ae2.restock` | – | Not run here: the right to switch on auto-crafting for a watched item (above). `POST /api/v1/actions` refuses it. |

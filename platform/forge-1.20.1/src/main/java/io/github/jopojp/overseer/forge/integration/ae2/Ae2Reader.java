@@ -262,7 +262,8 @@ final class Ae2Reader {
         // Stable order: by id, so the UI does not reshuffle.
         cpuList.sort(Comparator.comparing(Ae2Model.Cpu::id));
 
-        List<Ae2Model.Drive> drives = kind == Kind.HIDDEN ? List.of() : drives(grid);
+        List<Ae2Model.Drive> drives = kind == Kind.HIDDEN ? List.of() : drives(grid, keys);
+        List<Ae2Model.StorageBus> storageBuses = kind == Kind.HIDDEN ? List.of() : storageBuses(grid, keys);
         List<Ae2Model.Provider> providers = new ArrayList<>();
         List<Ae2Model.Pattern> patterns = kind == Kind.HIDDEN || scan == null ? null : new ArrayList<>();
         if (kind != Kind.HIDDEN) providers(grid, keys, providers, patterns);
@@ -281,7 +282,7 @@ final class Ae2Reader {
                 placers == null || kind == Kind.HIDDEN ? java.util.Set.of()
                         : scan != null || !placers.containsKey(gridId) ? refresh(placers, gridId, grid)
                         : placers.get(gridId),
-                providers, patterns, offline, buses, tunnels);
+                providers, patterns, offline, buses, tunnels, storageBuses);
     }
 
     /**
@@ -392,7 +393,7 @@ final class Ae2Reader {
     }
 
     /** Drives and ME chests, add-on drives included (anything implementing {@code IChestOrDrive}). */
-    private static List<Ae2Model.Drive> drives(Grid grid) {
+    private static List<Ae2Model.Drive> drives(Grid grid, StackCache keys) {
         var result = new ArrayList<Ae2Model.Drive>();
         for (Class<?> type : grid.getMachineClasses()) {
             if (!IChestOrDrive.class.isAssignableFrom(type)) continue;
@@ -406,14 +407,17 @@ final class Ae2Reader {
                     var item = drive.getCellItem(slot);
                     String itemId = item == null ? "" : String.valueOf(ForgeRegistries.ITEMS.getKey(item));
                     long usedBytes = -1, totalBytes = -1, usedTypes = -1, totalTypes = -1;
+                    Ae2Model.Partition partition = Ae2Model.Partition.NONE;
                     if (drive.getOriginalCellInventory(slot) instanceof BasicCellInventory basic) {
                         usedBytes = basic.getUsedBytes();
                         totalBytes = basic.getTotalBytes();
                         usedTypes = basic.getStoredItemTypes();
                         totalTypes = basic.getTotalItemTypes();
+                        partition = partition(basic.getConfigInventory(), keys,
+                                basic.getPartitionListMode() == appeng.api.config.IncludeExclude.BLACKLIST, basic.isFuzzy());
                     }
                     cells.add(new Ae2Model.Cell(slot, itemId, state.name().toLowerCase(java.util.Locale.ROOT), usedBytes,
-                            totalBytes, usedTypes, totalTypes));
+                            totalBytes, usedTypes, totalTypes, partition));
                 }
                 BlockPos pos = be.getBlockPos();
                 Integer priority = machine instanceof appeng.helpers.IPriorityHost host ? host.getPriority() : null;
@@ -578,6 +582,53 @@ final class Ae2Reader {
             }
         }
         result.sort(Comparator.comparing(Ae2Model.Bus::id));
+        return result;
+    }
+
+    private static Ae2Model.Partition partition(appeng.util.ConfigInventory config, StackCache keys, boolean exclude,
+            boolean fuzzy) {
+        var list = new ArrayList<Stack>();
+        for (int i = 0; i < config.size(); i++) {
+            AEKey key = config.getKey(i);
+            if (key != null) list.add(keys.stack(key, 0));
+        }
+        return list.isEmpty() ? Ae2Model.Partition.NONE : new Ae2Model.Partition(list, exclude, fuzzy);
+    }
+
+    /** Storage buses of a grid with their priority, partition and access. */
+    private static List<Ae2Model.StorageBus> storageBuses(Grid grid, StackCache keys) {
+        var result = new ArrayList<Ae2Model.StorageBus>();
+        for (Class<?> type : grid.getMachineClasses()) {
+            if (!appeng.parts.storagebus.StorageBusPart.class.isAssignableFrom(type)) continue;
+            for (Object machine : grid.getMachines(type)) {
+                if (!(machine instanceof appeng.parts.storagebus.StorageBusPart bus)) continue;
+                BlockEntity be = bus.getBlockEntity();
+                if (be == null || be.getLevel() == null || be.isRemoved() || bus.getSide() == null) continue;
+                BlockPos pos = be.getBlockPos();
+                String id = dimension(be.getLevel()) + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ() + "/"
+                        + bus.getSide().getSerializedName();
+                String[] facing = facing(be, bus.getSide());
+                boolean exclude = false;
+                boolean fuzzy = false;
+                var cards = bus.getUpgrades();
+                for (int i = 0; i < cards.size(); i++) {
+                    var card = cards.getStackInSlot(i);
+                    if (card.is(appeng.core.definitions.AEItems.INVERTER_CARD.asItem())) exclude = true;
+                    if (card.is(appeng.core.definitions.AEItems.FUZZY_CARD.asItem())) fuzzy = true;
+                }
+                var settings = bus.getConfigManager();
+                String access = settings.hasSetting(appeng.api.config.Settings.ACCESS)
+                        ? lower(settings.getSetting(appeng.api.config.Settings.ACCESS).name()) : "read_write";
+                boolean extractableOnly = settings.hasSetting(appeng.api.config.Settings.STORAGE_FILTER)
+                        && settings.getSetting(appeng.api.config.Settings.STORAGE_FILTER) == appeng.api.config.StorageFilter.EXTRACTABLE_ONLY;
+                Component custom = bus.getCustomName();
+                IGridNode node = bus.getGridNode();
+                result.add(new Ae2Model.StorageBus(id, providerBlockOf(bus), custom == null ? null : custom.getString(),
+                        facing[0], facing[1], bus.getPriority(), partition(bus.getConfig(), keys, exclude, fuzzy), access,
+                        extractableOnly, node != null && node.isActive()));
+            }
+        }
+        result.sort(Comparator.comparing(Ae2Model.StorageBus::id));
         return result;
     }
 

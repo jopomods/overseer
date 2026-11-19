@@ -22,6 +22,7 @@ public final class Ae2Actions {
     public static final String DRIVE_EDIT = "ae2.drive.edit";
     public static final String PROVIDER_EDIT = "ae2.provider.edit";
     public static final String BUS_EDIT = "ae2.bus.edit";
+    public static final String STORAGE_BUS_EDIT = "ae2.storagebus.edit";
     public static final String CRAFT_PLAN = "ae2.craft.plan";
     public static final String CRAFT_START = "ae2.craft.start";
     /**
@@ -37,7 +38,14 @@ public final class Ae2Actions {
     public static final long MAX_CRAFT = 1_000_000_000_000L;
 
     /** Actions every AE2 build supports. */
-    public static final Set<String> BASE_TYPES = Set.of(CPU_CANCEL, CPU_EDIT, DRIVE_EDIT, PROVIDER_EDIT, BUS_EDIT);
+    public static final Set<String> BASE_TYPES = Set.of(CPU_CANCEL, CPU_EDIT, DRIVE_EDIT, PROVIDER_EDIT, BUS_EDIT,
+            STORAGE_BUS_EDIT);
+
+    /** Partition slots of an AE2 storage bus (capacity cards unlock them in game). */
+    public static final int MAX_STORAGE_FILTER = 63;
+
+    /** AE2 storage bus access modes, lower case as in the snapshot. */
+    public enum Access { READ_WRITE, READ, WRITE, NO_ACCESS }
 
     /** Filter slots of an AE2 import or export bus (capacity cards unlock them in game). */
     public static final int MAX_FILTER = 9;
@@ -95,25 +103,10 @@ public final class Ae2Actions {
      * {@code craftOnly?}, {@code scheduling?}.
      */
     public static BusEdit busEdit(JsonObject params) {
-        String bus = optString(params, "bus");
-        if (bus == null) throw new Invalid("bus is required.");
-        if (!PROVIDER_ID.matcher(bus).matches() || !bus.contains("/")) throw new Invalid("Unknown bus: " + bus);
+        String bus = partId(params, "bus");
         String name = optString(params, "name");
         if (name != null) name = name(name);
-        java.util.List<String> filter = null;
-        JsonElement f = params.get("filter");
-        if (f != null && !f.isJsonNull()) {
-            if (!f.isJsonArray()) throw new Invalid("filter must be a list of item keys.");
-            if (f.getAsJsonArray().size() > MAX_FILTER) throw new Invalid("A bus filter has at most " + MAX_FILTER + " entries.");
-            filter = new java.util.ArrayList<>();
-            for (JsonElement e : f.getAsJsonArray()) {
-                if (!e.isJsonPrimitive() || !e.getAsJsonPrimitive().isString()) throw new Invalid("filter must be a list of item keys.");
-                String key = e.getAsString();
-                if (!STACK_KEY.matcher(key).matches()) throw new Invalid("Unknown item: " + key);
-                if (filter.contains(key)) throw new Invalid("An item is listed twice.");
-                filter.add(key);
-            }
-        }
+        java.util.List<String> filter = keys(params, "filter", MAX_FILTER);
         Redstone redstone = optEnum(params, "redstone", Redstone.class, "Redstone must be ignore, low_signal, high_signal or signal_pulse.");
         Scheduling scheduling = optEnum(params, "scheduling", Scheduling.class, "Scheduling must be default, roundrobin or random.");
         Boolean craftOnly = optBool(params, "craftOnly");
@@ -121,6 +114,55 @@ public final class Ae2Actions {
             throw new Invalid("Nothing to change.");
         }
         return new BusEdit(bus, name, filter, redstone, craftOnly, scheduling);
+    }
+
+    /**
+     * {@code bus}, {@code name?}, {@code priority?}, {@code filter?} (the partition, at most 63 stack
+     * keys; empty accepts everything), {@code access?}, {@code extractableOnly?}.
+     */
+    public record StorageBusEdit(String bus, String name, Integer priority, java.util.List<String> filter, Access access,
+            Boolean extractableOnly) {}
+
+    public static StorageBusEdit storageBusEdit(JsonObject params) {
+        String bus = partId(params, "bus");
+        String name = optString(params, "name");
+        if (name != null) name = name(name);
+        Long priority = optLong(params, "priority");
+        if (priority != null && (priority < Integer.MIN_VALUE || priority > Integer.MAX_VALUE)) {
+            throw new Invalid("priority is out of range.");
+        }
+        var filter = keys(params, "filter", MAX_STORAGE_FILTER);
+        Access access = optEnum(params, "access", Access.class, "Access must be read_write, read, write or no_access.");
+        Boolean extractableOnly = optBool(params, "extractableOnly");
+        if (name == null && priority == null && filter == null && access == null && extractableOnly == null) {
+            throw new Invalid("Nothing to change.");
+        }
+        return new StorageBusEdit(bus, name, priority == null ? null : priority.intValue(), filter, access, extractableOnly);
+    }
+
+    /** A part on a side: {@code <dimension>@x,y,z/<side>}. */
+    private static String partId(JsonObject params, String key) {
+        String id = optString(params, key);
+        if (id == null) throw new Invalid(key + " is required.");
+        if (!PROVIDER_ID.matcher(id).matches() || !id.contains("/")) throw new Invalid("Unknown bus: " + id);
+        return id;
+    }
+
+    /** A list of distinct stack keys, {@code null} when absent. */
+    private static java.util.List<String> keys(JsonObject params, String name, int max) {
+        JsonElement f = params.get(name);
+        if (f == null || f.isJsonNull()) return null;
+        if (!f.isJsonArray()) throw new Invalid(name + " must be a list of item keys.");
+        if (f.getAsJsonArray().size() > max) throw new Invalid("A " + name + " has at most " + max + " entries.");
+        var list = new java.util.ArrayList<String>();
+        for (JsonElement e : f.getAsJsonArray()) {
+            if (!e.isJsonPrimitive() || !e.getAsJsonPrimitive().isString()) throw new Invalid(name + " must be a list of item keys.");
+            String key = e.getAsString();
+            if (!STACK_KEY.matcher(key).matches()) throw new Invalid("Unknown item: " + key);
+            if (list.contains(key)) throw new Invalid("An item is listed twice.");
+            list.add(key);
+        }
+        return list;
     }
 
     private static <E extends Enum<E>> E optEnum(JsonObject params, String key, Class<E> type, String message) {

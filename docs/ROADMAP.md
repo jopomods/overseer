@@ -169,6 +169,15 @@ See every P2P tunnel of a network, what it links and what is broken.
 - [x] UI: links grouped by frequency (input → outputs), filter by type, problems (unlinked, no input,
   no output, without channel)
 
+## M2.12: AE2 storage order (no new mod)
+
+See where items go: every storage of a network by priority with what it accepts.
+
+- [x] Cell partitions (keys, inverter, fuzzy) on drives; storage buses as resources with priority,
+  partition, access and what they mount
+- [x] Edit storage buses: name, priority, partition, access, extractable only
+- [ ] UI: storages ordered by priority, partitions, "where does this item go?", storage bus editor
+
 ## M3: GregTech CEu (GTCEu)
 
 - Its own integration; scope to be defined (machine state, maintenance, energy buffers, ...)
@@ -189,7 +198,7 @@ See every P2P tunnel of a network, what it links and what is broken.
 - Notifications (push, Discord webhook)
 - Custom dashboard widgets
 - Actions for GTCEu on top of the world actions of ADR-0016
-- AE2: storage order (priority and partitions), crafting statistics, item search across grids
+- AE2: crafting statistics, item search across grids
 - More loaders and versions (NeoForge, Fabric, older ones such as 1.7.10 for GT New Horizons) via
   Stonecutter, only when needed; the GregTech voltage tiers already match GTNH
 - [x] Public repository on GitHub prepared: MIT license, security policy, contributing guide, issue
