@@ -59,6 +59,12 @@ public final class Dtos {
 
     public record Job(String resource, TimestampDto at, List<JobLine> lines) {}
 
+    public record JobBusy(String resource, long busyMillis, int jobs) {}
+
+    public record JobItem(String key, String kind, String name, int jobs, long amount, long busyMillis, long longestMillis) {}
+
+    public record JobStats(long from, long to, List<JobBusy> resources, List<JobItem> items) {}
+
     public record Details(String resource, TimestampDto at, List<Map<String, String>> rows) {}
 
     /** mode: off, timed, continuous; until: end of a timed run; active: measuring right now. */

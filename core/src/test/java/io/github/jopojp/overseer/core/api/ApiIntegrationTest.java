@@ -656,6 +656,18 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void jobStatsOnlyForVisibleResources() throws Exception {
+        collect();
+        var alex = new Browser().loginAs(ALEX);
+        var steve = new Browser().loginAs(STEVE);
+        assertEquals(404, steve.get("/api/v1/jobs/stats?resource=flux/network/1").statusCode());
+        assertEquals(400, alex.get("/api/v1/jobs/stats").statusCode());
+        var body = json(alex.get("/api/v1/jobs/stats?resource=flux/network/1&resource=flux/network/1"));
+        assertEquals(1, body.getAsJsonArray("resources").size(), "duplicates once");
+        assertEquals(0, body.getAsJsonArray("items").size(), "never ran a job");
+    }
+
+    @Test
     void iconsNeedALoginAndAreCached() throws Exception {
         var png = io.github.jopojp.overseer.core.storage.IconStoreTest.png(7);
         runtime.icons().putAll(Map.of("item:minecraft:iron_ingot", png), null, java.time.Instant.EPOCH);

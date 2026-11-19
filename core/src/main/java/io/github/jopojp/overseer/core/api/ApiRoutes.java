@@ -151,6 +151,7 @@ public final class ApiRoutes {
                 .get("/api/v1/flows/history", this::flowHistory)
                 .get("/api/v1/events", this::events)
                 .get("/api/v1/jobs", this::job)
+                .get("/api/v1/jobs/stats", this::jobStats)
                 .get("/api/v1/watches", this::listWatches)
                 .get("/api/v1/icon", this::icon)
                 .get("/api/v1/details", this::details)
@@ -534,6 +535,34 @@ public final class ApiRoutes {
                 .map(x -> new Dtos.FlowRow(x.device(), x.deviceKind(), x.deviceName(), x.key(), x.kind(), x.name(),
                         x.inserted(), x.extracted()))
                 .toList()));
+    }
+
+    /** Resources one job statistics request may name at most. */
+    static final int MAX_JOB_RESOURCES = 64;
+
+    /** What jobs some resources ran in a window (ADR-0022); only resources the caller may see. */
+    private Response jobStats(Request r) throws SQLException {
+        Principal p = principal(r);
+        List<String> keys = r.query().getOrDefault("resource", List.of());
+        if (keys.isEmpty()) throw HttpError.badRequest("resource is required.");
+        if (keys.size() > MAX_JOB_RESOURCES) throw HttpError.badRequest("Give at most " + MAX_JOB_RESOURCES + " resources.");
+        var refs = new java.util.ArrayList<ResourceRef>();
+        for (String key : keys) {
+            ResourceRef ref = parseRef(key);
+            if (!access.canView(p, ref)) throw HttpError.notFound();
+            if (!refs.contains(ref)) refs.add(ref);
+        }
+        long to = longParam(r, "to", uptime.getAsLong());
+        long from = longParam(r, "from", to - CHANGE_LONGER);
+        if (to <= from) throw HttpError.badRequest("to must be after from.");
+        io.github.jopojp.overseer.core.storage.JobStatsQuery.Stats stats;
+        try (var reader = db.openReader()) {
+            stats = io.github.jopojp.overseer.core.storage.JobStatsQuery.stats(reader, refs, Math.max(0, from), to);
+        }
+        return Response.json(new Dtos.JobStats(from, to,
+                stats.resources().stream().map(b -> new Dtos.JobBusy(b.resource().key(), b.busyMillis(), b.jobs())).toList(),
+                stats.items().stream().map(i -> new Dtos.JobItem(i.key(), i.kind(), i.name(), i.jobs(), i.amount(),
+                        i.busyMillis(), i.longestMillis())).toList()));
     }
 
     /** Flow per minute of one item, one device or the whole network (ADR-0020). */
