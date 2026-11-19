@@ -1,4 +1,4 @@
-import { ChevronDown, Cpu } from 'lucide-react'
+import { ChevronDown, Cpu, AlertTriangle } from 'lucide-react'
 import { useState } from 'react'
 import { useEvents, useJob, type JobLine } from '@/api/hooks'
 import { Button } from '@/components/ui/button'
@@ -10,9 +10,10 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { formatBuckets, formatClock, idPos, isInfinite, jobCountsAreItems, jobEta, jobProgressKnown, pastJobs, type Ae2Cpu } from '@/lib/ae2'
-import { formatBytes, formatNumber, formatSi } from '@/lib/format'
+import { formatBytes, formatDuration, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { usePreferences, type Locale } from '@/lib/preferences'
+import { useNow } from '@/lib/use-now'
 import { cn } from '@/lib/utils'
 
 const JOB_ATTRIBUTES = ['job', 'jobName', 'jobAmount']
@@ -26,6 +27,7 @@ export function CraftingSection({ cpus, grid, allowed }: { cpus: Ae2Cpu[]; grid:
   const [showMore, setShowMore] = useState(false)
   if (cpus.length === 0) return null
   const busy = cpus.filter((c) => c.job).length
+  const stalled = cpus.filter((c) => c.job && c.stalledSince).length
   // Unnamed CPUs are numbered by position, so the number stays when a CPU becomes busy.
   const numbers = new Map(
     [...cpus].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true })).map((c, i) => [c.id, i + 1]),
@@ -43,7 +45,12 @@ export function CraftingSection({ cpus, grid, allowed }: { cpus: Ae2Cpu[]; grid:
   return (
     <Section
       title={t('cpu.title')}
-      aside={<span className="text-muted-foreground shrink-0 text-xs">{t('cpu.busyOf', { busy, count: cpus.length })}</span>}
+      aside={
+        <span className="text-muted-foreground shrink-0 text-xs">
+          {t('cpu.busyOf', { busy, count: cpus.length })}
+          {stalled > 0 && <span className="text-warning font-medium"> · {t('cpu.stalledCount', { count: stalled })}</span>}
+        </span>
+      }
     >
       <ul className="grid min-w-0 items-start gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="cpu-list">
         {primary.map(card)}
@@ -72,9 +79,22 @@ export function CraftingSection({ cpus, grid, allowed }: { cpus: Ae2Cpu[]; grid:
   )
 }
 
-/** A CPU someone named, or one reserved for players (not for automation). */
+/** A CPU someone named, one reserved for players (not for automation), or one that is stuck. */
 function isImportant(cpu: Ae2Cpu) {
-  return cpu.name !== null || cpu.mode === 'player_only'
+  return cpu.name !== null || cpu.mode === 'player_only' || (cpu.job !== null && cpu.stalledSince !== null)
+}
+
+/** "No progress for 12 min": a job AE2 has not advanced for five minutes or more. */
+function Stalled({ since }: { since: string }) {
+  const t = useT()
+  const { locale } = usePreferences()
+  const now = useNow(30_000)
+  return (
+    <p className="text-warning flex min-w-0 items-center gap-1.5 text-xs font-medium" data-testid="cpu-stalled">
+      <AlertTriangle className="size-3.5 shrink-0" />
+      <span className="min-w-0 truncate">{t('cpu.stalled', { time: formatDuration(Math.max(0, now - Date.parse(since)), locale) })}</span>
+    </p>
+  )
 }
 
 function CpuCard({ cpu, number, grid, allowed }: { cpu: Ae2Cpu; number: number; grid: string; allowed: Set<string> }) {
@@ -89,7 +109,7 @@ function CpuCard({ cpu, number, grid, allowed }: { cpu: Ae2Cpu; number: number; 
 
   return (
     <li className="min-w-0">
-      <Card className={cn('min-w-0 gap-0 py-0', !job && 'bg-card/60')}>
+      <Card className={cn('min-w-0 gap-0 py-0', !job && 'bg-card/60', job && cpu.stalledSince && 'border-warning/60')}>
         <button
           type="button"
           className="flex min-w-0 flex-col gap-2 px-4 py-3 text-left"
@@ -150,6 +170,11 @@ function CpuCard({ cpu, number, grid, allowed }: { cpu: Ae2Cpu; number: number; 
             </>
           )}
         </button>
+        {job && cpu.stalledSince && (
+          <div className="px-4 pb-3">
+            <Stalled since={cpu.stalledSince} />
+          </div>
+        )}
         {open && <CpuDetails cpu={cpu} grid={grid} allowed={allowed} title={title} />}
       </Card>
     </li>
@@ -164,6 +189,7 @@ function CpuDetails({ cpu, grid, allowed, title }: { cpu: Ae2Cpu; grid: string; 
   return (
     <div className="min-w-0 space-y-3 border-t px-4 py-3 text-xs" data-testid="cpu-details">
       <CpuControls grid={grid} cpu={cpu} allowed={allowed} title={title} />
+      {cpu.job && cpu.stalledSince && <p className="text-muted-foreground">{t('cpu.stalledHint')}</p>}
       <dl className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-1">
         <dt className="text-muted-foreground">{t('ae2.coProcessors')}</dt>
         <dd className="tabular truncate text-right">{formatNumber(cpu.coProcessors, locale)}</dd>

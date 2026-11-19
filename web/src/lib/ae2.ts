@@ -156,6 +156,8 @@ export interface Ae2Cpu {
   job: Ae2Job | null
   /** The job is suspended (AE2 builds that support it). */
   suspended: boolean
+  /** When the job last made progress, if it has made none for five minutes (ISO time); else null. */
+  stalledSince: string | null
 }
 
 /** Crafting CPUs of one grid: busy first, then by name and position. */
@@ -184,6 +186,7 @@ export function cpus(snapshot: Snapshot | undefined, gridId: string): Ae2Cpu[] {
             }
           : null,
         suspended: a.suspended === 'true',
+        stalledSince: a.stalledSince || null,
       }
     })
     .sort(
@@ -451,4 +454,23 @@ export interface CraftPlan {
   missingItems: PatternStack[]
   crafted: PatternStack[]
   cpus: Array<{ id: string; number: number; name: string | null; storage: number; coProcessors: number; busy: boolean; mode: string; fits: boolean }>
+}
+
+/** A device that needs a channel and has none. */
+export interface Ae2Offline {
+  id: string
+  /** A part on a cable: the side it faces. */
+  side: string | null
+  item: string
+  name: string
+}
+
+/** Devices without channel from the grid's live table (rows with `row=offline`). */
+export function offlineOf(rows: Record<string, string>[] | undefined): Ae2Offline[] {
+  return (rows ?? [])
+    .filter((r) => r.row === 'offline' && r.id)
+    .map((r) => {
+      const slash = r.id.indexOf('/', r.id.indexOf('@'))
+      return { id: r.id, side: slash < 0 ? null : r.id.slice(slash + 1), item: r.item ?? '', name: r.name ?? '' }
+    })
 }
