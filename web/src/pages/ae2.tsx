@@ -7,6 +7,7 @@ import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { GridStateBadge } from '@/components/grid-state-badge'
+import { ItemSearchSection } from '@/components/item-search'
 import { LiveBadge } from '@/components/live-badge'
 import { useSession } from '@/components/session'
 import { PageHeader, Section } from '@/components/stat'
@@ -49,6 +50,7 @@ export function Ae2Page() {
         </div>
       )}
       {list.length > 0 && <p className="text-muted-foreground mt-3 max-w-prose text-xs">{t('ae2.registerHint')}</p>}
+      {list.length > 0 && <ItemSearchSection grids={list} />}
       <OtherGrids />
       {hidden.length > 0 && <HiddenGrids grids={hidden} />}
     </>

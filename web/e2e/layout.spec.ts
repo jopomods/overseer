@@ -139,6 +139,14 @@ test('no horizontal overflow with all crafting statistics shown', async ({ page 
   await expectNoHorizontalOverflow(page)
 })
 
+test('no horizontal overflow with item search results', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/ae2')
+  await page.getByLabel('Search every network').fill('in')
+  await expect(page.getByTestId('item-search').getByRole('listitem').first()).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+})
+
 test('no horizontal overflow with the flow open', async ({ page }) => {
   // Extreme data: 300 devices, long names, huge numbers; the Sankey on wide screens.
   await mockApi(page)

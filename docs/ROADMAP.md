@@ -192,7 +192,7 @@ Find an item in every network one may see, without opening each.
 
 - [x] `GET /api/v1/inventory/search`: newest scans of all visible inventories, per item the total
   and where it is
-- [ ] UI: search page with places linking to each network
+- [x] UI: "Find an item" on the ME networks page, places linking to each network
 
 ## M3: GregTech CEu (GTCEu)
 

@@ -288,6 +288,17 @@ test.describe('flows', () => {
     await wider // the mock server has run for less than a week: the window starts at its beginning
   })
 
+  test('item search: totals across networks, places link to each network', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/ae2')
+    await page.getByLabel('Search every network').fill('iron ingot')
+    const results = page.getByTestId('item-search').getByRole('listitem').filter({ has: page.locator('ul') })
+    await expect(results.first()).toContainText('Iron Ingot')
+    await expect(results.first()).toContainText('318 k')
+    await results.first().getByRole('link').nth(1).click()
+    await expect(page).toHaveURL(/the_nether@8,40,16/)
+  })
+
   test('colour codes in names show as colours unless turned off', async ({ page }) => {
     await mockApi(page, { realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')

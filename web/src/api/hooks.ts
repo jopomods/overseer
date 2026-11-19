@@ -217,6 +217,17 @@ export function useFlows(resource: string, from: number | undefined, to: number 
   })
 }
 
+/** An item in every inventory the viewer may see; disabled below 2 characters. */
+export function useInventorySearch(q: string) {
+  return useQuery({
+    queryKey: ['inventory-search', q] as const,
+    queryFn: () => unwrap(api.GET('/api/v1/inventory/search', { params: { query: { q, limit: 24 } } })),
+    enabled: q.length >= 2,
+    placeholderData: keepPreviousData,
+    retry,
+  })
+}
+
 /** What the given job-running resources (crafting CPUs) did in a window (ADR-0022). */
 export function useJobStats(grid: string, resources: string[], from: number | undefined, to: number | undefined) {
   return useQuery({

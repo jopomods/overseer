@@ -1121,6 +1121,20 @@ export function createMockBackend(options: MockOptions = {}) {
         if (!cpu?.attributes.job) return json({ error: { code: 'not_found', message: 'idle' } }, 404)
         return json({ resource, at: { wall: now(), uptimeMillis: 123_456_789, session: 3 }, lines: jobLines(options.realistic === true) })
       }
+      case '/api/v1/inventory/search': {
+        const q = (url.searchParams.get('q') ?? '').trim().toLowerCase()
+        if (q.length < 2) return json({ error: { code: 'bad_request', message: 'q needs at least 2 characters.' } }, 400)
+        const realistic = options.realistic === true
+        const gridKeys = realistic
+          ? ['ae2/grid/minecraft:overworld@120,64,-340', 'ae2/grid/minecraft:the_nether@8,40,16']
+          : Array.from({ length: 30 }, (_, i) => (i === 0 ? 'ae2/grid/minecraft:overworld@0,64,-0' : `ae2/grid/minecraft:overworld@${i * 1000},64,${-i}`))
+        const matches = inventoryStacks(realistic).filter((s) => s.name.toLowerCase().replace(/§./g, '').includes(q) || s.key.includes(q))
+        const items = matches.slice(0, 24).map((s) => {
+          const places = gridKeys.slice(0, realistic ? 2 : 20).map((resource, j) => ({ resource, name: realistic ? null : `${LONG} ${j}`, amount: Math.max(1, Math.round(s.amount / (j + 1))) }))
+          return { key: s.key, kind: s.kind, name: s.name, total: places.reduce((sum, p) => sum + p.amount, 0), placeCount: realistic ? places.length : 30, places }
+        })
+        return json({ q, total: matches.length, items })
+      }
       case '/api/v1/jobs/stats': {
         const resources = url.searchParams.getAll('resource')
         const to = Number(url.searchParams.get('to') ?? 0)
