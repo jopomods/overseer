@@ -31,8 +31,8 @@ for (const { v } of values) {
 
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const names = all(
-  "SELECT DISTINCT value AS v FROM event WHERE attribute = 'name' AND resource_id IN " +
-    "(SELECT id FROM resource WHERE type IN ('player', 'member'))",
+  "SELECT DISTINCT value AS v FROM event WHERE (attribute = 'name' AND resource_id IN " +
+    "(SELECT id FROM resource WHERE type IN ('player', 'member'))) OR attribute = 'ownerName'",
 ).map((r) => r.v)
 for (const name of names) {
   if (name && new RegExp(`(?<![A-Za-z0-9_])${escape(name)}(?![A-Za-z0-9_])`).test(text)) leaks.add(`name ${name}`)
@@ -42,7 +42,9 @@ for (const { v } of all("SELECT DISTINCT value AS v FROM event WHERE attribute =
   if (v && text.includes(v)) leaks.add('motd')
 }
 
-const positions = all("SELECT rid FROM resource WHERE type = 'device'").map((r) => r.rid.split('@')[1])
+// Every located resource (Flux devices, AE2 grids, CPUs, drives, ...): its position must be gone,
+// as an id and as a reference from other resources.
+const positions = all("SELECT rid FROM resource WHERE rid LIKE '%@%,%,%'").map((r) => r.rid.split('@')[1])
 for (const p of positions) if (text.includes(`@${p}"`)) leaks.add(`position ${p}`)
 
 console.log(`checked ${uuids} UUID occurrences, ${names.length} player names, ${positions.length} positions`)

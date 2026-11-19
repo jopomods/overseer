@@ -86,6 +86,43 @@ class RecordingTest {
     }
 
     @Test
+    void anonymizerCoversAe2OwnersAndEveryPosition() {
+        String owner = "0b1c2d3e-4f50-4617-8899-aabbccddeeff";
+        var grid = new Recording.Entry("grid", "minecraft:overworld@120,64,-340",
+                Map.of("owner", owner, "ownerName", "Alexandra", "pos", "120,64,-340", "name", "Alexandra's base"),
+                Map.of());
+        var cpu = new Recording.Entry("cpu", "minecraft:overworld@130,70,-330",
+                Map.of("grid", "minecraft:overworld@120,64,-340", "name", "Main"), Map.of());
+        var recording = new Recording(new Recording.Header("overseer-recording", 1, "t", 5000, false),
+                List.of(new Recording.Frame("ae2", Instant.EPOCH, 0, 1, List.of(grid, cpu))));
+
+        var out = Anonymizer.anonymize(recording, 7).snapshots().get(0).resources();
+        var g = out.get(0);
+        var c = out.get(1);
+        assertFalse(g.attributes().toString().contains("Alexandra"), "owner name replaced, also inside other names");
+        assertFalse(g.attributes().toString().contains(owner));
+        assertNotEquals("minecraft:overworld@120,64,-340", g.id(), "grid position shifted");
+        assertTrue(g.id().endsWith("@" + g.attributes().get("pos")), "id and pos shifted alike");
+        assertEquals(g.id(), c.attributes().get("grid"), "references to the grid shifted alike");
+        assertNotEquals("minecraft:overworld@130,70,-330", c.id(), "cpu position shifted");
+    }
+
+    @Test
+    void exportSelectsProvidersAndTheLastMinutes() {
+        var frames = List.of(
+                new Recording.Frame("ae2", Instant.EPOCH, 0, 1, List.of()),
+                new Recording.Frame("flux", Instant.EPOCH, 0, 1, List.of()),
+                new Recording.Frame("ae2", Instant.EPOCH, 50 * 60_000, 1, List.of()),
+                new Recording.Frame("ae2", Instant.EPOCH, 60 * 60_000, 1, List.of()));
+        var recording = new Recording(new Recording.Header("overseer-recording", 1, "t", 5000, false), frames);
+
+        var selected = ExportRecordingMain.select(recording, java.util.Set.of("ae2"), 15 * 60_000);
+        assertEquals(List.of(50 * 60_000L, 60 * 60_000L),
+                selected.snapshots().stream().map(Recording.Frame::uptimeMillis).toList());
+        assertEquals(4, ExportRecordingMain.select(recording, java.util.Set.of(), 0).snapshots().size());
+    }
+
+    @Test
     void replayLoopsAndRestampsFrames() {
         var replay = new ReplayProvider(sample(), "flux");
         var at = new Timestamp(Instant.parse("2030-01-01T00:00:00Z"), 99, 7);
