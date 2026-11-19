@@ -130,4 +130,21 @@ class Ae2ActionsTest {
         assertThrows(Invalid.class, () -> Ae2Actions.busEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/east\",\"redstone\":\"loud\"}")));
         assertThrows(Invalid.class, () -> Ae2Actions.busEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/east\"}")), "nothing to change");
     }
+
+    @Test
+    void storageBusEditTakesPriorityPartitionAndAccess() {
+        var edit = Ae2Actions.storageBusEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/up\",\"priority\":-5,"
+                + "\"filter\":[\"item:minecraft:diamond\"],\"access\":\"READ\",\"extractableOnly\":true}"));
+        assertEquals(-5, edit.priority());
+        assertEquals(java.util.List.of("item:minecraft:diamond"), edit.filter());
+        assertEquals(Ae2Actions.Access.READ, edit.access());
+        assertTrue(edit.extractableOnly());
+        var many = new StringBuilder("[");
+        for (int i = 0; i < 64; i++) many.append(i == 0 ? "" : ",").append("\"item:a:b").append(i).append("\"");
+        assertThrows(Invalid.class, () -> Ae2Actions.storageBusEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/up\",\"filter\":"
+                + many + "]}")), "at most 63");
+        assertThrows(Invalid.class, () -> Ae2Actions.storageBusEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/up\",\"access\":\"all\"}")));
+        assertThrows(Invalid.class, () -> Ae2Actions.storageBusEdit(json("{\"bus\":\"minecraft:overworld@1,2,3\",\"priority\":1}")));
+        assertThrows(Invalid.class, () -> Ae2Actions.storageBusEdit(json("{\"bus\":\"minecraft:overworld@1,2,3/up\"}")));
+    }
 }

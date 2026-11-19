@@ -422,6 +422,52 @@ public final class Ae2ActionGameTests {
         });
     }
 
+    /** Cell partitions and storage buses are read; a storage bus is edited through the action. */
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
+    public static void storageOrderIsReadAndEdited(GameTestHelper helper) {
+        buildGrid(helper);
+        BlockPos cable = new BlockPos(1, 1, 2);
+        var bus = new appeng.parts.storagebus.StorageBusPart[1];
+        helper.setBlock(new BlockPos(2, 1, 2), net.minecraft.world.level.block.Blocks.CHEST);
+        helper.runAfterDelay(15, () -> {
+            BlockPos at = helper.absolutePos(cable);
+            appeng.api.parts.PartHelper.setPart(helper.getLevel(), at, null, null,
+                    appeng.core.definitions.AEParts.GLASS_CABLE.item(appeng.api.util.AEColor.TRANSPARENT));
+            bus[0] = appeng.api.parts.PartHelper.setPart(helper.getLevel(), at, net.minecraft.core.Direction.EAST, null,
+                    appeng.core.definitions.AEParts.STORAGE_BUS.asItem());
+            var drive = ((DriveBlockEntity) helper.getBlockEntity(DRIVE)).getInternalInventory();
+            var cell = drive.getStackInSlot(0).copy();
+            ((appeng.api.storage.cells.ICellWorkbenchItem) cell.getItem()).getConfigInventory(cell)
+                    .setStack(0, new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+            drive.setItemDirect(0, cell);
+        });
+        helper.runAfterDelay(40, () -> {
+            var provider = provider(helper);
+            var snapshot = provider.collect(AT);
+            String partitions = snapshot.resources().get(Ae2Mapping.drive(id(helper, DRIVE))).get("partitions");
+            helper.assertTrue(partitions.contains("item:minecraft:diamond"), "cell partition: " + partitions);
+            String busId = id(helper, cable) + "/east";
+            var attrs = snapshot.resources().get(Ae2Mapping.storageBus(busId));
+            helper.assertTrue(attrs != null && "read_write".equals(attrs.get("access")) && "".equals(attrs.get("partition"))
+                    && "true".equals(attrs.get("extractableOnly")) && "minecraft:chest".equals(attrs.get("targetBlock")), "storage bus: " + attrs);
+
+            ActionHandler actions = provider.actions();
+            ResourceRef gridRef = gridRef(helper);
+            var edit = actions.perform(OWNER_ACTOR, request(Ae2Actions.STORAGE_BUS_EDIT, gridRef, "{\"bus\":\"" + busId
+                    + "\",\"priority\":7,\"filter\":[\"item:minecraft:iron_ingot\"],\"access\":\"read\",\"extractableOnly\":false}"));
+            helper.assertTrue(edit.isOk() && edit.changes().size() == 4, "edit: " + edit);
+            var settings = bus[0].getConfigManager();
+            helper.assertTrue(bus[0].getPriority() == 7 && AEItemKey.of(Items.IRON_INGOT).equals(bus[0].getConfig().getKey(0))
+                    && settings.getSetting(appeng.api.config.Settings.ACCESS) == appeng.api.config.AccessRestriction.READ
+                    && settings.getSetting(appeng.api.config.Settings.STORAGE_FILTER) == appeng.api.config.StorageFilter.NONE,
+                    "bus settings");
+            var denied = actions.perform(STRANGER_ACTOR, request(Ae2Actions.STORAGE_BUS_EDIT, gridRef,
+                    "{\"bus\":\"" + busId + "\",\"priority\":1}"));
+            helper.assertTrue(denied.status() == Status.DENIED, "stranger: " + denied);
+            helper.succeed();
+        });
+    }
+
     /**
      * A network without controller has eight channels: ten drives leave devices without one. They
      * are counted and listed with position and item.

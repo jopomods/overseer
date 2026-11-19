@@ -277,6 +277,67 @@ final class Ae2Writer {
 
     // --- import and export buses -----------------------------------------------------------
 
+    /** Name, priority, partition and access of a storage bus. */
+    static ActionResult editStorageBus(Context ctx, Actor actor, String gridId, Ae2Reader.StackCache keys,
+            Ae2Actions.StorageBusEdit edit) {
+        return run(() -> {
+            IGrid grid = grid(ctx, actor, gridId);
+            int slash = edit.bus().indexOf('/', edit.bus().indexOf('@'));
+            BlockEntity be = blockEntity(ctx, edit.bus().substring(0, slash));
+            Direction side = Direction.byName(edit.bus().substring(slash + 1));
+            if (side == null || !(be instanceof IPartHost parts)
+                    || !(parts.getPart(side) instanceof appeng.parts.storagebus.StorageBusPart bus)) {
+                throw new Refused(Status.NOT_FOUND, "There is no storage bus at " + edit.bus() + ".");
+            }
+            IGridNode node = bus.getGridNode();
+            if (node == null || node.getGrid() != grid) throw new Refused(Status.INVALID, "This bus is not part of the network.");
+            if (edit.name() != null && !Ae2Compat.canName()) throw new Refused(Status.INVALID, "This AE2 version cannot rename buses.");
+            var config = bus.getConfig();
+            java.util.List<AEKey> filter = null;
+            if (edit.filter() != null) {
+                if (edit.filter().size() > config.size()) {
+                    throw new Refused(Status.INVALID, "This bus has " + config.size() + " partition slots.");
+                }
+                filter = new ArrayList<>();
+                for (String id : edit.filter()) filter.add(key(keys, id));
+            }
+            var ref = Ae2Mapping.storageBus(edit.bus());
+            var changes = new ArrayList<Change>();
+            if (edit.name() != null) {
+                String before = text(bus.getCustomName());
+                if (!edit.name().equals(before)) {
+                    Ae2Compat.setName(bus, edit.name().isEmpty() ? null : Component.literal(edit.name()));
+                    bus.getHost().markForSave();
+                    bus.getHost().markForUpdate();
+                    changes.add(new Change(ref, "name", before, text(bus.getCustomName())));
+                }
+            }
+            if (edit.priority() != null && edit.priority() != bus.getPriority()) {
+                int before = bus.getPriority();
+                bus.setPriority(edit.priority());
+                changes.add(new Change(ref, "priority", Integer.toString(before), Integer.toString(bus.getPriority())));
+            }
+            if (filter != null) {
+                String before = filterText(config, keys);
+                for (int i = 0; i < config.size(); i++) {
+                    config.setStack(i, i < filter.size() ? new appeng.api.stacks.GenericStack(filter.get(i), 1) : null);
+                }
+                String after = filterText(config, keys);
+                if (!before.equals(after)) changes.add(new Change(ref, "partition", before, after));
+            }
+            var settings = bus.getConfigManager();
+            if (edit.access() != null && settings.hasSetting(Settings.ACCESS)) {
+                setting(settings, Settings.ACCESS, appeng.api.config.AccessRestriction.valueOf(edit.access().name()), ref,
+                        "access", changes);
+            }
+            if (edit.extractableOnly() != null && settings.hasSetting(Settings.STORAGE_FILTER)) {
+                setting(settings, Settings.STORAGE_FILTER, edit.extractableOnly() ? appeng.api.config.StorageFilter.EXTRACTABLE_ONLY
+                        : appeng.api.config.StorageFilter.NONE, ref, "extractableOnly", changes);
+            }
+            return ActionResult.ok(changes);
+        });
+    }
+
     static ActionResult editBus(Context ctx, Actor actor, String gridId, Ae2Reader.StackCache keys, Ae2Actions.BusEdit edit) {
         return run(() -> {
             IGrid grid = grid(ctx, actor, gridId);

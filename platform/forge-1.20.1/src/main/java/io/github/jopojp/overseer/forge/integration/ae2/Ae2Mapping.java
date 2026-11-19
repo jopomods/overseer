@@ -81,6 +81,10 @@ public final class Ae2Mapping {
         return new ResourceRef(PROVIDER, "bus", id);
     }
 
+    public static ResourceRef storageBus(String id) {
+        return new ResourceRef(PROVIDER, "storage_bus", id);
+    }
+
     public static ResourceRef provider(String id) {
         return new ResourceRef(PROVIDER, "provider", id);
     }
@@ -166,6 +170,7 @@ public final class Ae2Mapping {
             }
             for (Ae2Model.Provider provider : g.providers()) provider(g, provider, resources);
             for (Ae2Model.Bus bus : g.buses()) bus(g, bus, resources);
+            for (Ae2Model.StorageBus bus : g.storageBuses()) storageBus(g, bus, resources);
             var rows = new ArrayList<Map<String, String>>();
             if (g.patterns() != null) rows.addAll(patternRows(g.patterns()));
             if (g.offline() != null) {
@@ -235,6 +240,14 @@ public final class Ae2Mapping {
             cells.append(cell.slot()).append('=').append(cell.item()).append('=').append(cell.state());
         }
         attrs.put("cells", cells.toString());
+        var partitions = new ArrayList<Map<String, Object>>();
+        for (Ae2Model.Cell cell : drive.cells()) {
+            if (cell.partition().keys().isEmpty()) continue;
+            var p = partitionJson(cell.partition());
+            p.put("slot", cell.slot());
+            partitions.add(p);
+        }
+        attrs.put("partitions", partitions.isEmpty() ? "" : GSON.toJson(partitions));
         if (drive.priority() != null) attrs.put("priority", Integer.toString(drive.priority()));
         resources.put(ref, attrs);
         if (g.booting()) return;
@@ -294,6 +307,36 @@ public final class Ae2Mapping {
         attrs.put("requested", Integer.toString(b.requested()));
         attrs.put("active", Boolean.toString(b.active()));
         resources.put(bus(b.id()), attrs);
+    }
+
+    /**
+     * A storage bus as a resource: {@code grid}, {@code block}, {@code name}, {@code target},
+     * {@code targetBlock}, {@code priority}, {@code partition} (JSON {@code {keys, exclude, fuzzy}},
+     * empty when it accepts everything), {@code access}, {@code extractableOnly}, {@code active}.
+     */
+    private static void storageBus(Grid g, Ae2Model.StorageBus b, Map<ResourceRef, Map<String, String>> resources) {
+        var attrs = new LinkedHashMap<String, String>();
+        attrs.put("grid", g.id());
+        attrs.put("block", b.block());
+        attrs.put("name", b.name() == null ? "" : b.name());
+        attrs.put("target", b.target());
+        attrs.put("targetBlock", b.targetBlock());
+        attrs.put("priority", Integer.toString(b.priority()));
+        attrs.put("partition", b.partition().keys().isEmpty() ? "" : GSON.toJson(partitionJson(b.partition())));
+        attrs.put("access", b.access());
+        attrs.put("extractableOnly", Boolean.toString(b.extractableOnly()));
+        attrs.put("active", Boolean.toString(b.active()));
+        resources.put(storageBus(b.id()), attrs);
+    }
+
+    private static Map<String, Object> partitionJson(Ae2Model.Partition partition) {
+        var keys = new ArrayList<Map<String, Object>>();
+        for (var s : partition.keys()) keys.add(Map.of("key", s.key(), "kind", s.kind(), "name", s.name()));
+        var p = new LinkedHashMap<String, Object>();
+        p.put("keys", keys);
+        p.put("exclude", partition.exclude());
+        p.put("fuzzy", partition.fuzzy());
+        return p;
     }
 
     /**
@@ -459,6 +502,7 @@ public final class Ae2Mapping {
                 for (Ae2Model.Drive drive : g.drives()) partGrids.put(drive(drive.id()).key(), g.id());
                 for (Ae2Model.Provider p : g.providers()) partGrids.put(provider(p.id()).key(), g.id());
                 for (Ae2Model.Bus b : g.buses()) partGrids.put(bus(b.id()).key(), g.id());
+                for (Ae2Model.StorageBus b : g.storageBuses()) partGrids.put(storageBus(b.id()).key(), g.id());
                 if (placerAccess && g.kind() != Ae2Model.Kind.HIDDEN && !g.placers().isEmpty()) {
                     viewers.put(g.id(), g.placers());
                 }

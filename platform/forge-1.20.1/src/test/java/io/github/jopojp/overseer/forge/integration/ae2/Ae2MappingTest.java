@@ -242,7 +242,7 @@ class Ae2MappingTest {
         Grid g = grid(OWNER, 10);
         var full = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(), g.controllers(),
                 g.state(), false, g.channels(), g.energy(), g.storage(), g.crafting(), Ae2Model.Kind.CONTROLLER, null,
-                List.of(), java.util.Map.of(), java.util.Set.of(), List.of(provider), List.of(pattern), null, List.of(), null);
+                List.of(), java.util.Map.of(), java.util.Set.of(), List.of(provider), List.of(pattern), null, List.of(), null, List.of());
         var snapshot = Ae2Mapping.snapshot(AT, List.of(full));
         var ref = Ae2Mapping.provider("minecraft:overworld@4,64,0/north");
         var attrs = snapshot.resources().get(ref);
@@ -366,5 +366,32 @@ class Ae2MappingTest {
         assertEquals("51966", rows.get(0).get("frequency"));
         assertEquals("true", rows.get(0).get("output"));
         assertEquals("false", rows.get(0).get("active"));
+    }
+
+    @Test
+    void storageBusesAndCellPartitionsAreAttributes() {
+        var diamond = new io.github.jopojp.overseer.core.provider.Stack("item:minecraft:diamond", "item", "Diamond", 0);
+        var partition = new Ae2Model.Partition(List.of(diamond), true, false);
+        var bus = new Ae2Model.StorageBus("minecraft:overworld@1,2,3/up", "ae2:storage_bus", null, "Chest", "minecraft:chest", 5,
+                partition, "read", true, true);
+        var drive = new Ae2Model.Drive("minecraft:overworld@4,64,0", "ae2:drive", List.of(
+                new Ae2Model.Cell(0, "ae2:item_storage_cell_1k", "empty", 0, 1024, 0, 63, partition),
+                new Ae2Model.Cell(1, "ae2:item_storage_cell_1k", "empty", 0, 1024, 0, 63)), 2);
+        Grid g = grid(OWNER, 10);
+        g = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(), g.controllers(), g.state(), false,
+                g.channels(), g.energy(), g.storage(), g.crafting(), Ae2Model.Kind.CONTROLLER, null, List.of(drive))
+                .withStorageBuses(List.of(bus));
+        var resources = Ae2Mapping.snapshot(AT, List.of(g)).resources();
+        var attrs = resources.get(Ae2Mapping.storageBus(bus.id()));
+        assertEquals("5", attrs.get("priority"));
+        assertEquals("read", attrs.get("access"));
+        assertEquals("true", attrs.get("extractableOnly"));
+        var p = com.google.gson.JsonParser.parseString(attrs.get("partition")).getAsJsonObject();
+        assertTrue(p.get("exclude").getAsBoolean());
+        assertEquals("item:minecraft:diamond", p.getAsJsonArray("keys").get(0).getAsJsonObject().get("key").getAsString());
+        var partitions = com.google.gson.JsonParser.parseString(resources.get(Ae2Mapping.drive(drive.id())).get("partitions")).getAsJsonArray();
+        assertEquals(1, partitions.size(), "only partitioned cells");
+        assertEquals(0, partitions.get(0).getAsJsonObject().get("slot").getAsInt());
+        assertEquals(Ae2Mapping.grid(g.id()), Ae2Mapping.AccessIndex.of(List.of(g)).parent(Ae2Mapping.storageBus(bus.id())));
     }
 }
