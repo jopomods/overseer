@@ -321,4 +321,20 @@ class Ae2MappingTest {
         assertEquals("Iron \"Ingot\"", filter.get(0).getAsJsonObject().get("name").getAsString());
         assertEquals(Ae2Mapping.grid(g.id()), Ae2Mapping.AccessIndex.of(List.of(g)).parent(ref));
     }
+
+    @Test
+    void flowsGoToTheirGridButNeverToHiddenOnes() {
+        var ore = new io.github.jopojp.overseer.core.provider.Stack("item:minecraft:raw_iron", "item", "Raw Iron", 0);
+        var flow = new io.github.jopojp.overseer.core.provider.Flow("minecraft:overworld@1,2,3/east", "import_bus",
+                "ME Import Bus", ore, 16, 0);
+        Grid g = grid(OWNER, 10);
+        Grid hidden = grid(null, 20);
+        hidden = new Grid(hidden.dimension(), hidden.x(), hidden.y(), hidden.z(), null, null, hidden.nodes(), 0,
+                hidden.state(), false, hidden.channels(), hidden.energy(), hidden.storage(), hidden.crafting(),
+                Ae2Model.Kind.HIDDEN);
+        var snapshot = Ae2Mapping.snapshot(AT, List.of(g, hidden), java.util.Map.of(),
+                java.util.Map.of(g.id(), List.of(flow), hidden.id(), List.of(flow), "minecraft:overworld@99,0,0", List.of(flow)));
+        assertEquals(java.util.Set.of(Ae2Mapping.grid(g.id())), snapshot.flows().keySet());
+        assertEquals(16, snapshot.flows().get(Ae2Mapping.grid(g.id())).get(0).inserted());
+    }
 }

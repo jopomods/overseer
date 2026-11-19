@@ -390,6 +390,50 @@ public final class Ae2ActionGameTests {
         });
     }
 
+    /**
+     * Flows (ADR-0020): what passes the network storage is counted per device through the mixin;
+     * simulations are not; the server setting turns it off.
+     */
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
+    public static void flowsAreCountedPerDevice(GameTestHelper helper) {
+        buildGrid(helper);
+        BlockPos cable = new BlockPos(1, 1, 2);
+        var bus = new appeng.parts.automation.ImportBusPart[1];
+        helper.runAfterDelay(5, () -> {
+            BlockPos at = helper.absolutePos(cable);
+            appeng.api.parts.PartHelper.setPart(helper.getLevel(), at, null, null,
+                    appeng.core.definitions.AEParts.GLASS_CABLE.item(appeng.api.util.AEColor.TRANSPARENT));
+            bus[0] = appeng.api.parts.PartHelper.setPart(helper.getLevel(), at, net.minecraft.core.Direction.SOUTH, null,
+                    appeng.core.definitions.AEParts.IMPORT_BUS.asItem());
+        });
+        helper.runAfterDelay(40, () -> {
+            // All in one tick: nothing else can collect (and drain the recorder) in between.
+            var provider = provider(helper);
+            provider.collect(AT);
+            var storage = grid(helper).getStorageService().getInventory();
+            var iron = AEItemKey.of(Items.IRON_INGOT);
+            var player = net.minecraftforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                    new com.mojang.authlib.GameProfile(OWNER, "Owner"));
+            helper.assertTrue(storage.insert(iron, 10, Actionable.MODULATE, IActionSource.ofMachine(bus[0])) == 10, "insert");
+            storage.insert(iron, 99, Actionable.SIMULATE, IActionSource.ofMachine(bus[0]));
+            helper.assertTrue(storage.extract(iron, 4, Actionable.MODULATE, IActionSource.ofPlayer(player)) == 4, "extract");
+            var flows = provider.collect(AT).flows().get(gridRef(helper));
+            helper.assertTrue(flows != null && flows.size() == 2, "flows: " + flows);
+            var byBus = flows.stream().filter(f -> f.device().equals(id(helper, cable) + "/south")).findFirst().orElseThrow();
+            helper.assertTrue("import_bus".equals(byBus.deviceKind()) && byBus.inserted() == 10 && byBus.extracted() == 0
+                    && "item:minecraft:iron_ingot".equals(byBus.item().key()), "bus: " + byBus);
+            var byPlayer = flows.stream().filter(f -> f.device().equals("player:" + OWNER)).findFirst().orElseThrow();
+            helper.assertTrue("player".equals(byPlayer.deviceKind()) && byPlayer.extracted() == 4 && "Owner".equals(byPlayer.deviceName()),
+                    "player: " + byPlayer);
+
+            var off = provider(helper).flow(() -> false);
+            off.collect(AT);
+            storage.insert(iron, 5, Actionable.MODULATE, IActionSource.ofMachine(bus[0]));
+            helper.assertTrue(off.collect(AT).flows().isEmpty(), "switched off: nothing counted");
+            helper.succeed();
+        });
+    }
+
     // --- setup -----------------------------------------------------------------------------
 
     /** Controller (owned), creative power, drive with a 1k cell, 1k CPU, provider with a pattern. */

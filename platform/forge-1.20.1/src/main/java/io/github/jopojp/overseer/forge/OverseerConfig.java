@@ -21,6 +21,7 @@ public final class OverseerConfig {
     static final ForgeConfigSpec.ConfigValue<String> PUBLIC_URL;
     static final ForgeConfigSpec.BooleanValue AE2_PLACER_ACCESS;
     static final ForgeConfigSpec.BooleanValue AE2_CRAFTING;
+    static final ForgeConfigSpec.BooleanValue AE2_FLOW;
     static final ForgeConfigSpec.EnumValue<EnergyTiers> ENERGY_TIERS;
 
     /** Voltage tiers in device names (docs/modules/flux.md). */
@@ -68,6 +69,12 @@ public final class OverseerConfig {
                         "from the dashboard, like from a terminal anywhere. Results go into the network.")
                 .define("ae2Crafting", true);
         builder.pop();
+        builder.comment("Applied Energistics 2").push("ae2");
+        AE2_FLOW = builder.comment(
+                        "Count what every bus, interface, CPU and player moves into and out of ME networks (ADR-0020).",
+                        "Stored per minute. Costs a little on AE2's busiest path; switch off to stop at once.")
+                .define("flow", true);
+        builder.pop();
         builder.comment("How the dashboard shows things").push("dashboard");
         ENERGY_TIERS = builder.comment(
                         "Voltage tiers at the end of Flux device names (\"Factory: Assembler MV\"): coloured, filterable.",
@@ -92,6 +99,11 @@ public final class OverseerConfig {
     /** Read on every request, so a change applies without a restart. */
     public static boolean ae2Crafting() {
         return !SPEC.isLoaded() || AE2_CRAFTING.get();
+    }
+
+    /** Read every collection, so a change applies without a restart. */
+    public static boolean ae2Flow() {
+        return !SPEC.isLoaded() || AE2_FLOW.get();
     }
 
     /** The tier scheme for the dashboard: {@code gregtech} or {@code none}. Read every collection. */

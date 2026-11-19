@@ -389,6 +389,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/flows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What moved into and out of a storage network, per device and item
+         * @description Totals per device and key between `from` and `to` (uptime; default the last hour), largest
+         *     first, at most 5000 rows (ADR-0020). Minute resolution, kept for the raw retention (48 h by
+         *     default). Devices are positions (`dimension@x,y,z[/side]`), `player:<uuid>` or `other`.
+         */
+        get: operations["getFlows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/flows/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Flow per minute of one item, one device, or the whole network
+         * @description Points `[uptime of the minute, inserted, extracted]` for the minutes that had flow, filtered
+         *     by `item` and/or `device` (ADR-0020).
+         */
+        get: operations["getFlowHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/icon": {
         parameters: {
             query?: never;
@@ -976,6 +1019,41 @@ export interface components {
             start: number;
             /** Format: int64 */
             now?: number;
+            points: number[][];
+        };
+        Flows: {
+            resource: string;
+            /** Format: int64 */
+            from: number;
+            /** Format: int64 */
+            to: number;
+            rows: components["schemas"]["FlowRow"][];
+        };
+        FlowRow: {
+            device: string;
+            /** @description e.g. import_bus, export_bus, interface, pattern_provider, crafting, player, other */
+            deviceKind: string;
+            deviceName: string;
+            key: string;
+            kind: string;
+            name: string;
+            /**
+             * Format: int64
+             * @description Put into the network by the device (items, mB for fluids).
+             */
+            inserted: number;
+            /**
+             * Format: int64
+             * @description Taken out of the network by the device.
+             */
+            extracted: number;
+        };
+        FlowHistory: {
+            resource: string;
+            /** Format: int64 */
+            from: number;
+            /** Format: int64 */
+            to: number;
             points: number[][];
         };
         InventoryItem: {
@@ -1747,6 +1825,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InventoryHistory"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getFlows: {
+        parameters: {
+            query: {
+                resource: string;
+                from?: number;
+                to?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The totals. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Flows"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getFlowHistory: {
+        parameters: {
+            query: {
+                resource: string;
+                item?: string;
+                device?: string;
+                from?: number;
+                to?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The minutes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlowHistory"];
                 };
             };
             400: components["responses"]["BadRequest"];

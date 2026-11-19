@@ -213,6 +213,26 @@ resource `ae2/bus/<dimension>@x,y,z/<side>`, visible like its grid.
 The grid page lists them with a filter for import or export and a search over names, machines and
 filter items.
 
+## Flow
+
+What every device moves into and out of a network (ADR-0020). An optional mixin
+(`NetworkStorageMixin`, ADR-0018) reports each applied insert and extract of a grid's
+`NetworkStorage` to `FlowRecorder`, with AE2's action source; simulations and calls from other
+threads are ignored. Each collection the provider turns the sources into devices and sends them as
+`ProviderSnapshot.flows` of the grid; core stores them per minute (`flow_device`, `flow_minute`, raw
+retention) and serves `GET /api/v1/flows` and `/api/v1/flows/history`.
+
+| Device | Id | Kind |
+|---|---|---|
+| Part (bus, interface, provider, terminal, ...) | `dimension@x,y,z/<side>` | `import_bus`, `export_bus`, `storage_bus`, `interface`, `pattern_provider`, `terminal`, else the item path |
+| Block (interface, provider, ME chest, ...) | `dimension@x,y,z` | `interface`, `pattern_provider`, else the block path |
+| Crafting CPU | its id (lowest corner) | `crafting`: ingredients taken at the start, results put back |
+| Player (terminals, wireless terminals) | `player:<uuid>` | `player` |
+| Anything AE2 does not attribute | `other` | `other` |
+
+Server setting `ae2.flow` (default on) switches recording off at once. Hidden grids report no flows.
+Moving items between cells inside a network does not pass the storage and is not counted.
+
 ## Diagnosis
 
 **Stuck jobs.** A CPU whose job has made no progress for 5 minutes gets `stalledSince` (see Crafting
@@ -347,7 +367,8 @@ shows the controls in the expanded CPU card and on each drive, and the grid's ch
 - `Ae2MappingTest`, `Ae2ActionsTest` (JUnit): mapping, access rules, action parameters.
 - `Ae2GameTests` (Forge GameTest, also in CI): discovery, hidden and registered grids, inventory
   scan, CPUs, drives, placer access.
-- `Ae2ActionGameTests`: devices without channel (ten drives on a grid without controller);
+- `Ae2ActionGameTests`: flows (an import bus inserts, a player extracts, simulations and the
+  setting); devices without channel (ten drives on a grid without controller);
   remote crafting (a plan comes back with the next collection, missing
   items block the start, a good plan starts once on the chosen CPU, strangers and unknown items are
   refused, the server setting hides it); pattern providers (a block and a part on a cable) are read with their

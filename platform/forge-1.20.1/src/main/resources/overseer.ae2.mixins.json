@@ -4,7 +4,7 @@
   "package": "io.github.jopojp.overseer.forge.mixin.ae2",
   "plugin": "io.github.jopojp.overseer.forge.compat.Ae2MixinPlugin",
   "compatibilityLevel": "JAVA_17",
-  "mixins": ["PatternProviderLogicMixin"],
+  "mixins": ["NetworkStorageMixin", "PatternProviderLogicMixin"],
   "injectors": {
     "defaultRequire": 0
   }

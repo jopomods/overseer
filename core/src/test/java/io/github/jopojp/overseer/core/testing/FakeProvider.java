@@ -74,8 +74,16 @@ public final class FakeProvider implements DataProvider {
     private final Map<ResourceRef, List<Map<String, String>>> details = new LinkedHashMap<>();
 
     /** A live table reported with every collection from now on. */
+    private final Map<ResourceRef, List<io.github.jopojp.overseer.core.provider.Flow>> flows = new java.util.HashMap<>();
+
     public FakeProvider details(ResourceRef ref, List<Map<String, String>> rows) {
         details.put(ref, List.copyOf(rows));
+        return this;
+    }
+
+    /** Flows reported with the next collection only (they are what moved since the last one). */
+    public FakeProvider flows(ResourceRef ref, List<io.github.jopojp.overseer.core.provider.Flow> list) {
+        flows.put(ref, List.copyOf(list));
         return this;
     }
 
@@ -116,7 +124,9 @@ public final class FakeProvider implements DataProvider {
         if (failure != null) throw failure;
         var samples = new ArrayList<Sample>();
         power.forEach((ref, value) -> samples.add(new Sample(ref, POWER.key(), value)));
-        return new ProviderSnapshot(descriptor.id(), at, resources, samples, inventories, jobs, details);
+        var moved = Map.copyOf(flows);
+        flows.clear();
+        return new ProviderSnapshot(descriptor.id(), at, resources, samples, inventories, jobs, details, moved);
     }
 
     @Override

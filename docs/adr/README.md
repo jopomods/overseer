@@ -25,6 +25,7 @@ other. Small clarifications are fine.
 | [0017](0017-ae2-actions.md) | AE2 actions: who may act and how they reach AE2 | Accepted |
 | [0018](0018-mixins-for-missing-mod-hooks.md) | Mixins where a mod offers no hook | Accepted |
 | [0019](0019-actions-that-finish-later.md) | World actions that finish later and answer with data | Accepted |
+| [0020](0020-flow-measurement.md) | Flow: what devices move into and out of a storage network | Accepted |
 
 ## Template
 

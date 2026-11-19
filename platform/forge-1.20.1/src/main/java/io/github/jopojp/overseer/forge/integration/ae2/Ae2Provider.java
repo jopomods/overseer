@@ -37,6 +37,7 @@ public final class Ae2Provider implements DataProvider {
     private final Supplier<Map<String, Set<String>>> watches;
     private java.util.function.BooleanSupplier placerAccess = () -> false;
     private java.util.function.BooleanSupplier remoteCrafting = () -> true;
+    private java.util.function.BooleanSupplier flow = () -> true;
     private volatile Ae2Mapping.AccessIndex access = Ae2Mapping.AccessIndex.EMPTY;
     private final Ae2Reader.StackCache stacks = new Ae2Reader.StackCache();
     private final Ae2Crafting crafting = new Ae2Crafting(stacks, System::nanoTime);
@@ -78,6 +79,12 @@ public final class Ae2Provider implements DataProvider {
         return this;
     }
 
+    /** Count what devices move into and out of networks (server setting {@code ae2.flow}, ADR-0020). */
+    public Ae2Provider flow(java.util.function.BooleanSupplier enabled) {
+        this.flow = enabled;
+        return this;
+    }
+
     /** Players may plan and start crafting jobs from the dashboard (server setting {@code actions.ae2Crafting}). */
     public Ae2Provider remoteCrafting(java.util.function.BooleanSupplier enabled) {
         this.remoteCrafting = enabled;
@@ -93,11 +100,32 @@ public final class Ae2Provider implements DataProvider {
     public ProviderSnapshot collect(Timestamp at) {
         crafting.tick();
         boolean scan = collections++ % SCAN_EVERY == 0;
+        boolean flows = flow.getAsBoolean();
+        FlowRecorder.configure(flows, Thread.currentThread());
+        var storages = new java.util.IdentityHashMap<Object, String>();
         List<Ae2Model.Grid> grids = Ae2Reader.readAll(server, registrations.get(), watches.get(), stacks, scan,
-                placerAccess.getAsBoolean() ? placers : null);
+                placerAccess.getAsBoolean() ? placers : null, storages);
+        Map<String, List<io.github.jopojp.overseer.core.provider.Flow>> moved = flows ? flows(storages) : Map.of();
         grids = withCachedPatterns(grids);
         access = Ae2Mapping.AccessIndex.of(grids, teams::teammates, placerAccess.getAsBoolean());
-        return Ae2Mapping.snapshot(at, grids, stalls.update(grids, at));
+        return Ae2Mapping.snapshot(at, grids, stalls.update(grids, at), moved);
+    }
+
+    /** What was recorded since the last collection, per identified grid; other networks are dropped. */
+    private Map<String, List<io.github.jopojp.overseer.core.provider.Flow>> flows(Map<Object, String> storages) {
+        var result = new java.util.HashMap<String, List<io.github.jopojp.overseer.core.provider.Flow>>();
+        var devices = new java.util.IdentityHashMap<Object, Ae2Reader.FlowDevice>();
+        FlowRecorder.drain().forEach((storage, bySource) -> {
+            String grid = storages.get(storage);
+            if (grid == null) return;
+            var list = result.computeIfAbsent(grid, g -> new java.util.ArrayList<>());
+            bySource.forEach((who, byKey) -> {
+                var device = devices.computeIfAbsent(who, Ae2Reader::flowDevice);
+                byKey.forEach((key, counts) -> list.add(new io.github.jopojp.overseer.core.provider.Flow(device.id(),
+                        device.kind(), device.name(), stacks.stack(key, 0), counts[0], counts[1])));
+            });
+        });
+        return result;
     }
 
     /**

@@ -21,6 +21,8 @@ import java.util.Objects;
  *                    never pushed as part of the snapshot. A resource missing here has no job.
  * @param details     other live tables per resource (rows of named columns), e.g. the tick
  *                    profiler's top list. Live only, like {@code jobs}.
+ * @param flows       what devices moved into or out of a storage network since the last collection,
+ *                    per network (ADR-0020). Stored per minute; never pushed as part of the snapshot.
  */
 public record ProviderSnapshot(
         String provider,
@@ -29,20 +31,27 @@ public record ProviderSnapshot(
         List<Sample> samples,
         Map<ResourceRef, List<Stack>> inventories,
         Map<ResourceRef, List<JobLine>> jobs,
-        Map<ResourceRef, List<Map<String, String>>> details) {
+        Map<ResourceRef, List<Map<String, String>>> details,
+        Map<ResourceRef, List<Flow>> flows) {
     public ProviderSnapshot(String provider, Timestamp at, Map<ResourceRef, Map<String, String>> resources,
             List<Sample> samples) {
-        this(provider, at, resources, samples, Map.of(), Map.of(), Map.of());
+        this(provider, at, resources, samples, Map.of(), Map.of(), Map.of(), Map.of());
+    }
+
+    public ProviderSnapshot(String provider, Timestamp at, Map<ResourceRef, Map<String, String>> resources,
+            List<Sample> samples, Map<ResourceRef, List<Stack>> inventories, Map<ResourceRef, List<JobLine>> jobs,
+            Map<ResourceRef, List<Map<String, String>>> details) {
+        this(provider, at, resources, samples, inventories, jobs, details, Map.of());
     }
 
     public ProviderSnapshot(String provider, Timestamp at, Map<ResourceRef, Map<String, String>> resources,
             List<Sample> samples, Map<ResourceRef, List<Stack>> inventories) {
-        this(provider, at, resources, samples, inventories, Map.of(), Map.of());
+        this(provider, at, resources, samples, inventories, Map.of(), Map.of(), Map.of());
     }
 
     public ProviderSnapshot(String provider, Timestamp at, Map<ResourceRef, Map<String, String>> resources,
             List<Sample> samples, Map<ResourceRef, List<Stack>> inventories, Map<ResourceRef, List<JobLine>> jobs) {
-        this(provider, at, resources, samples, inventories, jobs, Map.of());
+        this(provider, at, resources, samples, inventories, jobs, Map.of(), Map.of());
     }
 
     public ProviderSnapshot {
@@ -53,5 +62,6 @@ public record ProviderSnapshot(
         inventories = Map.copyOf(inventories);
         jobs = Map.copyOf(jobs);
         details = Map.copyOf(details);
+        flows = Map.copyOf(flows);
     }
 }
