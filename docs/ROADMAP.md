@@ -139,6 +139,17 @@ inventory.
 - [x] UI: craft dialog from the contents list, watchlist deficits and the pattern overview
 - [x] Diagnosis: stuck jobs (no progress for a while, locked providers) and devices without a channel
 
+## M2.9: AE2 flow (no new mod)
+
+See where items enter and leave an ME network and who asks for crafting.
+
+- [ ] Import and export buses as resources: filter, upgrades, redstone mode, what they face,
+  crafting they requested; list with filters on the network page
+- [ ] Flow measurement: every insert into and extract from a network's storage, counted per device
+  (or player) and item, stored per minute (server setting `ae2.flow`, default on)
+- [ ] UI: Sankey sources → network → destinations, flow per item and per device, idle buses
+- [ ] Later: edit bus filters and redstone mode
+
 ## M3: GregTech CEu (GTCEu)
 
 - Its own integration; scope to be defined (machine state, maintenance, energy buffers, ...)
