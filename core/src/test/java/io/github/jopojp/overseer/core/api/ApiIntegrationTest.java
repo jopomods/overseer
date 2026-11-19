@@ -668,6 +668,28 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void searchFindsItemsInEveryVisibleInventory() throws Exception {
+        var iron = "item:minecraft:iron_ingot";
+        flux.inventory(ALEX_NET, List.of(new Stack(iron, "item", "§fIron Ingot", 100), new Stack("item:minecraft:dirt", "item", "Dirt", 5)));
+        flux.inventory(STEVE_NET, List.of(new Stack(iron, "item", "Iron Ingot", 7)));
+        collect();
+        var alex = new Browser().loginAs(ALEX);
+        assertEquals(400, alex.get("/api/v1/inventory/search?q=i").statusCode(), "too short");
+        var body = json(alex.get("/api/v1/inventory/search?q=iron%20ingot"));
+        assertEquals(1, body.get("total").getAsInt());
+        var item = body.getAsJsonArray("items").get(0).getAsJsonObject();
+        assertEquals(100, item.get("total").getAsLong(), "only Alex's network");
+        assertEquals("flux/network/1", item.getAsJsonArray("places").get(0).getAsJsonObject().get("resource").getAsString());
+
+        operators.add(ALEX.uuid()); // admins see every network
+        alex = new Browser().loginAs(ALEX);
+        item = json(alex.get("/api/v1/inventory/search?q=iron")).getAsJsonArray("items").get(0).getAsJsonObject();
+        assertEquals(107, item.get("total").getAsLong());
+        assertEquals(2, item.get("placeCount").getAsInt());
+        assertEquals("Steve Base", item.getAsJsonArray("places").get(1).getAsJsonObject().get("name").getAsString());
+    }
+
+    @Test
     void iconsNeedALoginAndAreCached() throws Exception {
         var png = io.github.jopojp.overseer.core.storage.IconStoreTest.png(7);
         runtime.icons().putAll(Map.of("item:minecraft:iron_ingot", png), null, java.time.Instant.EPOCH);

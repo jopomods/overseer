@@ -147,6 +147,7 @@ public final class ApiRoutes {
                 .get("/api/v1/sessions", this::sessions)
                 .get("/api/v1/inventory", this::inventory)
                 .get("/api/v1/inventory/history", this::inventoryHistory)
+                .get("/api/v1/inventory/search", this::searchInventories)
                 .get("/api/v1/flows", this::flows)
                 .get("/api/v1/flows/history", this::flowHistory)
                 .get("/api/v1/events", this::events)
@@ -756,6 +757,60 @@ public final class ApiRoutes {
                 .filter(e -> !e.getValue().getOrDefault("owner", "").isEmpty())
                 .filter(e -> !access.canView(p, e.getKey()))
                 .toList();
+    }
+
+    static final int MAX_SEARCH_ITEMS = 50;
+    static final int MAX_SEARCH_PLACES = 20;
+
+    /**
+     * Finds items in the newest scans of every inventory the caller may see (all providers): per
+     * item the total and where it is, most first.
+     */
+    private Response searchInventories(Request r) throws SQLException {
+        Principal p = principal(r);
+        String q = r.queryParam("q").map(s -> s.strip().toLowerCase(java.util.Locale.ROOT)).orElse("");
+        if (q.length() < 2) throw HttpError.badRequest("q needs at least 2 characters.");
+        String kind = r.queryParam("kind").orElse(null);
+        if (kind != null && !INVENTORY_KINDS.contains(kind)) throw HttpError.badRequest("kind must be item, fluid or other.");
+        int limit = (int) longParam(r, "limit", 20);
+        if (limit < 1 || limit > MAX_SEARCH_ITEMS) throw HttpError.badRequest("limit must be 1 to " + MAX_SEARCH_ITEMS + ".");
+
+        record Place(ResourceRef ref, long amount) {}
+        record Found(String key, String kind, String name, long total, List<Place> places) {}
+        var byKey = new java.util.HashMap<String, Found>();
+        for (var e : inventories.all().entrySet()) {
+            if (!access.canView(p, e.getKey())) continue;
+            var seen = new java.util.HashSet<String>();
+            for (var s : e.getValue().stacks()) {
+                if (s.amount() <= 0 || !seen.add(s.key())) continue;
+                if (kind != null && !kind.equals(s.kind())) continue;
+                if (!plain(s.name()).toLowerCase(java.util.Locale.ROOT).contains(q) && !s.key().contains(q)) continue;
+                var place = new Place(e.getKey(), s.amount());
+                byKey.merge(s.key(), new Found(s.key(), s.kind(), s.name(), s.amount(), List.of(place)), (a, b) -> {
+                    var places = new java.util.ArrayList<>(a.places());
+                    places.addAll(b.places());
+                    long total = a.total() > Long.MAX_VALUE - b.total() ? Long.MAX_VALUE : a.total() + b.total();
+                    return new Found(a.key(), a.kind(), a.name(), total, places);
+                });
+            }
+        }
+        var found = byKey.values().stream()
+                .sorted(java.util.Comparator.comparingLong(Found::total).reversed().thenComparing(Found::key))
+                .toList();
+        var items = new java.util.ArrayList<Dtos.SearchItem>();
+        for (Found f : found.subList(0, Math.min(limit, found.size()))) {
+            var places = new java.util.ArrayList<Dtos.SearchPlace>();
+            f.places().stream().sorted(java.util.Comparator.comparingLong(Place::amount).reversed()).limit(MAX_SEARCH_PLACES)
+                    .forEach(pl -> places.add(new Dtos.SearchPlace(pl.ref().key(), null, pl.amount())));
+            for (int i = 0; i < places.size(); i++) {
+                var pl = places.get(i);
+                ResourceRef ref = parseRef(pl.resource());
+                var attributes = latest.get(ref.provider()).map(s -> s.resources().get(ref)).orElse(null);
+                places.set(i, new Dtos.SearchPlace(pl.resource(), resourceName(ref, attributes), pl.amount()));
+            }
+            items.add(new Dtos.SearchItem(f.key(), f.kind(), f.name(), f.total(), f.places().size(), places));
+        }
+        return Response.json(new Dtos.Search(q, found.size(), items));
     }
 
     /** The Overseer name of a resource (override), else its own name attribute, else null. */

@@ -391,6 +391,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find an item in every visible inventory
+         * @description Searches the newest scans of all inventories the caller may see (AE2: every ME network,
+         *     scanned every 10 s) by name or key. Per item the total and where it is, most first (at most
+         *     20 places per item; `placeCount` counts all). Items with the largest total first.
+         */
+        get: operations["searchInventories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inventory/history": {
         parameters: {
             query?: never;
@@ -972,6 +994,26 @@ export interface components {
             change24h: number;
             /** @description Whether the network crafts up to the target (ADR-0021). */
             restock: boolean;
+        };
+        Search: {
+            q: string;
+            /** @description Matching items in all; `items` holds the first `limit`. */
+            total: number;
+            items: {
+                key: string;
+                kind: string;
+                name: string;
+                /** Format: int64 */
+                total: number;
+                placeCount: number;
+                places: {
+                    resource: string;
+                    /** @description Overseer or own name; absent when it has none. */
+                    name?: string | null;
+                    /** Format: int64 */
+                    amount: number;
+                }[];
+            }[];
         };
         JobStats: {
             /** Format: int64 */
@@ -1893,6 +1935,34 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    searchInventories: {
+        parameters: {
+            query: {
+                /** @description At least 2 characters; matches names (colour codes ignored) and keys. */
+                q: string;
+                kind?: "item" | "fluid" | "other";
+                /** @description Items, 1 to 50 (default 20). */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching items. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Search"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
     getInventoryHistory: {

@@ -540,6 +540,44 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/inventory/search:
+    get:
+      tags: [data]
+      operationId: searchInventories
+      summary: Find an item in every visible inventory
+      description: |
+        Searches the newest scans of all inventories the caller may see (AE2: every ME network,
+        scanned every 10 s) by name or key. Per item the total and where it is, most first (at most
+        20 places per item; `placeCount` counts all). Items with the largest total first.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: At least 2 characters; matches names (colour codes ignored) and keys.
+          schema:
+            type: string
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum: [item, fluid, other]
+        - name: limit
+          in: query
+          description: Items, 1 to 50 (default 20).
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Matching items.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Search"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/inventory/history:
     get:
       tags: [data]
@@ -1654,6 +1692,47 @@ components:
         restock:
           type: boolean
           description: Whether the network crafts up to the target (ADR-0021).
+
+    Search:
+      type: object
+      required: [q, total, items]
+      properties:
+        q:
+          type: string
+        total:
+          type: integer
+          description: Matching items in all; `items` holds the first `limit`.
+        items:
+          type: array
+          items:
+            type: object
+            required: [key, kind, name, total, placeCount, places]
+            properties:
+              key:
+                type: string
+              kind:
+                type: string
+              name:
+                type: string
+              total:
+                type: integer
+                format: int64
+              placeCount:
+                type: integer
+              places:
+                type: array
+                items:
+                  type: object
+                  required: [resource, amount]
+                  properties:
+                    resource:
+                      type: string
+                    name:
+                      type: [string, "null"]
+                      description: Overseer or own name; absent when it has none.
+                    amount:
+                      type: integer
+                      format: int64
 
     JobStats:
       type: object

@@ -59,6 +59,12 @@ public final class Dtos {
 
     public record Job(String resource, TimestampDto at, List<JobLine> lines) {}
 
+    public record SearchPlace(String resource, String name, long amount) {}
+
+    public record SearchItem(String key, String kind, String name, long total, int placeCount, List<SearchPlace> places) {}
+
+    public record Search(String q, int total, List<SearchItem> items) {}
+
     public record JobBusy(String resource, long busyMillis, int jobs) {}
 
     public record JobItem(String key, String kind, String name, int jobs, long amount, long busyMillis, long longestMillis) {}
