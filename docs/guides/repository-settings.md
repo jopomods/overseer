@@ -19,7 +19,8 @@ Settings → General → Danger Zone → Change visibility → Public.
    - Target: default branch; enforcement: active
    - Restrict deletions, block force pushes
    - Require a pull request before merging (0 approvals is fine for a single maintainer)
-   - Require status checks to pass: **CI ok** (ADR-0015), with "require branches to be up to date"
+   - Require status checks to pass: **CI ok** (ADR-0015) and **PR title is a Conventional Commit**,
+     with "require branches to be up to date"
    - Allowed merge method: squash
    - Bypass: release-please needs none (it opens PRs like everyone else)
 2. **Merge button** (Settings → General → Pull Requests): only "Allow squash merging", default

@@ -2,8 +2,9 @@
 #
 #   changes ─┬─ web × 3 shards (parallel) ────┐
 #            ├─ build ────────────────────────┼── ci-ok   (the one status to look at)
-#            └─ gametest × suites (parallel) ─┤
-#   pr-title ────────────────────────────────┘
+#            └─ gametest × suites (parallel) ─┘
+#
+# The PR title check lives in pr-title.yml: editing a PR's title or text must not rerun all of this.
 #
 # Each GameTest suite runs in its own Forge server and (flat) world. `changes` decides which jobs
 # a change needs (.github/ci/classify.py); pushes to main always run everything. SHADOW mode
@@ -14,7 +15,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -286,36 +287,12 @@ jobs:
           path: .ci-passed
           key: ${{ steps.passed.outputs.cache-primary-key }}
 
-  pr-title:
-    name: PR title is a Conventional Commit
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
-    steps:
-      - uses: amannn/action-semantic-pull-request@2252a14e810aa9b85c2d560bd7070c802206ecf6 # v6.1.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          types: |
-            feat
-            fix
-            perf
-            refactor
-            docs
-            test
-            build
-            ci
-            chore
-            revert
-          requireScope: false
-
   # The one status to look at (and, once the repository is public, the one required check).
   # Red if any job failed or was cancelled, or if a job the rules require did not succeed;
   # a job the rules do not require may be skipped.
   ci-ok:
     name: CI ok
-    needs: [changes, build, gametest, web, pr-title]
+    needs: [changes, build, gametest, web]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -326,7 +303,6 @@ jobs:
           BUILD: ${{ needs.changes.outputs.build }}
           WEB: ${{ needs.changes.outputs.web }}
           SUITES: ${{ needs.changes.outputs.suites }}
-          EVENT: ${{ github.event_name }}
         run: |
           python3 - <<'PY'
           import json, os, sys
@@ -339,8 +315,6 @@ jobs:
               required.add("web")
           if everything or json.loads(os.environ["SUITES"] or "[]"):
               required.add("gametest")
-          if os.environ["EVENT"] == "pull_request":
-              required.add("pr-title")
           bad = []
           for name, result in sorted(results.items()):
               if result in ("failure", "cancelled"):

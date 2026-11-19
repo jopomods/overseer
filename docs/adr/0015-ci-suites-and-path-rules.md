@@ -42,8 +42,10 @@ summary showed what would have been skipped); on the PRs of 2026-11-18 (#61-#66)
 a reviewer would have run, so they are active.
 
 **One status.** `CI ok` checks every job's result against what the change needs: skipped is fine
-for jobs the change does not need, never for jobs it does. Branch protection (once the repository
-is public) requires only this status.
+for jobs the change does not need, never for jobs it does. The PR title check is a workflow of its
+own (`pr-title.yml`), so editing a title or description does not rerun CI; CI itself runs on
+opened, pushed and reopened PRs. Branch protection (once the repository is public) requires these
+two checks.
 
 **Remembered passes.** The build, web and every GameTest job first look for a cache entry keyed
 by the hash of their inputs (`.github/`, `core/`, `platform/`, `api/`, Gradle files, `version.txt`,
