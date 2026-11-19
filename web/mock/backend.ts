@@ -1121,6 +1121,26 @@ export function createMockBackend(options: MockOptions = {}) {
         if (!cpu?.attributes.job) return json({ error: { code: 'not_found', message: 'idle' } }, 404)
         return json({ resource, at: { wall: now(), uptimeMillis: 123_456_789, session: 3 }, lines: jobLines(options.realistic === true) })
       }
+      case '/api/v1/jobs/stats': {
+        const resources = url.searchParams.getAll('resource')
+        const to = Number(url.searchParams.get('to') ?? 0)
+        const from = Number(url.searchParams.get('from') ?? 0)
+        const days = Math.max(1, Math.round((to - from) / 86_400_000))
+        const realistic = options.realistic === true
+        const items = realistic
+          ? [
+              { key: 'item:gtceu:good_electronic_circuit', kind: 'item', name: 'Good Electronic Circuit', jobs: 42 * days, amount: 2_688 * days, busyMillis: 9_000_000 * days, longestMillis: 1_260_000 },
+              { key: 'item:gtceu:resistor', kind: 'item', name: 'Resistor', jobs: 31 * days, amount: 7_936 * days, busyMillis: 2_400_000 * days, longestMillis: 300_000 },
+              { key: 'fluid:gtceu:polyethylene', kind: 'fluid', name: 'Polyethylene', jobs: 6 * days, amount: 864_000 * days, busyMillis: 1_800_000 * days, longestMillis: 600_000 },
+              { key: 'item:minecraft:iron_ingot', kind: 'item', name: 'Iron Ingot', jobs: 2 * days, amount: 1_024 * days, busyMillis: 180_000 * days, longestMillis: 0 },
+            ]
+          : Array.from({ length: 200 }, (_, i) => ({ key: `item:${LONG.toLowerCase()}:job${i}`, kind: i % 5 ? 'item' : 'fluid', name: `${LONG} ${i}`, jobs: 2 ** 31 - i, amount: Number.MAX_SAFE_INTEGER - i, busyMillis: 9e12, longestMillis: 8e12 }))
+        return json({
+          from, to,
+          resources: resources.map((resource, i) => ({ resource, jobs: realistic ? (i + 1) * 20 * days : 2 ** 31, busyMillis: Math.min(to - from, realistic ? (i + 1) * 7_000_000 * days : 9e15) })),
+          items,
+        })
+      }
       case '/api/v1/watches': {
         const resource = method === 'POST' ? (body as { resource: string }).resource : url.searchParams.get('resource') ?? ''
         if (method === 'POST') {
