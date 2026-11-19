@@ -110,6 +110,15 @@ test('no horizontal overflow with auto-crafting states on the watchlist', async 
   await expectNoHorizontalOverflow(page)
 })
 
+test('no horizontal overflow with all p2p tunnels shown', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/ae2/minecraft:overworld@0,64,-0')
+  const section = page.getByTestId('p2p-list')
+  await expect(section).toBeVisible()
+  await page.getByTestId('p2p-list').locator('xpath=..').getByRole('button', { name: /Show all/ }).click()
+  await expectNoHorizontalOverflow(page)
+})
+
 test('no horizontal overflow with the flow open', async ({ page }) => {
   // Extreme data: 300 devices, long names, huge numbers; the Sankey on wide screens.
   await mockApi(page)

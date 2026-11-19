@@ -166,7 +166,7 @@ See every P2P tunnel of a network, what it links and what is broken.
 
 - [x] Tunnels read with the inventory scan: type, frequency with AE2's colours, input or output, what
   they face, active; rows of the grid's live table
-- [ ] UI: links grouped by frequency (input → outputs), filter by type, problems (unlinked, no input,
+- [x] UI: links grouped by frequency (input → outputs), filter by type, problems (unlinked, no input,
   no output, without channel)
 
 ## M3: GregTech CEu (GTCEu)

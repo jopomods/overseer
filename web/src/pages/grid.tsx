@@ -30,6 +30,8 @@ import { PatternProvidersSection } from '@/components/pattern-providers'
 import { HistoryChart } from '@/components/history-chart'
 import { InventorySection } from '@/components/inventory-list'
 import { WatchlistSection } from '@/components/watchlist'
+import { P2pSection } from '@/components/p2p-tunnels'
+import { tunnelsOf } from '@/lib/p2p'
 import { LiveBadge } from '@/components/live-badge'
 import { useSession } from '@/components/session'
 import { Section, Stat } from '@/components/stat'
@@ -62,6 +64,7 @@ export function GridPage() {
   const patterns = useMemo(() => patternsOf(patternRows), [patternRows])
   const offline = useMemo(() => offlineOf(patternRows), [patternRows])
   const restocks = useMemo(() => restocksOf(patternRows), [patternRows])
+  const tunnels = useMemo(() => tunnelsOf(patternRows), [patternRows])
 
   if (snapshot.isPending) return <Skeleton className="h-64" />
   if (!grid) {
@@ -175,6 +178,8 @@ export function GridPage() {
           buses={buses(snapshot.data, grid.id)}
           extra={allowed.has(AE2_ACTIONS.busEdit) ? (b) => <BusEditSlot grid={key} bus={b} /> : undefined}
         />
+
+        <P2pSection tunnels={tunnels} />
 
         <WatchlistSection grid={grid.resource} canEdit={grid.canEdit} canRestock={allowed.has(AE2_ACTIONS.restock)} restocks={restocks} />
 

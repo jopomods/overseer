@@ -254,9 +254,22 @@ function patternRows(grid: string, realistic: boolean): Array<Record<string, str
     inputs: JSON.stringify(inputs.map(([key, name, n]) => ({ key, kind: key.startsWith('fluid:') ? 'fluid' : 'item', name, amount: n }))),
   })
   const offline = (id: string, item: string, name: string) => ({ row: 'offline', id, item, name })
+  const tunnel = (id: string, type: string, frequency: number, output: boolean, target: string, active = true, name = '') => ({
+    row: 'p2p', id, item: `item:ae2:${type}_p2p_tunnel`, name, frequency: String(frequency),
+    hex: frequency.toString(16).toUpperCase().padStart(4, '0'),
+    colors: ['f0f0f0', 'f9801d', 'c74ebd', '3ab3da', 'fed83d', '80c71f', 'f38baa', '474f52'].filter((_, i) => (frequency >> i) % 2 === 1).concat(['1d1d21', '1d1d21', '1d1d21', '1d1d21']).slice(0, 4).join(','),
+    output: String(output), target, targetBlock: '', active: String(active),
+  })
   if (realistic) {
     if (grid !== `ae2/grid/${REAL_GRID}`) return []
     return [
+      tunnel('minecraft:overworld@118,64,-340/north', 'me', 0x1a2b, false, 'ME Controller'),
+      tunnel('minecraft:overworld@130,40,-300/up', 'me', 0x1a2b, true, 'Ore processing', true, '§bOre line'),
+      tunnel('minecraft:overworld@131,40,-300/up', 'me', 0x1a2b, true, 'Assembly line'),
+      tunnel('minecraft:overworld@119,64,-340/east', 'fe', 0x0f01, false, 'Fluxeon Energy Cell'),
+      tunnel('minecraft:overworld@125,70,-320/down', 'fe', 0x0f01, true, 'LV Macerator', false),
+      tunnel('minecraft:overworld@126,70,-320/down', 'fluid', 0x2201, true, 'Drum'),
+      tunnel('minecraft:overworld@127,70,-320/west', 'item', 0, false, ''),
       offline('minecraft:overworld@105,64,-330/east', 'item:ae2:import_bus', 'ME Import Bus'),
       offline('minecraft:overworld@105,65,-330', 'item:ae2:interface', 'ME Interface'),
       row('minecraft:overworld@110,64,-338', 'item:gtceu:good_electronic_circuit', 'Good Electronic Circuit', 2, [['item:gtceu:basic_electronic_circuit', 'Basic Electronic Circuit', 2], ['item:gtceu:resistor', 'Resistor', 4], ['fluid:gtceu:soldering_alloy', 'Soldering Alloy', 144]]),
@@ -274,7 +287,10 @@ function patternRows(grid: string, realistic: boolean): Array<Record<string, str
         Array.from({ length: 9 }, (_, k) => [`item:${LONG.toLowerCase()}:in${k}`, `${LONG} ${k}`, 2 ** 40] as [string, string, number])),
     ),
   )
-  return [...dark, ...patterns]
+  const tunnels = Array.from({ length: 400 }, (_, i) =>
+    tunnel(`minecraft:overworld@${i},${2 * i},${-i}/${['north', 'south', 'east', 'west', 'up', 'down'][i % 6]}`,
+      ['me', 'item', 'fluid', 'fe', 'redstone', 'light'][i % 6], i % 7 === 0 ? 0 : 1 + Math.floor(i / 4), i % 4 !== 0, `${LONG} ${i}`, i % 5 !== 0, i % 3 ? `${LONG} ${i}` : ''))
+  return [...dark, ...patterns, ...tunnels]
 }
 
 function busResource(grid: string, id: string, attrs: Record<string, string>) {

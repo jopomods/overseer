@@ -280,6 +280,11 @@ name, empty if none), `frequency` (unsigned; `0` = not linked), `hex` (as AE2 sh
 form a link: one input, any number of outputs. ME tunnels also have a node in the network they
 carry; they are listed only in the network they were placed in.
 
+The grid page groups them into links with the frequency as AE2 shows it (four colours and hex),
+input then outputs with name or faced block and position. Problems come first: tunnels without
+frequency (not linked), links without input or without output, and links with a tunnel without
+power or channel. Filters by type and for problems only.
+
 ## Pattern providers
 
 Every pattern provider of a grid, block or part on a cable (anything implementing AE2's

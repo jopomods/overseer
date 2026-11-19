@@ -447,7 +447,7 @@ export interface Ae2Pattern {
 /** Patterns from the grid's live table (rows of `provider`, `output*`, `amount`, `inputs` JSON). */
 export function patternsOf(rows: Record<string, string>[] | undefined): Ae2Pattern[] {
   return (rows ?? []).flatMap((r) => {
-    if (!r.output) return []
+    if (!r.output || (r.row && r.row !== 'pattern')) return []
     let inputs: PatternStack[] = []
     try {
       const parsed: unknown = JSON.parse(r.inputs ?? '[]')

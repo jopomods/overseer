@@ -250,6 +250,28 @@ test.describe('flows', () => {
     await expect(list).toHaveCount(3)
   })
 
+  test('p2p tunnels: links grouped by frequency, problems first, filters', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto('/ae2/minecraft:overworld@120,64,-340')
+    const links = page.getByTestId('p2p-list').getByRole('listitem').filter({ has: page.locator('ul') })
+    await expect(links).toHaveCount(4)
+    await expect(links.first()).toContainText('no input')
+    await expect(page.getByText('3 with problems')).toBeVisible()
+    const me = links.filter({ hasText: 'Ore line' })
+    await expect(me).toContainText('1A2B')
+    await expect(me).toContainText('ME Controller')
+    await expect(me).toContainText('Assembly line')
+    await expect(me.getByText('no input')).toHaveCount(0)
+
+    const toolbar = page.getByTestId('p2p-toolbar')
+    await toolbar.getByRole('radio', { name: 'Energy' }).click()
+    await expect(links).toHaveCount(1)
+    await expect(links.first()).toContainText('without power or channel')
+    await toolbar.getByRole('radio', { name: 'All', exact: true }).click()
+    await toolbar.getByRole('radio', { name: 'Problems' }).click()
+    await expect(links).toHaveCount(3)
+  })
+
   test('colour codes in names show as colours unless turned off', async ({ page }) => {
     await mockApi(page, { realistic: true })
     await page.goto('/ae2/minecraft:overworld@120,64,-340')
