@@ -1,5 +1,9 @@
 package io.github.jopojp.overseer.forge.integration.ae2;
 
+import io.github.jopojp.overseer.core.action.ActionHandler;
+import io.github.jopojp.overseer.core.action.ActionRequest;
+import io.github.jopojp.overseer.core.action.ActionResult;
+import io.github.jopojp.overseer.core.action.Actor;
 import io.github.jopojp.overseer.core.provider.AccessPolicy;
 import io.github.jopojp.overseer.core.provider.Capability;
 import io.github.jopojp.overseer.core.provider.DataProvider;
@@ -96,6 +100,43 @@ public final class Ae2Provider implements DataProvider {
             @Override
             public ResourceRef parent(ResourceRef resource) {
                 return access.parent(resource);
+            }
+        };
+    }
+
+    /** AE2 from the dashboard (ADR-0017): the grid's owner, their party and operators. */
+    @Override
+    public ActionHandler actions() {
+        var types = new java.util.HashSet<>(Ae2Actions.BASE_TYPES);
+        if (Ae2Compat.canSuspend()) types.add(Ae2Actions.CPU_SUSPEND);
+        Set<String> offered = Set.copyOf(types);
+        var context = new Ae2Writer.Context(server, registrations, teams);
+        return new ActionHandler() {
+            @Override
+            public Set<String> types() {
+                return offered;
+            }
+
+            @Override
+            public boolean canPerform(UUID player, ResourceRef target, String type) {
+                return target.type().equals("grid") && access.canAct(player, target);
+            }
+
+            @Override
+            public ActionResult perform(Actor actor, ActionRequest request) {
+                try {
+                    String grid = Ae2Actions.gridId(request.target());
+                    var params = request.params();
+                    return switch (request.type()) {
+                        case Ae2Actions.CPU_CANCEL -> Ae2Writer.cancel(context, actor, grid, Ae2Actions.cpu(params));
+                        case Ae2Actions.CPU_SUSPEND -> Ae2Writer.suspend(context, actor, grid, Ae2Actions.cpuSuspend(params));
+                        case Ae2Actions.CPU_EDIT -> Ae2Writer.editCpu(context, actor, grid, Ae2Actions.cpuEdit(params));
+                        case Ae2Actions.DRIVE_EDIT -> Ae2Writer.editDrive(context, actor, grid, Ae2Actions.driveEdit(params));
+                        default -> ActionResult.error(ActionResult.Status.INVALID, "Unknown action.");
+                    };
+                } catch (Ae2Actions.Invalid e) {
+                    return ActionResult.error(ActionResult.Status.INVALID, e.getMessage());
+                }
             }
         };
     }

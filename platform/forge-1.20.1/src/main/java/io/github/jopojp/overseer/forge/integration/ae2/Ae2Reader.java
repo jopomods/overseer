@@ -122,6 +122,32 @@ final class Ae2Reader {
 
     private record Located(String dimension, BlockPos pos, UUID owner) {}
 
+    /** Id and owner of a live grid, as {@link #readAll} identifies it. */
+    record Identity(String id, UUID owner) {}
+
+    /**
+     * Identifies a live grid like a collection does: by its lowest controller, else by a
+     * registration. {@code null} for hidden grids. Server thread.
+     */
+    static Identity identify(MinecraftServer server, appeng.api.networking.IGrid grid, Map<String, UUID> registrations) {
+        if (!(grid instanceof Grid g) || g.isEmpty()) return null;
+        ControllerBlockEntity lowest = g.getMachines(ControllerBlockEntity.class).stream()
+                .filter(c -> c.getLevel() != null && !c.isRemoved())
+                .min(LOWEST)
+                .orElse(null);
+        if (lowest != null) {
+            IGridNode node = lowest.getMainNode().getNode();
+            BlockPos pos = lowest.getBlockPos();
+            return new Identity(dimension(lowest.getLevel()) + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ(),
+                    node == null ? null : node.getOwningPlayerProfileId());
+        }
+        Located registration = registeredGrids(server, registrations).get(g);
+        if (registration == null) return null;
+        BlockPos pos = registration.pos();
+        return new Identity(registration.dimension() + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ(),
+                registration.owner());
+    }
+
     /** Finds the grid at each registered position. Never loads chunks. */
     private static Map<Grid, Located> registeredGrids(MinecraftServer server, Map<String, UUID> registrations) {
         var result = new IdentityHashMap<Grid, Located>();
@@ -308,8 +334,11 @@ final class Ae2Reader {
             job = new Ae2Model.Job(what.key(), what.kind(), what.name(), what.amount(), status.totalItems(),
                     status.progress(), status.elapsedTimeNanos(), lines);
         }
+        boolean suspended = job != null && cpu instanceof CraftingCPUCluster cluster
+                && Boolean.TRUE.equals(Ae2Compat.suspended(cluster.craftingLogic));
         return new Ae2Model.Cpu(id, name == null ? null : name.getString(), cpu.getAvailableStorage(),
-                cpu.getCoProcessors(), cpu.getSelectionMode().name().toLowerCase(java.util.Locale.ROOT), job, index + 1);
+                cpu.getCoProcessors(), cpu.getSelectionMode().name().toLowerCase(java.util.Locale.ROOT), job, index + 1,
+                suspended);
     }
 
     /** Every player who placed a node of the grid (AE2 records it per node). */
@@ -361,8 +390,9 @@ final class Ae2Reader {
                             totalBytes, usedTypes, totalTypes));
                 }
                 BlockPos pos = be.getBlockPos();
+                Integer priority = machine instanceof appeng.helpers.IPriorityHost host ? host.getPriority() : null;
                 result.add(new Ae2Model.Drive(dimension(be.getLevel()) + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ(),
-                        String.valueOf(ForgeRegistries.BLOCKS.getKey(be.getBlockState().getBlock())), cells));
+                        String.valueOf(ForgeRegistries.BLOCKS.getKey(be.getBlockState().getBlock())), cells, priority));
             }
         }
         result.sort(Comparator.comparing(Ae2Model.Drive::id));

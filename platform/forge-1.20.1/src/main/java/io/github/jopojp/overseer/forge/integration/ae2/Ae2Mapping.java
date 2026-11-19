@@ -161,6 +161,7 @@ public final class Ae2Mapping {
         attrs.put("jobKind", job == null ? "" : job.kind());
         attrs.put("jobName", job == null ? "" : job.name());
         attrs.put("jobAmount", job == null ? "" : Long.toString(job.amount()));
+        attrs.put("suspended", Boolean.toString(job != null && cpu.suspended()));
         resources.put(ref, attrs);
         if (job != null) {
             samples.add(new Sample(ref, JOB_PROGRESS.key(), job.progress()));
@@ -185,6 +186,7 @@ public final class Ae2Mapping {
             cells.append(cell.slot()).append('=').append(cell.item()).append('=').append(cell.state());
         }
         attrs.put("cells", cells.toString());
+        if (drive.priority() != null) attrs.put("priority", Integer.toString(drive.priority()));
         resources.put(ref, attrs);
         if (g.booting()) return;
         samples.add(new Sample(ref, BYTES_USED.key(), drive.usedBytes()));
@@ -262,6 +264,15 @@ public final class Ae2Mapping {
         public boolean canEdit(UUID player, ResourceRef ref) {
             String grid = gridId(player, ref);
             return grid != null && player.equals(owners.get(grid));
+        }
+
+        /**
+         * World actions (ADR-0017): the owner and the members of the owner's party. Shares and
+         * placers only view. Operators are let through by core.
+         */
+        public boolean canAct(UUID player, ResourceRef ref) {
+            String grid = gridId(player, ref);
+            return grid != null && (player.equals(owners.get(grid)) || teams.getOrDefault(grid, Set.of()).contains(player));
         }
 
         private static String gridId(UUID player, ResourceRef ref) {
