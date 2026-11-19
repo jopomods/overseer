@@ -136,7 +136,7 @@ inventory.
   visibility, lock state; their patterns, read only
 - [x] Remote crafting: plan a job (bytes, used and missing items), choose a CPU, start it
   (server setting `actions.ae2Crafting`, default on)
-- [ ] UI: craft dialog from the contents list, watchlist deficits and the pattern overview
+- [x] UI: craft dialog from the contents list, watchlist deficits and the pattern overview
 - [ ] Diagnosis: stuck jobs (no progress for a while, locked providers) and devices without a channel
 
 ## M3: GregTech CEu (GTCEu)
