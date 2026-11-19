@@ -296,7 +296,7 @@ test.describe('flows', () => {
     await expect(results.first()).toContainText('Iron Ingot')
     await expect(results.first()).toContainText('318 k')
     await results.first().getByRole('link').nth(1).click()
-    await expect(page).toHaveURL(/the_nether@8,40,16/)
+    await expect.poll(() => decodeURIComponent(page.url())).toContain('/ae2/minecraft:the_nether@8,40,16')
   })
 
   test('colour codes in names show as colours unless turned off', async ({ page }) => {
