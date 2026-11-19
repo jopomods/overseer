@@ -15,6 +15,7 @@ export const AE2_ACTIONS = {
   cpuEdit: 'ae2.cpu.edit',
   driveEdit: 'ae2.drive.edit',
   providerEdit: 'ae2.provider.edit',
+  busEdit: 'ae2.bus.edit',
   craftPlan: 'ae2.craft.plan',
   craftStart: 'ae2.craft.start',
 } as const
@@ -474,6 +475,9 @@ export function offlineOf(rows: Record<string, string>[] | undefined): Ae2Offlin
       return { id: r.id, side: slash < 0 ? null : r.id.slice(slash + 1), item: r.item ?? '', name: r.name ?? '' }
     })
 }
+
+/** Filter slots of an AE2 import or export bus. */
+export const BUS_FILTER_SLOTS = 9
 
 export type BusKind = 'import' | 'export' | string
 

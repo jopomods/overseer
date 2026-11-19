@@ -22,6 +22,7 @@ import { McText } from '@/components/mc-text'
 import { CraftProvider } from '@/components/craft'
 import { CraftingSection } from '@/components/crafting-cpus'
 import { FlowSection } from '@/components/ae2-flow'
+import { BusEditSlot } from '@/components/bus-edit'
 import { BusesSection } from '@/components/bus-list'
 import { DrivesSection } from '@/components/drives-section'
 import { OfflineDevicesSection } from '@/components/offline-devices'
@@ -169,7 +170,10 @@ export function GridPage() {
 
         <FlowSection grid={key} uptime={snapshot.data?.at.uptimeMillis} buses={buses(snapshot.data, grid.id)} />
 
-        <BusesSection buses={buses(snapshot.data, grid.id)} />
+        <BusesSection
+          buses={buses(snapshot.data, grid.id)}
+          extra={allowed.has(AE2_ACTIONS.busEdit) ? (b) => <BusEditSlot grid={key} bus={b} /> : undefined}
+        />
 
         <WatchlistSection grid={grid.resource} canEdit={grid.canEdit} />
 

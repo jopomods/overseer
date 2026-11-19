@@ -562,6 +562,10 @@ const FIELD_KEYS: Record<string, MessageKey> = {
   blocking: 'provider.blocking',
   lock: 'provider.lockMode',
   visible: 'provider.visible',
+  filter: 'bus.filter',
+  redstone: 'bus.redstoneMode',
+  craftOnly: 'bus.craftOnly',
+  scheduling: 'bus.schedulingMode',
 }
 
 function value(t: Translate, v: string | null | undefined): string {
