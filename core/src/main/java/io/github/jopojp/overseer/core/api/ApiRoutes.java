@@ -418,11 +418,15 @@ public final class ApiRoutes {
         return Response.json(list.stream().map(w -> {
             var c = byKey.get(w.item());
             return new Dtos.Watch(w.item(), w.name(), w.kind(), w.target(), w.createdAt(),
-                    c == null ? 0 : c.recent(), c == null ? 0 : c.longer());
+                    c == null ? 0 : c.recent(), c == null ? 0 : c.longer(), w.restock());
         }).toList());
     }
 
-    /** Watches an item that is (or was) in the inventory, or changes its target. Owners only. */
+    /**
+     * Watches an item that is (or was) in the inventory, or changes its target. Owners only. Switching
+     * auto-crafting on also needs the world action {@code <provider>.restock} (ADR-0021): the network
+     * then crafts as this player.
+     */
     private Response addWatch(Request r) throws SQLException {
         Principal p = humanOnly(principal(r));
         var body = Json.parse(r.bodyText(), Dtos.AddWatch.class);
@@ -431,6 +435,12 @@ public final class ApiRoutes {
         if (!access.canView(p, ref)) throw HttpError.notFound();
         if (!access.canEdit(p, ref)) throw HttpError.forbidden("Only owners may change the watchlist.");
         if (body.target() != null && body.target() < 0) throw HttpError.badRequest("target must be >= 0.");
+        if (Boolean.TRUE.equals(body.restock())) {
+            if (body.target() == null) throw HttpError.badRequest("Auto-crafting needs a target.");
+            if (!actions.canPerform(p, ref, ref.provider() + ".restock")) {
+                throw HttpError.forbidden("You may not let this network craft.");
+            }
+        }
         var known = inventories.get(ref).flatMap(scan -> scan.stacks().stream()
                 .filter(s -> s.key().equals(body.item())).findFirst());
         String name;
@@ -450,6 +460,7 @@ public final class ApiRoutes {
                     + " watched items per network.");
         }
         watches.put(ref, body.item(), name, kind, body.target(), p.player().uuid(), clock.instant());
+        if (body.restock() != null) watches.setRestock(ref, body.item(), body.restock() ? p.player().uuid() : null);
         return Response.noContent();
     }
 
