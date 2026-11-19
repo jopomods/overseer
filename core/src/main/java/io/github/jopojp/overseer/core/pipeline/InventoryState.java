@@ -38,6 +38,11 @@ public final class InventoryState implements Consumer<ProviderSnapshot> {
                 && !snapshot.resources().containsKey(ref));
     }
 
+    /** The newest scan of every resource that has one; a snapshot copy. */
+    public java.util.Map<ResourceRef, Scan> all() {
+        return java.util.Map.copyOf(scans);
+    }
+
     public Optional<Scan> get(ResourceRef ref) {
         return Optional.ofNullable(scans.get(ref));
     }

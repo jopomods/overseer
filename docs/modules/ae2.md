@@ -354,6 +354,10 @@ once. Without the mixin (another AE2 build) the icon shows in the dashboard only
 
 ## Contents (inventory scan)
 
+Search across networks: `GET /api/v1/inventory/search?q=…` looks through the newest scan of every
+inventory the caller may see (all providers with inventories) and answers per item the total and
+the networks that hold it, most first. It reads memory only; nothing is queried from the game.
+
 Every 10th collection (every 10 s) the reader also copies the full cached inventory of each
 identified grid: one `Stack` per key with id, kind, name and amount. Hidden grids, booting and
 unpowered grids are not scanned (they report empty). The id and name of an AE2 key are built
