@@ -205,6 +205,30 @@ export function useDetails(resource: string, enabled: boolean, pollMs: number | 
   })
 }
 
+/** What moved into and out of a network per device and item between two uptimes (ADR-0020). */
+export function useFlows(resource: string, from: number | undefined, to: number | undefined) {
+  return useQuery({
+    queryKey: ['flows', resource, from, to] as const,
+    queryFn: () => unwrap(api.GET('/api/v1/flows', { params: { query: { resource, from, to } } })),
+    enabled: from !== undefined && to !== undefined,
+    refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
+    retry,
+  })
+}
+
+/** Flow per minute of one item or one device (ADR-0020). */
+export function useFlowHistory(resource: string, filter: { item?: string; device?: string }, from: number | undefined, to: number | undefined) {
+  return useQuery({
+    queryKey: ['flow-history', resource, filter.item, filter.device, from, to] as const,
+    queryFn: () => unwrap(api.GET('/api/v1/flows/history', { params: { query: { resource, ...filter, from, to } } })),
+    enabled: from !== undefined && to !== undefined,
+    refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
+    retry,
+  })
+}
+
 /** Recorded changes of a resource, newest first; e.g. the jobs of a crafting CPU. */
 export function useEvents(resource: string, attributes: string[], enabled: boolean, pollMs: number | false = false) {
   return useQuery({
