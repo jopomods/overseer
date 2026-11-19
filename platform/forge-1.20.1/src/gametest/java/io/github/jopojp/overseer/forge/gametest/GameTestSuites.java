@@ -23,12 +23,12 @@ public final class GameTestSuites {
 
     private static final Map<String, Suite> SUITES = Map.of(
             "all", new Suite(Set.of("flux", "ae2", "teams"), List.of("ServerGameTests", "IconGameTests",
-                    "ProfilerGameTests", "FluxGameTests", "Ae2GameTests", "TeamGameTests", "Ae2TeamGameTests")),
+                    "ProfilerGameTests", "FluxGameTests", "Ae2GameTests", "Ae2ActionGameTests", "TeamGameTests", "Ae2TeamGameTests")),
             "bare", new Suite(Set.of(), List.of("ServerGameTests", "IconGameTests", "ProfilerGameTests")),
             "base", new Suite(Set.of(), List.of("ServerGameTests", "IconGameTests")),
             "profiler", new Suite(Set.of(), List.of("ProfilerGameTests")),
             "flux", new Suite(Set.of("flux"), List.of("ServerGameTests", "FluxGameTests")),
-            "ae2", new Suite(Set.of("ae2"), List.of("ServerGameTests", "Ae2GameTests", "IconGameTests")),
+            "ae2", new Suite(Set.of("ae2"), List.of("ServerGameTests", "Ae2GameTests", "Ae2ActionGameTests", "IconGameTests")),
             "teams", new Suite(Set.of("teams"), List.of("ServerGameTests", "TeamGameTests")),
             "ae2-teams", new Suite(Set.of("ae2", "teams"), List.of("ServerGameTests", "Ae2TeamGameTests")));
 

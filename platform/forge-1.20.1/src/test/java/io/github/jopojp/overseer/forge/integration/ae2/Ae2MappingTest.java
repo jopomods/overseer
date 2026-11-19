@@ -192,4 +192,41 @@ class Ae2MappingTest {
         assertFalse(access.canView(OWNER, new ResourceRef("flux", "grid", "minecraft:overworld@10,64,0")));
         assertFalse(Ae2Mapping.AccessIndex.EMPTY.canView(OWNER, owned));
     }
+
+    @Test
+    void ownerAndPartyActButPlacersAndStrangersDoNot() {
+        UUID mate = UUID.fromString("00000000-0000-0000-0000-0000000000b2");
+        UUID placer = UUID.fromString("00000000-0000-0000-0000-0000000000c3");
+        Grid g = grid(OWNER, 10);
+        var placed = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(),
+                g.controllers(), g.state(), false, g.channels(), g.energy(), g.storage(), g.crafting(),
+                Ae2Model.Kind.CONTROLLER, null, List.of(), java.util.Map.of(), java.util.Set.of(placer));
+        var access = Ae2Mapping.AccessIndex.of(List.of(placed, grid(null, 20)),
+                owner -> owner.equals(OWNER) ? java.util.Set.of(mate) : java.util.Set.of(), true);
+        var ref = Ae2Mapping.grid("minecraft:overworld@10,64,0");
+        assertTrue(access.canAct(OWNER, ref));
+        assertTrue(access.canAct(mate, ref), "the owner's party may operate the grid (ADR-0017)");
+        assertTrue(access.canView(placer, ref));
+        assertFalse(access.canAct(placer, ref), "placers only view");
+        assertFalse(access.canAct(STRANGER, ref));
+        assertFalse(access.canAct(OWNER, Ae2Mapping.grid("minecraft:overworld@20,64,0")), "no owner: operators only");
+        assertFalse(access.canAct(OWNER, Ae2Mapping.cpu("minecraft:overworld@10,64,0")), "actions target grids");
+    }
+
+    @Test
+    void suspendedJobsAndDrivePrioritiesAreAttributes() {
+        var job = new Ae2Model.Job("item:minecraft:stick", "item", "Stick", 64, 100, 10, 1_000_000_000L);
+        var cpus = List.of(new Ae2Model.Cpu("minecraft:overworld@1,2,3", null, 1_024, 0, "any", job, 1, true),
+                new Ae2Model.Cpu("minecraft:overworld@5,2,3", null, 1_024, 0, "any", null, 2, true));
+        var drive = new Ae2Model.Drive("minecraft:overworld@4,64,0", "ae2:drive", List.of(), 7);
+        Grid g = grid(OWNER, 10);
+        var full = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(), g.controllers(),
+                g.state(), false, g.channels(), g.energy(), g.storage(),
+                new Ae2Model.Crafting(2, 1, 2_048, 0, cpus), Ae2Model.Kind.CONTROLLER, null, List.of(drive));
+        var resources = Ae2Mapping.snapshot(AT, List.of(full)).resources();
+        assertEquals("true", resources.get(Ae2Mapping.cpu("minecraft:overworld@1,2,3")).get("suspended"));
+        assertEquals("false", resources.get(Ae2Mapping.cpu("minecraft:overworld@5,2,3")).get("suspended"),
+                "an idle CPU is never suspended");
+        assertEquals("7", resources.get(Ae2Mapping.drive("minecraft:overworld@4,64,0")).get("priority"));
+    }
 }

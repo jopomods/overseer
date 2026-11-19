@@ -8,6 +8,19 @@ import { metric, ofType } from './snapshot'
  */
 export type GridState = 'online' | 'conflict' | 'unpowered' | 'booting'
 
+/** World actions on AE2 grids (ADR-0017); all target the grid, the part is a parameter. */
+export const AE2_ACTIONS = {
+  cpuCancel: 'ae2.cpu.cancel',
+  cpuSuspend: 'ae2.cpu.suspend',
+  cpuEdit: 'ae2.cpu.edit',
+  driveEdit: 'ae2.drive.edit',
+} as const
+
+/** AE2 names blocks like an anvil: at most 50 characters, colour codes included. */
+export const MAX_AE2_NAME = 50
+
+export const CPU_MODES = ['any', 'player_only', 'machine_only'] as const
+
 /** controller: found by its controller; registered: by a registered block; hidden: neither (admins). */
 export type GridKind = 'controller' | 'registered' | 'hidden'
 
@@ -134,6 +147,8 @@ export interface Ae2Cpu {
   coProcessors: number
   mode: string
   job: Ae2Job | null
+  /** The job is suspended (AE2 builds that support it). */
+  suspended: boolean
 }
 
 /** Crafting CPUs of one grid: busy first, then by name and position. */
@@ -161,6 +176,7 @@ export function cpus(snapshot: Snapshot | undefined, gridId: string): Ae2Cpu[] {
               elapsed: metric(r, 'job_elapsed') ?? 0,
             }
           : null,
+        suspended: a.suspended === 'true',
       }
     })
     .sort(
@@ -245,6 +261,8 @@ export interface Ae2Drive {
   totalBytes: number
   usedTypes: number
   totalTypes: number
+  /** Storage priority; null for drives without one. */
+  priority: number | null
 }
 
 const CELL_STATES: CellState[] = ['empty', 'not_empty', 'types_full', 'full']
@@ -268,6 +286,7 @@ export function drives(snapshot: Snapshot | undefined, gridId: string): Ae2Drive
       totalBytes: metric(r, 'bytes_total') ?? 0,
       usedTypes: metric(r, 'types_used') ?? 0,
       totalTypes: metric(r, 'types_total') ?? 0,
+      priority: r.attributes.priority ? Number(r.attributes.priority) : null,
     }))
 }
 

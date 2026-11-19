@@ -181,7 +181,7 @@ function gridResource(g: MockGrid) {
 function cpuResource(grid: string, id: string, attrs: Record<string, string>, metrics: Record<string, number> = {}) {
   return {
     ref: { provider: 'ae2', type: 'cpu', id, key: `ae2/cpu/${id}` },
-    attributes: { grid, name: '', storage: '65536', coProcessors: '4', mode: 'any', busy: String(Boolean(attrs.job)), job: '', jobKind: '', jobName: '', jobAmount: '', ...attrs },
+    attributes: { grid, name: '', storage: '65536', coProcessors: '4', mode: 'any', busy: String(Boolean(attrs.job)), job: '', jobKind: '', jobName: '', jobAmount: '', suspended: 'false', ...attrs },
     metrics,
   }
 }
@@ -189,7 +189,7 @@ function cpuResource(grid: string, id: string, attrs: Record<string, string>, me
 function driveResource(grid: string, id: string, block: string, cells: string[], bytes: [number, number], types: [number, number]) {
   return {
     ref: { provider: 'ae2', type: 'drive', id, key: `ae2/drive/${id}` },
-    attributes: { grid, block, cells: cells.map((c, i) => `${i}=${c}`).join(';') },
+    attributes: { grid, block, cells: cells.map((c, i) => `${i}=${c}`).join(';'), priority: '0' },
     metrics: { bytes_used: bytes[0], bytes_total: bytes[1], types_used: types[0], types_total: types[1] },
   }
 }
@@ -617,6 +617,63 @@ export function createMockBackend(options: MockOptions = {}) {
     log('ok', message, changes)
     return json({ status: 'ok', message, changes })
   }
+  // AE2 actions (ADR-0017) patch CPU and drive attributes the same way.
+  const ae2Patches = new Map<string, Record<string, string>>()
+  const patchAe2 = (snap: LooseSnapshot): LooseSnapshot => ({
+    ...snap,
+    resources: snap.resources.map((r) => {
+      const patch = ae2Patches.get(r.ref.key)
+      if (!patch) return r
+      return { ...r, attributes: { ...r.attributes, ...patch }, metrics: patch.job === '' ? {} : r.metrics }
+    }),
+  })
+  const runAe2Action = (b: { type: string; resource: string; params?: Record<string, unknown> }): MockResponse => {
+    const params = b.params ?? {}
+    const current = patchAe2(ae2Snapshot(options.realistic, adopted) as LooseSnapshot)
+    const grid = current.resources.find((r) => r.ref.key === b.resource && r.ref.type === 'grid')
+    if (!grid) return json({ error: { code: 'not_found', message: 'Not found.' } }, 404)
+    const changes: Array<{ resource: string; field: string; before: string | null; after: string | null }> = []
+    const log = (state: string, message: string | null) =>
+      actionLog.unshift({ id: actionLog.length + 1, at: now(), actor: '00000000-0000-0000-0000-000000000001', actorName: options.realistic ? 'Developer' : 'Mock', operator: true, action: b.type, resource: b.resource, status: state, message, changes })
+    const fail = (status: number, state: string, message: string): MockResponse => {
+      log(state, message)
+      return json({ status: state, message, changes: [] }, status)
+    }
+    const part = (type: string, id: unknown) =>
+      current.resources.find((r) => r.ref.type === type && r.ref.id === id && r.attributes.grid === grid.ref.id)
+    const set = (key: string, field: string, attributes: Record<string, string>, before: string, after: string) => {
+      ae2Patches.set(key, { ...(ae2Patches.get(key) ?? {}), ...attributes })
+      if (before !== after) changes.push({ resource: key, field, before, after })
+    }
+    if (b.type.startsWith('ae2.cpu.')) {
+      const cpu = part('cpu', params.cpu)
+      if (!cpu) return fail(400, 'invalid', 'This CPU is not part of the network.')
+      const a = cpu.attributes
+      if (b.type === 'ae2.cpu.cancel') {
+        if (!a.job) return fail(400, 'invalid', 'This CPU has no job.')
+        set(cpu.ref.key, 'job', { job: '', jobKind: '', jobName: '', jobAmount: '', busy: 'false', suspended: 'false' }, a.job, '')
+      } else if (b.type === 'ae2.cpu.suspend') {
+        if (!a.job) return fail(400, 'invalid', 'This CPU has no job.')
+        const after = String(params.suspended === true)
+        set(cpu.ref.key, 'suspended', { suspended: after }, a.suspended ?? 'false', after)
+      } else if (b.type === 'ae2.cpu.edit') {
+        if (typeof params.name === 'string') {
+          if (params.name.length > 50) return fail(400, 'invalid', 'Names have at most 50 characters.')
+          set(cpu.ref.key, 'name', { name: params.name }, a.name ?? '', params.name)
+        }
+        if (typeof params.mode === 'string') set(cpu.ref.key, 'mode', { mode: params.mode }, a.mode ?? 'any', params.mode)
+      }
+    } else if (b.type === 'ae2.drive.edit') {
+      const drive = part('drive', params.drive)
+      if (!drive) return fail(400, 'invalid', 'This drive is not part of the network.')
+      const after = String(params.priority)
+      set(drive.ref.key, 'priority', { priority: after }, drive.attributes.priority ?? '0', after)
+    } else {
+      return json({ status: 'invalid', message: 'Unknown action.', changes: [] }, 400)
+    }
+    log('ok', null)
+    return json({ status: 'ok', message: null, changes })
+  }
   const withEdit = (snapshot: { resources: Array<Record<string, unknown>> }) => ({
     ...snapshot,
     resources: snapshot.resources.map((r) => ({ ...r, canEdit: editable })),
@@ -634,7 +691,7 @@ export function createMockBackend(options: MockOptions = {}) {
     provider === 'server'
       ? withTiers((options.realistic ? realSnapshot('server') : serverSnapshot()) as LooseSnapshot)
       : provider === 'ae2'
-        ? withEdit(ae2Snapshot(options.realistic, adopted))
+        ? withEdit(patchAe2(ae2Snapshot(options.realistic, adopted) as LooseSnapshot))
         : withEdit(patchFlux(options.realistic ? realSnapshot('flux') : fluxSnapshot()))
 
   function handle({ method, url, body }: MockRequest): MockResponse {
@@ -832,15 +889,20 @@ export function createMockBackend(options: MockOptions = {}) {
         return { status: 204 }
       case '/api/v1/actions/allowed': {
         const resource = url.searchParams.get('resource') ?? ''
-        const types = editable && resource.startsWith('flux/network/')
-          ? ['flux.device.connect', 'flux.device.edit', 'flux.member.edit', 'flux.network.edit']
-          : []
+        const types = !editable
+          ? []
+          : resource.startsWith('flux/network/')
+            ? ['flux.device.connect', 'flux.device.edit', 'flux.member.edit', 'flux.network.edit']
+            : resource.startsWith('ae2/grid/')
+              ? ['ae2.cpu.cancel', 'ae2.cpu.edit', 'ae2.cpu.suspend', 'ae2.drive.edit']
+              : []
         return json({ resource, types })
       }
       case '/api/v1/actions': {
         if (method === 'POST') {
           if (!editable) return json({ status: 'denied', message: 'You may not change this.', changes: [] }, 403)
-          return runFluxAction(body as { type: string; resource: string; params?: Record<string, unknown> })
+          const action = body as { type: string; resource: string; params?: Record<string, unknown> }
+          return action.type.startsWith('ae2.') ? runAe2Action(action) : runFluxAction(action)
         }
         const resource = url.searchParams.get('resource')
         return json(actionLog.filter((e) => !resource || e.resource === resource || e.changes.some((c) => c.resource === resource)))

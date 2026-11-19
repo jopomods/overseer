@@ -47,11 +47,16 @@ public final class Ae2Model {
      * A drive or ME chest (anything AE2 calls {@code IChestOrDrive}, add-on drives included).
      *
      * @param id    {@code dimension@x,y,z} of the block
-     * @param block registry id of the block, e.g. {@code ae2:drive}
+     * @param block    registry id of the block, e.g. {@code ae2:drive}
+     * @param priority storage priority, {@code null} for drives without one (add-ons)
      */
-    public record Drive(String id, String block, List<Cell> cells) {
+    public record Drive(String id, String block, List<Cell> cells, Integer priority) {
         public Drive {
             cells = List.copyOf(cells);
+        }
+
+        public Drive(String id, String block, List<Cell> cells) {
+            this(id, block, cells, null);
         }
 
         public long usedBytes() {
@@ -91,8 +96,14 @@ public final class Ae2Model {
      * @param mode AE2 CPU selection mode, lower case
      * @param job    the running job, {@code null} when idle
      * @param number position in AE2's CPU list, as AE2 shows unnamed CPUs ("CPU #3"); 0 if unknown
+     * @param suspended the job is suspended (AE2 builds that support it, ADR-0017)
      */
-    public record Cpu(String id, String name, long storage, int coProcessors, String mode, Job job, int number) {
+    public record Cpu(String id, String name, long storage, int coProcessors, String mode, Job job, int number,
+            boolean suspended) {
+        public Cpu(String id, String name, long storage, int coProcessors, String mode, Job job, int number) {
+            this(id, name, storage, coProcessors, mode, job, number, false);
+        }
+
         public Cpu(String id, String name, long storage, int coProcessors, String mode, Job job) {
             this(id, name, storage, coProcessors, mode, job, 0);
         }

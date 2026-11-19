@@ -2,9 +2,11 @@ import { ChevronDown, Cpu } from 'lucide-react'
 import { useState } from 'react'
 import { useEvents, useJob, type JobLine } from '@/api/hooks'
 import { Button } from '@/components/ui/button'
+import { CpuControls } from '@/components/ae2-edit'
 import { ItemIcon } from '@/components/item-icon'
 import { McText } from '@/components/mc-text'
 import { Section } from '@/components/stat'
+import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { formatBuckets, formatClock, idPos, isInfinite, jobCountsAreItems, jobEta, jobProgressKnown, pastJobs, type Ae2Cpu } from '@/lib/ae2'
@@ -19,7 +21,7 @@ const JOB_ATTRIBUTES = ['job', 'jobName', 'jobAmount']
  * Crafting CPUs of an ME network, live (pushed every second). Busy CPUs show their job with
  * progress; a card expands to details and the CPU's recent jobs.
  */
-export function CraftingSection({ cpus }: { cpus: Ae2Cpu[] }) {
+export function CraftingSection({ cpus, grid, allowed }: { cpus: Ae2Cpu[]; grid: string; allowed: Set<string> }) {
   const t = useT()
   const [showMore, setShowMore] = useState(false)
   if (cpus.length === 0) return null
@@ -35,7 +37,9 @@ export function CraftingSection({ cpus }: { cpus: Ae2Cpu[] }) {
   const primary = grouped ? important : cpus
   const rest = grouped ? cpus.filter((c) => !isImportant(c)) : []
   const restBusy = rest.filter((c) => c.job).length
-  const card = (cpu: Ae2Cpu) => <CpuCard key={cpu.id} cpu={cpu} number={cpu.number || (numbers.get(cpu.id) ?? 0)} />
+  const card = (cpu: Ae2Cpu) => (
+    <CpuCard key={cpu.id} cpu={cpu} number={cpu.number || (numbers.get(cpu.id) ?? 0)} grid={grid} allowed={allowed} />
+  )
   return (
     <Section
       title={t('cpu.title')}
@@ -73,7 +77,7 @@ function isImportant(cpu: Ae2Cpu) {
   return cpu.name !== null || cpu.mode === 'player_only'
 }
 
-function CpuCard({ cpu, number }: { cpu: Ae2Cpu; number: number }) {
+function CpuCard({ cpu, number, grid, allowed }: { cpu: Ae2Cpu; number: number; grid: string; allowed: Set<string> }) {
   const t = useT()
   const { locale } = usePreferences()
   const [open, setOpen] = useState(false)
@@ -107,6 +111,11 @@ function CpuCard({ cpu, number }: { cpu: Ae2Cpu; number: number }) {
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                   <McText text={job.name} />
                 </span>
+                {cpu.suspended && (
+                  <Badge variant="secondary" className="shrink-0" data-testid="cpu-suspended">
+                    {t('cpu.suspended')}
+                  </Badge>
+                )}
                 <span className="tabular shrink-0 text-sm font-semibold">×{amount(job.amount, job.kind, locale, t('ae2.buckets'))}</span>
               </div>
               <Progress
@@ -141,19 +150,20 @@ function CpuCard({ cpu, number }: { cpu: Ae2Cpu; number: number }) {
             </>
           )}
         </button>
-        {open && <CpuDetails cpu={cpu} />}
+        {open && <CpuDetails cpu={cpu} grid={grid} allowed={allowed} title={title} />}
       </Card>
     </li>
   )
 }
 
-function CpuDetails({ cpu }: { cpu: Ae2Cpu }) {
+function CpuDetails({ cpu, grid, allowed, title }: { cpu: Ae2Cpu; grid: string; allowed: Set<string>; title: string }) {
   const t = useT()
   const { locale } = usePreferences()
   const events = useEvents(cpu.resource.ref.key, JOB_ATTRIBUTES, true, 10_000)
   const jobs = pastJobs(events.data ?? []).filter((j) => j.endedUptime !== undefined).slice(0, 10)
   return (
     <div className="min-w-0 space-y-3 border-t px-4 py-3 text-xs" data-testid="cpu-details">
+      <CpuControls grid={grid} cpu={cpu} allowed={allowed} title={title} />
       <dl className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-1">
         <dt className="text-muted-foreground">{t('ae2.coProcessors')}</dt>
         <dd className="tabular truncate text-right">{formatNumber(cpu.coProcessors, locale)}</dd>

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react'
 import {
   ApiError,
   useAccessRequests,
+  useAllowedActions,
   useAddShare,
   useDecideAccess,
   useOverrides,
@@ -12,7 +13,9 @@ import {
   useSetOverride,
   useShares,
   useSnapshot,
+  type Snapshot,
 } from '@/api/hooks'
+import { ActionLog } from '@/components/flux-edit'
 import { GridStateBadge } from '@/components/grid-state-badge'
 import { McText } from '@/components/mc-text'
 import { CraftingSection } from '@/components/crafting-cpus'
@@ -27,9 +30,10 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cpus, drives, formatAe, formatAeRate, formatBuckets, formatPos, grids, shortDimension, type Ae2Grid } from '@/lib/ae2'
+import { AE2_ACTIONS, cpus, drives, formatAe, formatAeRate, formatBuckets, formatPos, grids, idPos, shortDimension, type Ae2Grid } from '@/lib/ae2'
 import { formatBytes, formatDuration, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
+import { plainText } from '@/lib/mc-text'
 import { usePreferences, type Locale } from '@/lib/preferences'
 
 /** One AE2 network: power, inventory totals, crafting CPUs, history. */
@@ -42,6 +46,7 @@ export function GridPage() {
   const overrides = useOverrides('ae2').data
   const grid = grids(snapshot.data, overrides).find((g) => g.id === gridId && g.kind !== 'hidden')
   const [renaming, setRenaming] = useState(false)
+  const allowed = useAllowedActions(grid?.resource.ref.key ?? '', grid !== undefined).data ?? NONE
 
   if (snapshot.isPending) return <Skeleton className="h-64" />
   if (!grid) {
@@ -101,7 +106,7 @@ export function GridPage() {
         />
       </div>
 
-      <CraftingSection cpus={cpus(snapshot.data, grid.id)} />
+      <CraftingSection cpus={cpus(snapshot.data, grid.id)} grid={key} allowed={allowed} />
 
       <Section title={t('chart.history')}>
         <div className="grid min-w-0 gap-3 xl:grid-cols-2">
@@ -137,7 +142,7 @@ export function GridPage() {
         </div>
       </Section>
 
-      <DrivesSection drives={drives(snapshot.data, grid.id)} />
+      <DrivesSection drives={drives(snapshot.data, grid.id)} grid={key} editable={allowed.has(AE2_ACTIONS.driveEdit)} />
 
       <WatchlistSection grid={grid.resource} canEdit={grid.canEdit} />
 
@@ -145,6 +150,10 @@ export function GridPage() {
 
       {grid.canEdit && <AccessSection resource={key} />}
       {grid.canEdit && grid.kind === 'registered' && <UnregisterButton resource={key} />}
+
+      <Section title={t('edit.log')}>
+        <ActionLog resource={key} describe={(ref) => describePart(snapshot.data, grid.id, ref, t)} />
+      </Section>
 
       <Section title={t('ae2.details')}>
         <Card className="min-w-0 py-1">
@@ -165,6 +174,17 @@ export function GridPage() {
       </Section>
     </>
   )
+}
+
+const NONE: Set<string> = new Set()
+
+/** "CPU #3", "Drive · 1, 2, 3": the part a logged change was about. */
+function describePart(snapshot: Snapshot | undefined, gridId: string, ref: string, t: ReturnType<typeof useT>) {
+  const cpu = cpus(snapshot, gridId).find((c) => c.resource.ref.key === ref)
+  if (cpu) return plainText(cpu.name ?? t('cpu.unnamed', { n: cpu.number }))
+  const drive = drives(snapshot, gridId).find((d) => d.resource.ref.key === ref)
+  if (drive) return `${t(drive.block === 'ae2:chest' ? 'drive.chest' : 'drive.drive')} · ${idPos(drive.id)}`
+  return undefined
 }
 
 /** Shares of this grid; owners and admins only (ADR-0011). */
