@@ -101,6 +101,20 @@ test('no horizontal overflow with a crafting plan open', async ({ page }) => {
   await expectNoHorizontalOverflow(page)
 })
 
+test('no horizontal overflow with the flow open', async ({ page }) => {
+  // Extreme data: 300 devices, long names, huge numbers; the Sankey on wide screens.
+  await mockApi(page)
+  await page.goto('/ae2/minecraft:overworld@0,64,-0')
+  const flow = page.getByTestId('flow')
+  await flow.getByTestId('flow-items').getByRole('listitem').first().getByRole('button').click()
+  await expect(flow.getByTestId('flow-item-detail')).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+  await flow.getByRole('radio', { name: 'By device' }).click()
+  await flow.getByTestId('flow-devices').getByRole('listitem').first().getByRole('button').click()
+  await expect(flow.getByTestId('flow-device-detail')).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+})
+
 test('overflow detector catches content wider than the viewport', async ({ page }) => {
   await mockApi(page)
   await page.goto('/login')

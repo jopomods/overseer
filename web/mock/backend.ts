@@ -315,6 +315,36 @@ function busResources(realistic: boolean) {
   )
 }
 
+type MockFlowRow = { device: string; deviceKind: string; deviceName: string; key: string; kind: string; name: string; inserted: number; extracted: number }
+
+/** Flows (ADR-0020): realistic, an ore line, a player and a crafting job; extreme: 300 devices. */
+function flowRows(resource: string, realistic: boolean): MockFlowRow[] {
+  const row = (device: string, deviceKind: string, deviceName: string, key: string, name: string, inserted: number, extracted: number): MockFlowRow =>
+    ({ device, deviceKind, deviceName, key, kind: key.startsWith('fluid:') ? 'fluid' : 'item', name, inserted, extracted })
+  if (realistic) {
+    if (resource !== `ae2/grid/${REAL_GRID}`) return []
+    return [
+      row('minecraft:overworld@104,64,-330/east', 'export_bus', 'ME Export Bus', 'item:minecraft:raw_iron', 'Raw Iron', 0, 1_200),
+      row('minecraft:overworld@104,64,-330/east', 'export_bus', 'ME Export Bus', 'item:minecraft:raw_copper', 'Raw Copper', 0, 400),
+      row('minecraft:overworld@104,65,-330/east', 'import_bus', 'ME Import Bus', 'item:gtceu:crushed_iron_ore', 'Crushed Iron Ore', 2_400, 0),
+      row('minecraft:overworld@104,65,-330/east', 'import_bus', 'ME Import Bus', 'item:gtceu:crushed_copper_ore', 'Crushed Copper Ore', 800, 0),
+      row('player:00000000-0000-0000-0000-0000000057e7', 'player', 'Steve', 'item:minecraft:iron_ingot', 'Iron Ingot', 12, 256),
+      row('minecraft:overworld@100,64,-330', 'interface', 'ME Interface', 'item:minecraft:iron_ingot', 'Iron Ingot', 0, 64),
+      row('minecraft:overworld@118,60,-338', 'crafting', '§bCircuits', 'item:gtceu:resistor', 'Resistor', 0, 184),
+      row('minecraft:overworld@118,60,-338', 'crafting', '§bCircuits', 'item:gtceu:basic_electronic_circuit', 'Basic Electronic Circuit', 0, 92),
+      row('minecraft:overworld@118,60,-338', 'crafting', '§bCircuits', 'item:gtceu:good_electronic_circuit', 'Good Electronic Circuit', 91, 0),
+      row('minecraft:overworld@111,64,-338/north', 'pattern_provider', 'Chemical Reactor MV', 'fluid:gtceu:polyethylene', 'Polyethylene', 144_000, 0),
+    ]
+  }
+  if (resource !== `ae2/grid/${EXTREME_GRID}`) return []
+  return Array.from({ length: 300 }, (_, i) =>
+    Array.from({ length: 3 }, (_, k) =>
+      row(`minecraft:overworld@${i},${-i},${i}/east`, ['import_bus', 'export_bus', `${LONG.toLowerCase()}_part`][i % 3], `${LONG} ${i}`,
+        `item:${LONG.toLowerCase()}:flow${(i + k) % 50}`, `${LONG} ${(i + k) % 50}`, i % 3 === 1 ? 0 : 9.2e15 / (i + 1), i % 3 === 0 ? 0 : 9.2e15 / (i + 2)),
+    ),
+  ).flat()
+}
+
 /** Crafting CPUs: realistic, one running job that advances in real time; extreme: many, long names. */
 function cpuResources(realistic: boolean) {
   const t = (Date.now() / 1000) % 600
@@ -1041,6 +1071,23 @@ export function createMockBackend(options: MockOptions = {}) {
           points.push([t, amount])
         }
         return json({ resource: url.searchParams.get('resource'), item: url.searchParams.get('item'), from, to, start: 232_444, now: amount, points })
+      }
+      case '/api/v1/flows': {
+        const resource = url.searchParams.get('resource') ?? ''
+        const to = Number(url.searchParams.get('to') ?? 123_456_789)
+        const from = Number(url.searchParams.get('from') ?? to - 3_600_000)
+        return json({ resource, from, to, rows: flowRows(resource, options.realistic === true) })
+      }
+      case '/api/v1/flows/history': {
+        const resource = url.searchParams.get('resource') ?? ''
+        const to = Number(url.searchParams.get('to') ?? 123_456_789)
+        const from = Number(url.searchParams.get('from') ?? to - 3_600_000)
+        const minutes = Math.max(1, Math.min(120, Math.floor((to - from) / 60_000)))
+        const points = Array.from({ length: minutes }, (_, i) => {
+          const bucket = Math.floor(from / 60_000) * 60_000 + i * 60_000
+          return [bucket, Math.round(40 + 30 * Math.sin(i / 5)), Math.round(35 + 25 * Math.cos(i / 7))]
+        })
+        return json({ resource, from, to, points })
       }
       case '/api/v1/inventory':
         return json(inventoryBody(url, options.realistic === true))

@@ -213,4 +213,32 @@ test.describe('ae2 actions', () => {
     await expect(list).toContainText('Crafted only')
     await expect(list).toContainText('Crafting jobs: 1')
   })
+
+  test('flow: items with their devices, devices with their items, idle buses', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto(GRID)
+    const flow = page.getByTestId('flow')
+    const items = flow.getByTestId('flow-items').getByRole('listitem')
+    await expect(items.first()).toContainText('Crushed Iron Ore')
+    const iron = items.filter({ hasText: 'Iron Ingot' })
+    await expect(iron).toContainText('+12')
+    await expect(iron).toContainText('−320')
+    await iron.getByRole('button').click()
+    const detail = iron.getByTestId('flow-item-detail')
+    // Sankey on wide screens, lists on phones: both name the devices.
+    await expect(detail).toContainText('Steve')
+    await expect(detail).toContainText('ME Interface')
+    await expect(detail.getByTestId('flow-minutes')).toBeVisible()
+
+    await flow.getByRole('radio', { name: 'By device' }).click()
+    const devices = flow.getByTestId('flow-devices').getByRole('listitem')
+    const circuits = devices.filter({ hasText: 'Circuits' })
+    await expect(circuits).toContainText('Crafting CPU · 118, 60, -338')
+    await circuits.getByRole('button').click()
+    await expect(circuits.getByTestId('flow-device-detail')).toContainText('Resistor')
+    await expect(devices.filter({ hasText: 'Steve' })).toContainText('Player')
+
+    await expect(page.getByTestId('flow-idle')).toContainText('Buses that moved nothing (2)')
+    await expect(page.getByTestId('flow-idle')).toContainText('Circuit restock')
+  })
 })

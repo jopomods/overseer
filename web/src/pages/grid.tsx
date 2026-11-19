@@ -21,6 +21,7 @@ import { GridStateBadge } from '@/components/grid-state-badge'
 import { McText } from '@/components/mc-text'
 import { CraftProvider } from '@/components/craft'
 import { CraftingSection } from '@/components/crafting-cpus'
+import { FlowSection } from '@/components/ae2-flow'
 import { BusesSection } from '@/components/bus-list'
 import { DrivesSection } from '@/components/drives-section'
 import { OfflineDevicesSection } from '@/components/offline-devices'
@@ -165,6 +166,8 @@ export function GridPage() {
           editable={allowed.has(AE2_ACTIONS.providerEdit)}
           tiers={tiers}
         />
+
+        <FlowSection grid={key} uptime={snapshot.data?.at.uptimeMillis} buses={buses(snapshot.data, grid.id)} />
 
         <BusesSection buses={buses(snapshot.data, grid.id)} />
 
