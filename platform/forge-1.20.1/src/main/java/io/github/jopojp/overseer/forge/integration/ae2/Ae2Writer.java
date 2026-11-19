@@ -18,6 +18,7 @@ import net.minecraftforge.registries.ForgeRegistries;
 import appeng.api.config.Settings;
 import appeng.api.implementations.blockentities.IChestOrDrive;
 import appeng.api.networking.IGrid;
+import appeng.api.stacks.AEKey;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.blockentity.crafting.CraftingBlockEntity;
@@ -272,6 +273,100 @@ final class Ae2Writer {
             throw new Refused(Status.INVALID, "This pattern provider is not part of the network.");
         }
         return host;
+    }
+
+    // --- import and export buses -----------------------------------------------------------
+
+    static ActionResult editBus(Context ctx, Actor actor, String gridId, Ae2Reader.StackCache keys, Ae2Actions.BusEdit edit) {
+        return run(() -> {
+            IGrid grid = grid(ctx, actor, gridId);
+            int slash = edit.bus().indexOf('/', edit.bus().indexOf('@'));
+            BlockEntity be = blockEntity(ctx, edit.bus().substring(0, slash));
+            Direction side = Direction.byName(edit.bus().substring(slash + 1));
+            if (side == null || !(be instanceof IPartHost parts)
+                    || !(parts.getPart(side) instanceof appeng.parts.automation.IOBusPart bus)) {
+                throw new Refused(Status.NOT_FOUND, "There is no import or export bus at " + edit.bus() + ".");
+            }
+            IGridNode node = bus.getGridNode();
+            if (node == null || node.getGrid() != grid) throw new Refused(Status.INVALID, "This bus is not part of the network.");
+            boolean export = bus instanceof appeng.parts.automation.ExportBusPart;
+            if (!export && (edit.craftOnly() != null || edit.scheduling() != null)) {
+                throw new Refused(Status.INVALID, "Only export buses have craft only and scheduling.");
+            }
+            if (edit.name() != null && !Ae2Compat.canName()) throw new Refused(Status.INVALID, "This AE2 version cannot rename buses.");
+            var config = bus.getConfig();
+            java.util.List<AEKey> filter = null;
+            if (edit.filter() != null) {
+                if (edit.filter().size() > config.size()) {
+                    throw new Refused(Status.INVALID, "This bus has " + config.size() + " filter slots.");
+                }
+                filter = new ArrayList<>();
+                for (String id : edit.filter()) filter.add(key(keys, id));
+            }
+            var ref = Ae2Mapping.bus(edit.bus());
+            var changes = new ArrayList<Change>();
+            if (edit.name() != null) {
+                String before = text(bus.getCustomName());
+                if (!edit.name().equals(before)) {
+                    Ae2Compat.setName(bus, edit.name().isEmpty() ? null : Component.literal(edit.name()));
+                    bus.getHost().markForSave();
+                    bus.getHost().markForUpdate();
+                    changes.add(new Change(ref, "name", before, text(bus.getCustomName())));
+                }
+            }
+            if (filter != null) {
+                String before = filterText(config, keys);
+                for (int i = 0; i < config.size(); i++) {
+                    config.setStack(i, i < filter.size() ? new appeng.api.stacks.GenericStack(filter.get(i), 1) : null);
+                }
+                String after = filterText(config, keys);
+                if (!before.equals(after)) changes.add(new Change(ref, "filter", before, after));
+            }
+            var settings = bus.getConfigManager();
+            if (edit.redstone() != null && settings.hasSetting(Settings.REDSTONE_CONTROLLED)) {
+                setting(settings, Settings.REDSTONE_CONTROLLED, appeng.api.config.RedstoneMode.valueOf(edit.redstone().name()),
+                        ref, "redstone", changes);
+            }
+            if (edit.craftOnly() != null && settings.hasSetting(Settings.CRAFT_ONLY)) {
+                setting(settings, Settings.CRAFT_ONLY, edit.craftOnly() ? YesNo.YES : YesNo.NO, ref, "craftOnly", changes);
+            }
+            if (edit.scheduling() != null && settings.hasSetting(Settings.SCHEDULING_MODE)) {
+                setting(settings, Settings.SCHEDULING_MODE, appeng.api.config.SchedulingMode.valueOf(edit.scheduling().name()),
+                        ref, "scheduling", changes);
+            }
+            return ActionResult.ok(changes);
+        });
+    }
+
+    /** The filter as the log shows it: keys joined by commas, empty when none. */
+    private static String filterText(appeng.util.ConfigInventory config, Ae2Reader.StackCache keys) {
+        var text = new StringBuilder();
+        for (int i = 0; i < config.size(); i++) {
+            AEKey key = config.getKey(i);
+            if (key == null) continue;
+            if (!text.isEmpty()) text.append(", ");
+            text.append(keys.stack(key, 0).key());
+        }
+        return text.toString();
+    }
+
+    /** Keys the dashboard knows from scans and patterns; plain items and fluids also by registry id. */
+    static AEKey key(Ae2Reader.StackCache keys, String id) {
+        AEKey known = keys.byId(id);
+        if (known != null) return known;
+        int colon = id.indexOf(':');
+        String kind = colon < 0 ? "" : id.substring(0, colon);
+        ResourceLocation location = colon < 0 || id.contains("#") ? null : ResourceLocation.tryParse(id.substring(colon + 1));
+        if (location != null && kind.equals("item")) {
+            Item item = ForgeRegistries.ITEMS.getValue(location);
+            if (item != null && item != Items.AIR) return appeng.api.stacks.AEItemKey.of(item);
+        } else if (location != null && kind.equals("fluid")) {
+            var fluid = ForgeRegistries.FLUIDS.getValue(location);
+            if (fluid != null && fluid != net.minecraft.world.level.material.Fluids.EMPTY) {
+                return appeng.api.stacks.AEFluidKey.of(fluid);
+            }
+        }
+        throw new Refused(Status.INVALID, "Unknown item: " + id);
     }
 
     // --- lookup ----------------------------------------------------------------------------

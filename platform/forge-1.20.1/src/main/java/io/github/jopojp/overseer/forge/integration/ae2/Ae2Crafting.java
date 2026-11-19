@@ -7,8 +7,6 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingSimulationRequester;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.stacks.AEFluidKey;
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import com.google.gson.JsonArray;
@@ -40,16 +38,11 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.LongSupplier;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.common.util.FakePlayerFactory;
-import net.minecraftforge.registries.ForgeRegistries;
 
 /**
  * Remote crafting (ADR-0017, ADR-0019): plans a job like AE2's craft confirm screen, keeps the plan
@@ -194,19 +187,7 @@ final class Ae2Crafting {
 
     /** Keys the dashboard knows from scans and patterns; plain items and fluids also by registry id. */
     private AEKey key(String id) {
-        AEKey known = keys.byId(id);
-        if (known != null) return known;
-        int colon = id.indexOf(':');
-        String kind = id.substring(0, colon);
-        ResourceLocation location = id.contains("#") ? null : ResourceLocation.tryParse(id.substring(colon + 1));
-        if (location != null && kind.equals("item")) {
-            Item item = ForgeRegistries.ITEMS.getValue(location);
-            if (item != null && item != Items.AIR) return AEItemKey.of(item);
-        } else if (location != null && kind.equals("fluid")) {
-            Fluid fluid = ForgeRegistries.FLUIDS.getValue(location);
-            if (fluid != null && fluid != Fluids.EMPTY) return AEFluidKey.of(fluid);
-        }
-        throw new Refused(Status.INVALID, "Unknown item: " + id);
+        return Ae2Writer.key(keys, id);
     }
 
     /**

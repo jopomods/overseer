@@ -220,6 +220,7 @@ public final class Ae2Provider implements DataProvider {
                         case Ae2Actions.DRIVE_EDIT -> Ae2Writer.editDrive(context, actor, grid, Ae2Actions.driveEdit(params));
                         case Ae2Actions.PROVIDER_EDIT -> Ae2Writer.editProvider(context, actor, grid,
                                 Ae2Actions.providerEdit(params));
+                        case Ae2Actions.BUS_EDIT -> Ae2Writer.editBus(context, actor, grid, stacks, Ae2Actions.busEdit(params));
                         case Ae2Actions.CRAFT_START -> remoteCrafting.getAsBoolean()
                                 ? crafting.start(context, actor, grid, Ae2Actions.craftStart(params))
                                 : ActionResult.error(ActionResult.Status.DENIED,
