@@ -210,7 +210,8 @@ function driveResources(realistic: boolean) {
     driveResource('minecraft:overworld@0,64,-0', `minecraft:overworld@${i},${-i},${i}`, i % 3 ? `${LONG.toLowerCase()}:ex_drive` : 'ae2:drive',
       Array.from({ length: i % 3 ? 20 : 10 }, (_, s) => `megacells:bulk_item_cell_${s}=${['empty', 'not_empty', 'types_full', 'full'][(s + i) % 4]}`),
       [9.2e18 / (i + 1), 9.2e18], [i * 1000, 987_654], String(2 ** 31 - 1 - i),
-      JSON.stringify(Array.from({ length: i % 3 ? 20 : 10 }, (_, s) => ({ slot: s, exclude: s % 2 === 0, fuzzy: s % 3 === 0,
+      // A few fully partitioned cells: enough for long chip lists without slowing every update.
+      i % 8 ? '' : JSON.stringify(Array.from({ length: 2 }, (_, s) => ({ slot: s, exclude: s % 2 === 0, fuzzy: true,
         keys: Array.from({ length: 63 }, (_, k) => ({ key: `item:${LONG.toLowerCase()}:p${k}`, kind: 'item', name: `${LONG} ${k}` })) })))),
   )
 }
@@ -226,7 +227,7 @@ function storageBusResource(grid: string, id: string, attrs: Record<string, stri
 const partitionJson = (keys: Array<[string, string]>, exclude = false) =>
   JSON.stringify({ keys: keys.map(([key, name]) => ({ key, kind: key.startsWith('fluid:') ? 'fluid' : 'item', name })), exclude, fuzzy: false })
 
-/** Storage buses: realistic, a few barrels and a tank; extreme: 60 with long names and full partitions. */
+/** Storage buses: realistic, a few barrels and a tank; extreme: 30 with long names, some with full partitions. */
 function storageBusResources(realistic: boolean) {
   if (realistic) {
     return [
@@ -235,10 +236,10 @@ function storageBusResources(realistic: boolean) {
       storageBusResource(REAL_GRID, 'minecraft:overworld@112,66,-338/up', { target: 'Barrel', targetBlock: 'minecraft:barrel', priority: '-10', access: 'read', active: 'false' }),
     ]
   }
-  return Array.from({ length: 60 }, (_, i) =>
+  return Array.from({ length: 30 }, (_, i) =>
     storageBusResource('minecraft:overworld@0,64,-0', `minecraft:overworld@${-i},${i},${i * 1000}/${['north', 'down'][i % 2]}`, {
       name: i % 2 ? `${LONG} ${i}` : '', target: `${LONG} target ${i}`, targetBlock: `${LONG.toLowerCase()}:block`, priority: String(-(2 ** 31) + i),
-      partition: partitionJson(Array.from({ length: 63 }, (_, k) => [`item:${LONG.toLowerCase()}:s${k}`, `${LONG} ${k}`] as [string, string]), i % 2 === 0),
+      partition: i % 3 ? '' : partitionJson(Array.from({ length: 63 }, (_, k) => [`item:${LONG.toLowerCase()}:s${k}`, `${LONG} ${k}`] as [string, string]), i % 2 === 0),
       access: ['read_write', 'read', 'write', 'no_access'][i % 4], active: String(i % 5 !== 0),
     }))
 }
