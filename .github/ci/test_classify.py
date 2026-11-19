@@ -36,6 +36,7 @@ class PathRules(unittest.TestCase):
     def test_a_test_class_needs_its_suite(self):
         base = "platform/forge-1.20.1/src/gametest/java/io/github/jopojp/overseer/forge/gametest/"
         self.assertEqual(on([base + "FluxGameTests.java"]), {"gt_flux"})
+        self.assertEqual(on([base + "Ae2ActionGameTests.java"]), {"gt_ae2"})
         self.assertEqual(on([base + "GameTestSuites.java"]), ALL - {"web", "build_web"})
 
     def test_other_platform_code_needs_every_suite(self):

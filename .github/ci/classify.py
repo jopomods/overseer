@@ -28,6 +28,7 @@ INTEGRATION_SUITES = {
 TEST_CLASS_SUITES = {
     "FluxGameTests.java": {"flux"},
     "Ae2GameTests.java": {"ae2"},
+    "Ae2ActionGameTests.java": {"ae2"},
     "TeamGameTests.java": {"teams"},
     "Ae2TeamGameTests.java": {"ae2-teams"},
     "ProfilerGameTests.java": {"profiler"},
