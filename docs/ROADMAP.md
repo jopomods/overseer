@@ -121,6 +121,24 @@ allowed for network owners and admins (Flux's rules) and server operators (ADR-0
 - [x] Optional voltage tiers in names (GregTech when installed): badges in GregTech's colours,
   filter, energy by tier, tier field in the device editor
 
+## M2.8: AE2 in the dashboard (no new mod)
+
+Operate Applied Energistics 2 from the dashboard, like M2.7 did for Flux. Actions are allowed for
+the grid's owner, the members of the owner's FTB Teams party and server operators; shares stay
+view only (ADR-0017). Patterns are shown, never edited; nothing is ever moved into a player's
+inventory.
+
+- [ ] Crafting CPUs: cancel a job, suspend and resume it (when the installed AE2 supports it, e.g.
+  the Star Technology fork), rename the CPU, change its selection mode; drive and ME chest
+  priority. GameTests against AE2.
+- [ ] Pattern providers as resources: name with colour codes and voltage tier (filter by tier),
+  icon (also in AE2's Pattern Access Terminal), priority, blocking mode, lock crafting, terminal
+  visibility, lock state; their patterns, read only
+- [ ] Remote crafting: plan a job (bytes, used and missing items), choose a CPU, start it
+  (server setting `actions.ae2Crafting`, default on)
+- [ ] UI: craft dialog from the contents list, watchlist deficits and the pattern overview
+- [ ] Diagnosis: stuck jobs (no progress for a while, locked providers) and devices without a channel
+
 ## M3: GregTech CEu (GTCEu)
 
 - Its own integration; scope to be defined (machine state, maintenance, energy buffers, ...)
@@ -140,7 +158,9 @@ allowed for network owners and admins (Flux's rules) and server operators (ADR-0
 - Recipe export
 - Notifications (push, Discord webhook)
 - Custom dashboard widgets
-- Actions for other mods (AE2, GTCEu) on top of the world actions of ADR-0016
+- Actions for GTCEu on top of the world actions of ADR-0016
+- AE2: auto-restock from watchlist targets, P2P tunnel overview, storage order (priority and
+  partitions), crafting statistics, item search across grids
 - More loaders and versions (NeoForge, Fabric, older ones such as 1.7.10 for GT New Horizons) via
   Stonecutter, only when needed; the GregTech voltage tiers already match GTNH
 - [x] Public repository on GitHub prepared: MIT license, security policy, contributing guide, issue
