@@ -212,6 +212,65 @@ function driveResources(realistic: boolean) {
   )
 }
 
+function providerResource(grid: string, id: string, attrs: Record<string, string>) {
+  return {
+    ref: { provider: 'ae2', type: 'provider', id, key: `ae2/provider/${id}` },
+    attributes: { grid, block: 'ae2:pattern_provider', name: '', group: '', groupIcon: '', icon: '', priority: '0', blocking: 'false', lock: 'none', locked: 'none', visible: 'true', patterns: '1', ...attrs },
+    metrics: {},
+  }
+}
+
+const REAL_GRID = 'minecraft:overworld@120,64,-340'
+const EXTREME_GRID = 'minecraft:overworld@0,64,-0'
+
+/** Pattern providers: realistic, a small GregTech line; extreme: 150 with long names and many patterns. */
+function providerResources(realistic: boolean) {
+  if (realistic) {
+    return [
+      providerResource(REAL_GRID, 'minecraft:overworld@110,64,-338', { name: '§6Assembler HV', group: '§6Assembler HV', groupIcon: 'item:ae2:pattern_provider', icon: 'gtceu:hv_assembler', patterns: '2', blocking: 'true' }),
+      providerResource(REAL_GRID, 'minecraft:overworld@110,65,-338', { group: 'LV Electric Furnace', groupIcon: 'item:gtceu:lv_electric_furnace', patterns: '1' }),
+      providerResource(REAL_GRID, 'minecraft:overworld@111,64,-338/north', { block: 'ae2:cable_pattern_provider', group: 'Chemical Reactor MV', groupIcon: 'item:gtceu:mv_chemical_reactor', patterns: '1', lock: 'lock_until_result', locked: 'lock_until_result', visible: 'false', priority: '5' }),
+    ]
+  }
+  return Array.from({ length: 150 }, (_, i) =>
+    providerResource(EXTREME_GRID, `minecraft:overworld@${i},${-i},${i}${i % 2 ? '/south' : ''}`, {
+      block: i % 2 ? `${LONG.toLowerCase()}:ex_pattern_provider_part` : 'ae2:pattern_provider',
+      name: i % 3 === 0 ? `${LONG.slice(0, 44)} ${['LV', 'HV', 'UXV'][i % 3 === 0 ? (i / 3) % 3 : 0]}` : '',
+      group: `${LONG} ${i}`,
+      groupIcon: `item:${LONG.toLowerCase()}:x${i}`,
+      priority: String(-2_147_483_648 + i),
+      blocking: String(i % 4 === 0),
+      locked: i % 5 === 0 ? 'lock_while_low' : 'none',
+      visible: String(i % 7 !== 0),
+      patterns: String(i % 2 ? 72 : 9),
+    }),
+  )
+}
+
+/** Rows of the grid's live table (docs/modules/ae2.md): one per pattern. */
+function patternRows(grid: string, realistic: boolean) {
+  const row = (provider: string, output: string, outputName: string, amount: number, inputs: Array<[string, string, number]>, kind = 'item') => ({
+    provider, output, outputKind: kind, outputName, amount: String(amount),
+    inputs: JSON.stringify(inputs.map(([key, name, n]) => ({ key, kind: key.startsWith('fluid:') ? 'fluid' : 'item', name, amount: n }))),
+  })
+  if (realistic) {
+    if (grid !== `ae2/grid/${REAL_GRID}`) return []
+    return [
+      row('minecraft:overworld@110,64,-338', 'item:gtceu:good_electronic_circuit', 'Good Electronic Circuit', 2, [['item:gtceu:basic_electronic_circuit', 'Basic Electronic Circuit', 2], ['item:gtceu:resistor', 'Resistor', 4], ['fluid:gtceu:soldering_alloy', 'Soldering Alloy', 144]]),
+      row('minecraft:overworld@110,64,-338', 'item:gtceu:resistor', 'Resistor', 4, [['item:gtceu:fine_copper_wire', 'Fine Copper Wire', 4], ['item:gtceu:carbon_dust', 'Carbon Dust', 1]]),
+      row('minecraft:overworld@110,65,-338', 'item:minecraft:iron_ingot', 'Iron Ingot', 1, [['item:minecraft:raw_iron', 'Raw Iron', 1]]),
+      row('minecraft:overworld@111,64,-338/north', 'fluid:gtceu:polyethylene', 'Polyethylene', 144, [['fluid:gtceu:ethylene', 'Ethylene', 144], ['fluid:gtceu:oxygen', 'Oxygen', 1000]], 'fluid'),
+    ]
+  }
+  if (grid !== `ae2/grid/${EXTREME_GRID}`) return []
+  return Array.from({ length: 150 }, (_, i) => `minecraft:overworld@${i},${-i},${i}${i % 2 ? '/south' : ''}`).flatMap((provider, i) =>
+    Array.from({ length: i % 2 ? 72 : 9 }, (_, j) =>
+      row(provider, `item:${LONG.toLowerCase()}:out${i}_${j}`, `${LONG} ${j}`, Number.MAX_SAFE_INTEGER,
+        Array.from({ length: 9 }, (_, k) => [`item:${LONG.toLowerCase()}:in${k}`, `${LONG} ${k}`, 2 ** 40] as [string, string, number])),
+    ),
+  )
+}
+
 /** Crafting CPUs: realistic, one running job that advances in real time; extreme: many, long names. */
 function cpuResources(realistic: boolean) {
   const t = (Date.now() / 1000) % 600
@@ -275,7 +334,7 @@ export function ae2Snapshot(realistic = false, adopted: Map<string, string> = ne
   return {
     provider: 'ae2',
     at: { wall: now(), uptimeMillis: 123_456_789, session: 3 },
-    resources: [...[...grids, ...hidden].map(gridResource), ...cpuResources(realistic), ...driveResources(realistic)],
+    resources: [...[...grids, ...hidden].map(gridResource), ...cpuResources(realistic), ...driveResources(realistic), ...providerResources(realistic)],
   }
 }
 
@@ -663,6 +722,22 @@ export function createMockBackend(options: MockOptions = {}) {
         }
         if (typeof params.mode === 'string') set(cpu.ref.key, 'mode', { mode: params.mode }, a.mode ?? 'any', params.mode)
       }
+    } else if (b.type === 'ae2.provider.edit') {
+      const provider = part('provider', params.provider)
+      if (!provider) return fail(400, 'invalid', 'This pattern provider is not part of the network.')
+      const a = provider.attributes
+      if (typeof params.icon === 'string' && params.icon && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(params.icon)) {
+        return fail(400, 'invalid', 'icon must be an item id like minecraft:diamond.')
+      }
+      if (typeof params.name === 'string') {
+        if (params.name.length > 50) return fail(400, 'invalid', 'Names have at most 50 characters.')
+        set(provider.ref.key, 'name', { name: params.name, group: params.name || a.group }, a.name ?? '', params.name)
+      }
+      if (typeof params.icon === 'string') set(provider.ref.key, 'icon', { icon: params.icon, groupIcon: params.icon ? `item:${params.icon}` : a.groupIcon }, a.icon ?? '', params.icon)
+      if (typeof params.priority === 'number') set(provider.ref.key, 'priority', { priority: String(params.priority) }, a.priority ?? '0', String(params.priority))
+      if (typeof params.blocking === 'boolean') set(provider.ref.key, 'blocking', { blocking: String(params.blocking) }, a.blocking ?? 'false', String(params.blocking))
+      if (typeof params.visible === 'boolean') set(provider.ref.key, 'visible', { visible: String(params.visible) }, a.visible ?? 'true', String(params.visible))
+      if (typeof params.lock === 'string') set(provider.ref.key, 'lock', { lock: params.lock }, a.lock ?? 'none', params.lock)
     } else if (b.type === 'ae2.drive.edit') {
       const drive = part('drive', params.drive)
       if (!drive) return fail(400, 'invalid', 'This drive is not part of the network.')
@@ -739,10 +814,16 @@ export function createMockBackend(options: MockOptions = {}) {
         }
         return json({ ...profiler, active: profiler.mode !== 'off' })
       }
-      case '/api/v1/details':
-        return url.searchParams.get('resource') === 'profiler/total/all'
-          ? json({ resource: 'profiler/total/all', at: { wall: now(), uptimeMillis: 123_456_789, session: 3 }, rows: profilerTop(options.realistic === true) })
+      case '/api/v1/details': {
+        const resource = url.searchParams.get('resource') ?? ''
+        if (resource === 'profiler/total/all') {
+          return json({ resource, at: { wall: now(), uptimeMillis: 123_456_789, session: 3 }, rows: profilerTop(options.realistic === true) })
+        }
+        const rows = resource.startsWith('ae2/grid/') ? patternRows(resource, options.realistic === true) : []
+        return rows.length > 0
+          ? json({ resource, at: { wall: now(), uptimeMillis: 123_456_789, session: 3 }, rows })
           : json({ error: { code: 'not_found', message: 'no' } }, 404)
+      }
       case '/api/v1/admin/collectors':
         return json({
           collectors: [
@@ -894,7 +975,7 @@ export function createMockBackend(options: MockOptions = {}) {
           : resource.startsWith('flux/network/')
             ? ['flux.device.connect', 'flux.device.edit', 'flux.member.edit', 'flux.network.edit']
             : resource.startsWith('ae2/grid/')
-              ? ['ae2.cpu.cancel', 'ae2.cpu.edit', 'ae2.cpu.suspend', 'ae2.drive.edit']
+              ? ['ae2.cpu.cancel', 'ae2.cpu.edit', 'ae2.cpu.suspend', 'ae2.drive.edit', 'ae2.provider.edit']
               : []
         return json({ resource, types })
       }
