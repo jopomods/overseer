@@ -245,6 +245,82 @@ public final class Ae2ActionGameTests {
         });
     }
 
+    /**
+     * Remote crafting (ADR-0019): a plan comes back with a later collection, a plan with missing
+     * items cannot start, a good one starts on the chosen CPU once; strangers and unknown items
+     * are refused; the server setting hides it.
+     */
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 300)
+    public static void remoteCraftingPlansAndStartsAJob(GameTestHelper helper) {
+        buildGrid(helper);
+        var provider = new Ae2Provider[1];
+        var good = new java.util.concurrent.CompletableFuture[1];
+        var short_ = new java.util.concurrent.CompletableFuture[1];
+        helper.runAfterDelay(30, () -> {
+            long inserted = grid(helper).getStorageService().getInventory().insert(AEItemKey.of(Items.STICK), 16,
+                    Actionable.MODULATE, IActionSource.empty());
+            helper.assertTrue(inserted == 16, "sticks inserted: " + inserted);
+        });
+        helper.runAfterDelay(60, () -> {
+            provider[0] = provider(helper);
+            provider[0].collect(AT);
+            ActionHandler actions = provider[0].actions();
+            ResourceRef gridRef = gridRef(helper);
+            helper.assertTrue(actions.types().containsAll(Ae2Actions.CRAFT_TYPES), "crafting is on by default");
+            var off = provider(helper).remoteCrafting(() -> false);
+            helper.assertFalse(off.actions().types().contains(Ae2Actions.CRAFT_PLAN), "the server setting hides it");
+
+            var unknown = actions.start(OWNER_ACTOR, request(Ae2Actions.CRAFT_PLAN, gridRef,
+                    "{\"key\":\"item:minecraft:gold_ingot\",\"amount\":1}")).toCompletableFuture();
+            helper.assertTrue(unknown.isDone() && unknown.join().status() == Status.INVALID, "no pattern: " + unknown.getNow(null));
+            var stranger = actions.start(STRANGER_ACTOR, request(Ae2Actions.CRAFT_PLAN, gridRef,
+                    "{\"key\":\"item:minecraft:diamond\",\"amount\":1}")).toCompletableFuture();
+            helper.assertTrue(stranger.isDone() && stranger.join().status() == Status.DENIED, "stranger: " + stranger.getNow(null));
+
+            good[0] = actions.start(OWNER_ACTOR, request(Ae2Actions.CRAFT_PLAN, gridRef,
+                    "{\"key\":\"item:minecraft:diamond\",\"amount\":4}")).toCompletableFuture();
+            short_[0] = actions.start(OWNER_ACTOR, request(Ae2Actions.CRAFT_PLAN, gridRef,
+                    "{\"key\":\"item:minecraft:diamond\",\"amount\":100}")).toCompletableFuture();
+            helper.assertFalse(good[0].isDone(), "AE2 plans on its own thread; the answer comes later");
+        });
+        helper.runAfterDelay(90, () -> {
+            provider[0].collect(AT); // hands finished plans back
+            helper.assertTrue(good[0].isDone() && short_[0].isDone(), "plans must be done after a collection");
+            var plan = (io.github.jopojp.overseer.core.action.ActionResult) good[0].join();
+            helper.assertTrue(plan.isOk() && plan.data() != null, "plan: " + plan);
+            var data = plan.data();
+            helper.assertFalse(data.get("missing").getAsBoolean(), "nothing missing: " + data);
+            helper.assertTrue(data.get("bytes").getAsLong() > 0, "bytes: " + data);
+            helper.assertTrue(data.get("used").toString().contains("item:minecraft:stick"), "uses sticks: " + data);
+            var cpus = data.getAsJsonArray("cpus");
+            helper.assertTrue(cpus.size() == 1 && cpus.get(0).getAsJsonObject().get("fits").getAsBoolean(), "cpus: " + cpus);
+            String cpu = cpus.get(0).getAsJsonObject().get("id").getAsString();
+            helper.assertTrue(id(helper, CPU).equals(cpu), "cpu id like the snapshot: " + cpu);
+
+            var missing = (io.github.jopojp.overseer.core.action.ActionResult) short_[0].join();
+            helper.assertTrue(missing.isOk() && missing.data().get("missing").getAsBoolean()
+                    && missing.data().get("missingItems").toString().contains("item:minecraft:stick"), "short: " + missing);
+            ActionHandler actions = provider[0].actions();
+            ResourceRef gridRef = gridRef(helper);
+            var refused = actions.perform(OWNER_ACTOR, request(Ae2Actions.CRAFT_START, gridRef,
+                    "{\"plan\":\"" + missing.data().get("plan").getAsString() + "\"}"));
+            helper.assertTrue(refused.status() == Status.INVALID, "a plan with missing items cannot start: " + refused);
+
+            String id = data.get("plan").getAsString();
+            var other = actions.perform(new Actor(UUID.randomUUID(), "Other", false), request(Ae2Actions.CRAFT_START, gridRef,
+                    "{\"plan\":\"" + id + "\"}"));
+            helper.assertTrue(other.status() == Status.DENIED, "someone else's plan: " + other);
+            var started = actions.perform(OWNER_ACTOR, request(Ae2Actions.CRAFT_START, gridRef,
+                    "{\"plan\":\"" + id + "\",\"cpu\":\"" + cpu + "\"}"));
+            helper.assertTrue(started.isOk() && started.changes().size() == 1
+                    && "item:minecraft:diamond".equals(started.changes().get(0).after()), "start: " + started);
+            helper.assertTrue(((CraftingBlockEntity) helper.getBlockEntity(CPU)).getCluster().isBusy(), "the CPU crafts");
+            var again = actions.perform(OWNER_ACTOR, request(Ae2Actions.CRAFT_START, gridRef, "{\"plan\":\"" + id + "\"}"));
+            helper.assertTrue(again.status() == Status.INVALID, "a plan starts once: " + again);
+            helper.succeed();
+        });
+    }
+
     // --- setup -----------------------------------------------------------------------------
 
     /** Controller (owned), creative power, drive with a 1k cell, 1k CPU, provider with a pattern. */

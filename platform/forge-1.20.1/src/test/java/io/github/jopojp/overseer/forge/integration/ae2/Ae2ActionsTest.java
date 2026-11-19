@@ -90,4 +90,24 @@ class Ae2ActionsTest {
         assertThrows(Invalid.class, () -> Ae2Actions.providerEdit(json("{\"provider\":\"minecraft:overworld@1,2,3\"}")), "nothing to change");
         assertThrows(Invalid.class, () -> Ae2Actions.providerEdit(json("{\"priority\":1}")));
     }
+
+    @Test
+    void craftingTakesAStackKeyAnAmountAndAPlan() {
+        var plan = Ae2Actions.craftPlan(json("{\"key\":\"item:minecraft:iron_ingot#1a2b\",\"amount\":64}"));
+        assertEquals("item:minecraft:iron_ingot#1a2b", plan.key());
+        assertEquals(64, plan.amount());
+        assertEquals("fluid:gtceu:oxygen", Ae2Actions.craftPlan(json("{\"key\":\"fluid:gtceu:oxygen\",\"amount\":1000}")).key());
+        assertThrows(Invalid.class, () -> Ae2Actions.craftPlan(json("{\"key\":\"Iron Ingot\",\"amount\":1}")));
+        assertThrows(Invalid.class, () -> Ae2Actions.craftPlan(json("{\"key\":\"item:minecraft:iron_ingot\",\"amount\":0}")));
+        assertThrows(Invalid.class,
+                () -> Ae2Actions.craftPlan(json("{\"key\":\"item:minecraft:iron_ingot\",\"amount\":1000000000001}")));
+        assertThrows(Invalid.class, () -> Ae2Actions.craftPlan(json("{\"key\":\"item:minecraft:iron_ingot\"}")));
+
+        var start = Ae2Actions.craftStart(json("{\"plan\":\"0123456789abcdef\",\"cpu\":\"minecraft:overworld@1,2,3\"}"));
+        assertEquals("0123456789abcdef", start.plan());
+        assertEquals("minecraft:overworld@1,2,3", start.cpu());
+        assertNull(Ae2Actions.craftStart(json("{\"plan\":\"0123456789abcdef\"}")).cpu(), "AE2 chooses");
+        assertThrows(Invalid.class, () -> Ae2Actions.craftStart(json("{\"plan\":\"nope\"}")));
+        assertThrows(Invalid.class, () -> Ae2Actions.craftStart(json("{\"plan\":\"0123456789abcdef\",\"cpu\":\"x\"}")));
+    }
 }
