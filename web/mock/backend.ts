@@ -248,14 +248,17 @@ function providerResources(realistic: boolean) {
 }
 
 /** Rows of the grid's live table (docs/modules/ae2.md): one per pattern. */
-function patternRows(grid: string, realistic: boolean) {
+function patternRows(grid: string, realistic: boolean): Array<Record<string, string>> {
   const row = (provider: string, output: string, outputName: string, amount: number, inputs: Array<[string, string, number]>, kind = 'item') => ({
     provider, output, outputKind: kind, outputName, amount: String(amount),
     inputs: JSON.stringify(inputs.map(([key, name, n]) => ({ key, kind: key.startsWith('fluid:') ? 'fluid' : 'item', name, amount: n }))),
   })
+  const offline = (id: string, item: string, name: string) => ({ row: 'offline', id, item, name })
   if (realistic) {
     if (grid !== `ae2/grid/${REAL_GRID}`) return []
     return [
+      offline('minecraft:overworld@105,64,-330/east', 'item:ae2:import_bus', 'ME Import Bus'),
+      offline('minecraft:overworld@105,65,-330', 'item:ae2:interface', 'ME Interface'),
       row('minecraft:overworld@110,64,-338', 'item:gtceu:good_electronic_circuit', 'Good Electronic Circuit', 2, [['item:gtceu:basic_electronic_circuit', 'Basic Electronic Circuit', 2], ['item:gtceu:resistor', 'Resistor', 4], ['fluid:gtceu:soldering_alloy', 'Soldering Alloy', 144]]),
       row('minecraft:overworld@110,64,-338', 'item:gtceu:resistor', 'Resistor', 4, [['item:gtceu:fine_copper_wire', 'Fine Copper Wire', 4], ['item:gtceu:carbon_dust', 'Carbon Dust', 1]]),
       row('minecraft:overworld@110,65,-338', 'item:minecraft:iron_ingot', 'Iron Ingot', 1, [['item:minecraft:raw_iron', 'Raw Iron', 1]]),
@@ -263,12 +266,15 @@ function patternRows(grid: string, realistic: boolean) {
     ]
   }
   if (grid !== `ae2/grid/${EXTREME_GRID}`) return []
-  return Array.from({ length: 150 }, (_, i) => `minecraft:overworld@${i},${-i},${i}${i % 2 ? '/south' : ''}`).flatMap((provider, i) =>
+  const dark = Array.from({ length: 500 }, (_, i) =>
+    offline(`minecraft:overworld@${-i},${i},${-i}${i % 2 ? '/down' : ''}`, `item:${LONG.toLowerCase()}:dev${i}`, `${LONG} ${i}`))
+  const patterns = Array.from({ length: 150 }, (_, i) => `minecraft:overworld@${i},${-i},${i}${i % 2 ? '/south' : ''}`).flatMap((provider, i) =>
     Array.from({ length: i % 2 ? 72 : 9 }, (_, j) =>
       row(provider, `item:${LONG.toLowerCase()}:out${i}_${j}`, `${LONG} ${j}`, Number.MAX_SAFE_INTEGER,
         Array.from({ length: 9 }, (_, k) => [`item:${LONG.toLowerCase()}:in${k}`, `${LONG} ${k}`, 2 ** 40] as [string, string, number])),
     ),
   )
+  return [...dark, ...patterns]
 }
 
 /** Crafting CPUs: realistic, one running job that advances in real time; extreme: many, long names. */
@@ -279,7 +285,7 @@ function cpuResources(realistic: boolean) {
     return [
       cpuResource(grid, 'minecraft:overworld@118,60,-338', { name: '§bCircuits', storage: '262144', coProcessors: '16', job: 'item:gtceu:good_electronic_circuit', jobKind: 'item', jobName: 'Good Electronic Circuit', jobAmount: '64' },
         { job_total: 1_280, job_progress: Math.round(1_280 * (t / 600)), job_elapsed: 30 + t }),
-      cpuResource(grid, 'minecraft:overworld@118,60,-332', { job: 'fluid:gtceu:polyethylene', jobKind: 'fluid', jobName: 'Polyethylene', jobAmount: '16000' },
+      cpuResource(grid, 'minecraft:overworld@118,60,-332', { job: 'fluid:gtceu:polyethylene', jobKind: 'fluid', jobName: 'Polyethylene', jobAmount: '16000', stalledSince: new Date(Date.now() - 12 * 60_000).toISOString() },
         { job_total: 2_147_483_695, job_progress: 1_073_741_830, job_elapsed: 4_210 }),
       cpuResource(grid, 'minecraft:overworld@118,60,-326', {}),
     ]

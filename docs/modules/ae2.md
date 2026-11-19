@@ -82,6 +82,7 @@ AE2 grids have no names. The name is an Overseer override (`PUT /api/v1/override
 | `fluids`, `fluid_types` | mB, count | UI shows buckets |
 | `channels` | count | channels in use |
 | `cpus_busy` | count | crafting CPUs with a job |
+| `no_channel` | count | devices that need a channel and have none; from the inventory scan (every 10 s), not while booting |
 
 Cost: AE2 keeps the network inventory cached; the reader only iterates it to count, about
 one pass over the item types per grid and second. Measure with the collector page before
@@ -105,6 +106,7 @@ and editable exactly like its grid (shares included). CPUs of hidden grids are n
 | `mode` | `any`, `player_only`, `machine_only` (AE2 selection mode) |
 | `busy`, `job`, `jobKind`, `jobName`, `jobAmount` | Running job: stack key, kind, name and requested amount; empty when idle |
 | `suspended` | The running job is suspended (AE2 builds with job suspension only; always `false` otherwise) |
+| `stalledSince` | When the running job last made progress, if AE2's progress has not moved for 5 minutes (and the job is not suspended); empty otherwise. Tracked in memory, so a restart starts the clock again |
 
 | Metric (while busy) | |
 |---|---|
@@ -189,6 +191,21 @@ Add-on cells that AE2 does not describe in bytes (e.g. bulk cells) show their st
 cell inventories come from the drive's own cache (`getOriginalCellInventory`), so reading them
 costs no NBT parsing. Metrics are skipped while a grid boots.
 
+## Diagnosis
+
+**Stuck jobs.** A CPU whose job has made no progress for 5 minutes gets `stalledSince` (see Crafting
+CPUs). The grid page warns on the card ("No progress for 12 min"), counts stuck CPUs in the section
+header, and never folds a stuck CPU away with the automation CPUs. Typical causes: a locked pattern
+provider (its `locked` attribute), a missing or full machine, missing inputs; the job lines show
+what the job waits for.
+
+**Devices without channel.** With each inventory scan the reader walks the grid's nodes and lists
+those that need a channel (`GridFlags.REQUIRE_CHANNEL`) and have none, at most 500: rows of the
+grid's live table with `row=offline`, `id` (`dimension@x,y,z`, plus `/<side>` for parts), `item`
+(what AE2 shows for the device) and `name`; the count is the metric `no_channel`. Booting grids are
+not checked (channels are handed out after booting); the last answer stays until the next scan.
+The grid page lists them near the top when there are any.
+
 ## Pattern providers
 
 Every pattern provider of a grid, block or part on a cable (anything implementing AE2's
@@ -211,7 +228,7 @@ visible like its grid.
 | `patterns` | Number of patterns |
 
 **Patterns** are read with the inventory scan (every 10 s) and sent as the grid's live table
-(`GET /api/v1/details?resource=ae2/grid/<id>`), one row per pattern: `provider`, `output`,
+(`GET /api/v1/details?resource=ae2/grid/<id>`), one row per pattern: `row=pattern`, `provider`, `output`,
 `outputKind`, `outputName`, `amount` (per craft) and `inputs` (JSON list of `{key, kind, name,
 amount}`, the first possible input of each slot). Read only; nothing is stored.
 
@@ -308,7 +325,8 @@ shows the controls in the expanded CPU card and on each drive, and the grid's ch
 - `Ae2MappingTest`, `Ae2ActionsTest` (JUnit): mapping, access rules, action parameters.
 - `Ae2GameTests` (Forge GameTest, also in CI): discovery, hidden and registered grids, inventory
   scan, CPUs, drives, placer access.
-- `Ae2ActionGameTests`: remote crafting (a plan comes back with the next collection, missing
+- `Ae2ActionGameTests`: devices without channel (ten drives on a grid without controller);
+  remote crafting (a plan comes back with the next collection, missing
   items block the start, a good plan starts once on the chosen CPU, strangers and unknown items are
   refused, the server setting hides it); pattern providers (a block and a part on a cable) are read with their
   patterns, every setting is changed through the action, the icon shows in AE2's terminal group

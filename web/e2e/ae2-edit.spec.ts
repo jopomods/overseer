@@ -8,7 +8,8 @@ test.describe('ae2 actions', () => {
   test('suspend, resume and cancel a crafting job', async ({ page }) => {
     await mockApi(page, { realistic: true })
     await page.goto(GRID)
-    const card = page.getByTestId('cpu-list').getByRole('listitem').first()
+    // Busy CPUs come first, so the card moves when its job ends: find it by name.
+    const card = page.getByTestId('cpu-list').getByRole('listitem').filter({ hasText: 'Circuits' })
     await card.getByRole('button', { expanded: false }).click()
     const controls = card.getByTestId('cpu-controls')
 
@@ -179,5 +180,17 @@ test.describe('ae2 actions', () => {
     await expect(page.getByTestId('inventory-list')).toBeVisible()
     await expect(page.getByTestId('craft-search-open')).toHaveCount(0)
     await expect(page.getByRole('button', { name: /^Craft / })).toHaveCount(0)
+  })
+
+  test('diagnosis: stuck jobs and devices without channel', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto(GRID)
+    await expect(page.getByText('1 stuck')).toBeVisible()
+    const stuck = page.getByTestId('cpu-list').getByRole('listitem').filter({ hasText: 'Polyethylene' })
+    await expect(stuck.getByTestId('cpu-stalled')).toContainText('No progress for 12')
+    const offline = page.getByTestId('offline-devices')
+    await expect(offline.getByRole('listitem')).toHaveCount(2)
+    await expect(offline).toContainText('ME Import Bus')
+    await expect(offline).toContainText('105, 64, -330 · east side')
   })
 })

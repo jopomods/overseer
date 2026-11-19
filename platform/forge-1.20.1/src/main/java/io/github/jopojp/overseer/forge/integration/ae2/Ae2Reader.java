@@ -255,6 +255,9 @@ final class Ae2Reader {
         List<Ae2Model.Provider> providers = new ArrayList<>();
         List<Ae2Model.Pattern> patterns = kind == Kind.HIDDEN || scan == null ? null : new ArrayList<>();
         if (kind != Kind.HIDDEN) providers(grid, keys, providers, patterns);
+        // Channels are handed out after booting; until then every device would count as offline.
+        List<Ae2Model.Offline> offline = kind == Kind.HIDDEN || scan == null || pathingBooting(grid) ? null
+                : withoutChannel(grid, keys);
 
         IPathingService pathing = grid.getPathingService();
         return new Ae2Model.Grid(dimension, pos.getX(), pos.getY(), pos.getZ(), owner,
@@ -265,7 +268,7 @@ final class Ae2Reader {
                 placers == null || kind == Kind.HIDDEN ? java.util.Set.of()
                         : scan != null || !placers.containsKey(gridId) ? refresh(placers, gridId, grid)
                         : placers.get(gridId),
-                providers, patterns);
+                providers, patterns, offline);
     }
 
     /**
@@ -452,6 +455,39 @@ final class Ae2Reader {
         }
         out.sort(Comparator.comparing(Ae2Model.Provider::id));
         if (patterns != null) patterns.sort(Comparator.comparing(Ae2Model.Pattern::provider));
+    }
+
+    /** Devices of a grid at most reported as without channel; a broken base should not flood the page. */
+    static final int MAX_OFFLINE = 500;
+
+    private static boolean pathingBooting(Grid grid) {
+        return grid.getPathingService().isNetworkBooting();
+    }
+
+    /** Devices that need a channel and have none, with position and the item AE2 shows for them. */
+    private static List<Ae2Model.Offline> withoutChannel(Grid grid, StackCache keys) {
+        var result = new ArrayList<Ae2Model.Offline>();
+        for (IGridNode node : grid.getNodes()) {
+            if (!node.hasFlag(appeng.api.networking.GridFlags.REQUIRE_CHANNEL) || node.meetsChannelRequirements()) continue;
+            String id = null;
+            Object owner = node.getOwner();
+            if (owner instanceof appeng.parts.AEBasePart part && part.getBlockEntity() != null
+                    && part.getBlockEntity().getLevel() != null) {
+                BlockPos pos = part.getBlockEntity().getBlockPos();
+                id = dimension(part.getBlockEntity().getLevel()) + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ()
+                        + (part.getSide() == null ? "" : "/" + part.getSide().getSerializedName());
+            } else if (node instanceof InWorldGridNode inWorld && node.getLevel() != null) {
+                BlockPos pos = inWorld.getLocation();
+                id = dimension(node.getLevel()) + "@" + pos.getX() + "," + pos.getY() + "," + pos.getZ();
+            }
+            if (id == null) continue;
+            var visual = node.getVisualRepresentation();
+            Stack shown = visual == null ? null : keys.stack(visual, 0);
+            result.add(new Ae2Model.Offline(id, shown == null ? "" : shown.key(), shown == null ? "" : shown.name()));
+            if (result.size() >= MAX_OFFLINE) break;
+        }
+        result.sort(Comparator.comparing(Ae2Model.Offline::id));
+        return result;
     }
 
     /** {@code dimension@x,y,z}, plus {@code /<side>} for a part. */

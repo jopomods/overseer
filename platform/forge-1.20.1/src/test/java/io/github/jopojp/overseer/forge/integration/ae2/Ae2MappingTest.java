@@ -41,7 +41,8 @@ class Ae2MappingTest {
                 .anyMatch(s -> s.resource().equals(ref) && s.metric().equals("items") && s.value() == 1_234_567));
         assertTrue(snapshot.samples().stream()
                 .anyMatch(s -> s.resource().equals(ref) && s.metric().equals("power_usage") && s.value() == 35.5));
-        assertEquals(Ae2Mapping.METRICS.size(), snapshot.samples().size());
+        // no_channel only once the grid was checked (inventory scans).
+        assertEquals(Ae2Mapping.METRICS.size() - 1, snapshot.samples().size());
     }
 
     @Test
@@ -241,7 +242,7 @@ class Ae2MappingTest {
         Grid g = grid(OWNER, 10);
         var full = new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(), g.controllers(),
                 g.state(), false, g.channels(), g.energy(), g.storage(), g.crafting(), Ae2Model.Kind.CONTROLLER, null,
-                List.of(), java.util.Map.of(), java.util.Set.of(), List.of(provider), List.of(pattern));
+                List.of(), java.util.Map.of(), java.util.Set.of(), List.of(provider), List.of(pattern), null);
         var snapshot = Ae2Mapping.snapshot(AT, List.of(full));
         var ref = Ae2Mapping.provider("minecraft:overworld@4,64,0/north");
         var attrs = snapshot.resources().get(ref);
@@ -259,5 +260,46 @@ class Ae2MappingTest {
         assertEquals(Ae2Mapping.grid(g.id()), Ae2Mapping.AccessIndex.of(List.of(full)).parent(ref));
         var noPatterns = Ae2Mapping.snapshot(AT, List.of(full.withPatterns(null)));
         assertFalse(noPatterns.details().containsKey(Ae2Mapping.grid(g.id())), "no table without patterns");
+    }
+
+    @Test
+    void devicesWithoutChannelAreCountedAndListed() {
+        Grid g = grid(OWNER, 10).withOffline(List.of(
+                new Ae2Model.Offline("minecraft:overworld@1,2,3/north", "item:ae2:import_bus", "ME Import Bus"),
+                new Ae2Model.Offline("minecraft:overworld@4,5,6", "item:ae2:drive", "ME Drive")));
+        var snapshot = Ae2Mapping.snapshot(AT, List.of(g));
+        var ref = Ae2Mapping.grid(g.id());
+        assertTrue(snapshot.samples().stream().anyMatch(s -> s.resource().equals(ref) && s.metric().equals("no_channel")
+                && s.value() == 2));
+        var rows = snapshot.details().get(ref);
+        assertEquals(2, rows.size());
+        assertEquals("offline", rows.get(0).get("row"));
+        assertEquals("ME Import Bus", rows.get(0).get("name"));
+        assertFalse(Ae2Mapping.snapshot(AT, List.of(grid(OWNER, 10))).samples().stream()
+                .anyMatch(s -> s.metric().equals("no_channel")), "not checked yet: no value");
+    }
+
+    @Test
+    void jobsWithoutProgressForFiveMinutesAreStalled() {
+        var tracker = new Ae2Mapping.StallTracker();
+        java.util.function.LongFunction<List<Grid>> withProgress = progress -> {
+            var job = new Ae2Model.Job("item:minecraft:stick", "item", "Stick", 64, 100, progress, 1);
+            var cpus = List.of(new Ae2Model.Cpu("minecraft:overworld@1,2,3", null, 1_024, 0, "any", job, 1, false));
+            Grid g = grid(OWNER, 10);
+            return List.of(new Grid(g.dimension(), g.x(), g.y(), g.z(), g.owner(), g.ownerName(), g.nodes(),
+                    g.controllers(), g.state(), false, g.channels(), g.energy(), g.storage(),
+                    new Ae2Model.Crafting(1, 1, 1_024, 0, cpus), Ae2Model.Kind.CONTROLLER));
+        };
+        java.util.function.LongFunction<io.github.jopojp.overseer.core.time.Timestamp> at = minute ->
+                new io.github.jopojp.overseer.core.time.Timestamp(java.time.Instant.EPOCH.plusSeconds(minute * 60),
+                        minute * 60_000, 1);
+        assertTrue(tracker.update(withProgress.apply(10), at.apply(0)).isEmpty());
+        assertTrue(tracker.update(withProgress.apply(10), at.apply(4)).isEmpty(), "four minutes is patience");
+        var stalled = tracker.update(withProgress.apply(10), at.apply(5));
+        assertEquals(java.time.Instant.EPOCH, stalled.get("minecraft:overworld@1,2,3"), "since the last progress");
+        assertTrue(tracker.update(withProgress.apply(11), at.apply(6)).isEmpty(), "progress clears it");
+        var attrs = Ae2Mapping.snapshot(AT, withProgress.apply(10), java.util.Map.of("minecraft:overworld@1,2,3",
+                java.time.Instant.EPOCH)).resources().get(Ae2Mapping.cpu("minecraft:overworld@1,2,3"));
+        assertEquals("1970-01-01T00:00:00Z", attrs.get("stalledSince"));
     }
 }

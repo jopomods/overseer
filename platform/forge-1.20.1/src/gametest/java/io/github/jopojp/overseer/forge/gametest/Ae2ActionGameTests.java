@@ -321,6 +321,35 @@ public final class Ae2ActionGameTests {
         });
     }
 
+    /**
+     * A network without controller has eight channels: ten drives leave devices without one. They
+     * are counted and listed with position and item.
+     */
+    @GameTest(template = "empty", templateNamespace = "overseer", timeoutTicks = 200)
+    public static void devicesWithoutChannelAreListed(GameTestHelper helper) {
+        BlockPos cell = new BlockPos(0, 1, 5);
+        place(helper, cell, "creative_energy_cell");
+        for (int x = 1; x <= 10; x++) place(helper, new BlockPos(x, 1, 5), "drive");
+        String gridId = id(helper, cell);
+        helper.runAfterDelay(60, () -> {
+            var provider = new Ae2Provider(helper.getLevel().getServer(), Teams.detect(), () -> Map.of(gridId, OWNER));
+            var snapshot = provider.collect(AT);
+            ResourceRef ref = Ae2Mapping.grid(gridId);
+            double count = snapshot.samples().stream()
+                    .filter(x -> x.resource().equals(ref) && x.metric().equals("no_channel"))
+                    .mapToDouble(io.github.jopojp.overseer.core.provider.Sample::value).findFirst().orElse(-1);
+            helper.assertTrue(count > 0, "devices without channel: " + count + " in " + snapshot.resources().keySet());
+            var rows = snapshot.details().get(ref).stream().filter(r -> "offline".equals(r.get("row"))).toList();
+            helper.assertTrue(rows.size() == (int) count, "rows: " + rows.size());
+            helper.assertTrue("item:ae2:drive".equals(rows.get(0).get("item")) && rows.get(0).get("id").contains("@"),
+                    "row: " + rows.get(0));
+            var next = provider.collect(AT);
+            helper.assertTrue(next.samples().stream().anyMatch(x -> x.resource().equals(ref) && x.metric().equals("no_channel")),
+                    "the count stays between scans");
+            helper.succeed();
+        });
+    }
+
     // --- setup -----------------------------------------------------------------------------
 
     /** Controller (owned), creative power, drive with a 1k cell, 1k CPU, provider with a pattern. */

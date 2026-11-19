@@ -22,6 +22,7 @@ import { McText } from '@/components/mc-text'
 import { CraftProvider } from '@/components/craft'
 import { CraftingSection } from '@/components/crafting-cpus'
 import { DrivesSection } from '@/components/drives-section'
+import { OfflineDevicesSection } from '@/components/offline-devices'
 import { PatternProvidersSection } from '@/components/pattern-providers'
 import { HistoryChart } from '@/components/history-chart'
 import { InventorySection } from '@/components/inventory-list'
@@ -33,7 +34,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AE2_ACTIONS, cpus, drives, patternProviders, patternsOf, providerLabel, formatAe, formatAeRate, formatBuckets, formatPos, grids, idPos, shortDimension, type Ae2Grid } from '@/lib/ae2'
+import { AE2_ACTIONS, cpus, drives, offlineOf, patternProviders, patternsOf, providerLabel, formatAe, formatAeRate, formatBuckets, formatPos, grids, idPos, shortDimension, type Ae2Grid } from '@/lib/ae2'
 import { formatBytes, formatDuration, formatNumber, formatSi } from '@/lib/format'
 import { useT } from '@/lib/i18n'
 import { plainText } from '@/lib/mc-text'
@@ -56,6 +57,7 @@ export function GridPage() {
   const tiers = useMemo(() => tiersOf(scheme), [scheme])
   const patternRows = useDetails(grid?.resource.ref.key ?? '', grid !== undefined).data
   const patterns = useMemo(() => patternsOf(patternRows), [patternRows])
+  const offline = useMemo(() => offlineOf(patternRows), [patternRows])
 
   if (snapshot.isPending) return <Skeleton className="h-64" />
   if (!grid) {
@@ -114,6 +116,8 @@ export function GridPage() {
           hint={t('ae2.cpusBusy', { busy: grid.cpusBusy, count: grid.cpus })}
         />
       </div>
+
+      <OfflineDevicesSection devices={offline} />
 
       <CraftProvider grid={key} enabled={allowed.has(AE2_ACTIONS.craftPlan)} patterns={patterns}>
         <CraftingSection cpus={cpus(snapshot.data, grid.id)} grid={key} allowed={allowed} />
