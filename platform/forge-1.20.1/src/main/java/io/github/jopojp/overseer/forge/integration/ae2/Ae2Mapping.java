@@ -75,11 +75,16 @@ public final class Ae2Mapping {
         return new ResourceRef(PROVIDER, "drive", id);
     }
 
+    public static ResourceRef provider(String id) {
+        return new ResourceRef(PROVIDER, "provider", id);
+    }
+
     public static ProviderSnapshot snapshot(Timestamp at, List<Grid> grids) {
         Map<ResourceRef, Map<String, String>> resources = new HashMap<>();
         List<Sample> samples = new ArrayList<>();
         Map<ResourceRef, List<io.github.jopojp.overseer.core.provider.Stack>> inventories = new HashMap<>();
         Map<ResourceRef, List<io.github.jopojp.overseer.core.provider.JobLine>> jobs = new HashMap<>();
+        Map<ResourceRef, List<Map<String, String>>> details = new HashMap<>();
         for (Grid g : grids) {
             ResourceRef ref = grid(g.id());
             var attrs = new LinkedHashMap<String, String>();
@@ -132,8 +137,10 @@ public final class Ae2Mapping {
                 cpu(g, cpu, resources, samples);
                 if (cpu.job() != null) jobs.put(cpu(cpu.id()), cpu.job().lines());
             }
+            for (Ae2Model.Provider provider : g.providers()) provider(g, provider, resources);
+            if (g.patterns() != null && !g.patterns().isEmpty()) details.put(ref, patternRows(g.patterns()));
         }
-        return new ProviderSnapshot(PROVIDER, at, resources, samples, inventories, jobs);
+        return new ProviderSnapshot(PROVIDER, at, resources, samples, inventories, jobs, details);
     }
 
     /**
@@ -195,6 +202,53 @@ public final class Ae2Mapping {
         samples.add(new Sample(ref, TYPES_TOTAL.key(), drive.totalTypes()));
     }
 
+    /**
+     * A pattern provider. Its name, settings and lock state are attributes, so changes are events;
+     * its patterns are rows of the grid's live table.
+     */
+    private static void provider(Grid g, Ae2Model.Provider p, Map<ResourceRef, Map<String, String>> resources) {
+        var attrs = new LinkedHashMap<String, String>();
+        attrs.put("grid", g.id());
+        attrs.put("block", p.block());
+        attrs.put("name", p.name() == null ? "" : p.name());
+        attrs.put("group", p.group());
+        attrs.put("groupIcon", p.groupIcon() == null ? "" : p.groupIcon());
+        attrs.put("icon", p.icon() == null ? "" : p.icon());
+        attrs.put("priority", Integer.toString(p.priority()));
+        attrs.put("blocking", Boolean.toString(p.blocking()));
+        attrs.put("lock", p.lock());
+        attrs.put("locked", p.locked());
+        attrs.put("visible", Boolean.toString(p.visible()));
+        attrs.put("patterns", Integer.toString(p.patterns()));
+        resources.put(provider(p.id()), attrs);
+    }
+
+    private static final com.google.gson.Gson GSON = new com.google.gson.Gson();
+
+    /**
+     * The patterns of a grid, one row each: {@code provider}, {@code output}, {@code outputKind},
+     * {@code outputName}, {@code amount} and {@code inputs} (JSON list of {@code {key, kind, name,
+     * amount}}).
+     */
+    static List<Map<String, String>> patternRows(List<Ae2Model.Pattern> patterns) {
+        var rows = new ArrayList<Map<String, String>>(patterns.size());
+        for (Ae2Model.Pattern p : patterns) {
+            var row = new LinkedHashMap<String, String>();
+            row.put("provider", p.provider());
+            row.put("output", p.output().key());
+            row.put("outputKind", p.output().kind());
+            row.put("outputName", p.output().name());
+            row.put("amount", Long.toString(p.output().amount()));
+            var inputs = new ArrayList<Map<String, Object>>();
+            for (var input : p.inputs()) {
+                inputs.add(Map.of("key", input.key(), "kind", input.kind(), "name", input.name(), "amount", input.amount()));
+            }
+            row.put("inputs", GSON.toJson(inputs));
+            rows.add(row);
+        }
+        return rows;
+    }
+
     public static final class AccessIndex {
         public static final AccessIndex EMPTY = new AccessIndex(Map.of(), Map.of(), Map.of(), Map.of());
 
@@ -236,6 +290,7 @@ public final class Ae2Mapping {
             for (Grid g : grids) {
                 for (Ae2Model.Cpu cpu : g.crafting().list()) partGrids.put(cpu(cpu.id()).key(), g.id());
                 for (Ae2Model.Drive drive : g.drives()) partGrids.put(drive(drive.id()).key(), g.id());
+                for (Ae2Model.Provider p : g.providers()) partGrids.put(provider(p.id()).key(), g.id());
                 if (placerAccess && g.kind() != Ae2Model.Kind.HIDDEN && !g.placers().isEmpty()) {
                     viewers.put(g.id(), g.placers());
                 }
@@ -247,7 +302,7 @@ public final class Ae2Mapping {
             return new AccessIndex(Map.copyOf(owners), Map.copyOf(teams), Map.copyOf(partGrids), Map.copyOf(viewers));
         }
 
-        /** The grid of a part (crafting CPU, drive): parts are visible exactly like their grid. */
+        /** The grid of a part (crafting CPU, drive, pattern provider): parts are visible exactly like their grid. */
         public ResourceRef parent(ResourceRef ref) {
             if (!ref.provider().equals(PROVIDER) || ref.type().equals("grid")) return null;
             String grid = partGrids.get(ref.key());

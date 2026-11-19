@@ -110,6 +110,35 @@ public final class Ae2Model {
     }
 
     /**
+     * A pattern provider, block or part (anything implementing AE2's {@code PatternProviderLogicHost},
+     * add-on providers included).
+     *
+     * @param id        {@code dimension@x,y,z} of the block, plus {@code /<side>} for a part on a cable
+     * @param block     registry id of the block or part item, e.g. {@code ae2:pattern_provider}
+     * @param name      custom name, {@code null} if none
+     * @param group     the name AE2 shows in the Pattern Access Terminal (custom name, else the machine)
+     * @param groupIcon stack key of the icon AE2 shows there; {@code null} if none
+     * @param lock      AE2 lock crafting mode, lower case ({@code none}, {@code lock_until_pulse}, ...)
+     * @param locked    why the provider is locked right now, {@code none} if it is not
+     * @param icon      registry id of the item chosen as icon from the dashboard, {@code null} if none
+     */
+    public record Provider(String id, String block, String name, String group, String groupIcon, int priority,
+            boolean blocking, String lock, String locked, boolean visible, int patterns, String icon) {}
+
+    /**
+     * One pattern of a provider, read with the inventory scan.
+     *
+     * @param provider id of the provider
+     * @param output   primary output (amount per craft)
+     * @param inputs   first possible input of each slot, amount per craft
+     */
+    public record Pattern(String provider, Stack output, List<Stack> inputs) {
+        public Pattern {
+            inputs = List.copyOf(inputs);
+        }
+    }
+
+    /**
      * A crafting job.
      *
      * @param key         stack key of the requested output (see {@code Stack})
@@ -142,6 +171,8 @@ public final class Ae2Model {
      * @param drives     drives and ME chests
      * @param watched    current amount of each watched stack key that AE2 knows (every second)
      * @param placers    players who placed any node of the grid; only read when placer access is on
+     * @param providers  pattern providers
+     * @param patterns   their patterns when read this time (inventory scans), otherwise {@code null}
      */
     public record Grid(
             String dimension,
@@ -162,13 +193,31 @@ public final class Ae2Model {
             List<Stack> inventory,
             List<Drive> drives,
             java.util.Map<String, Long> watched,
-            java.util.Set<UUID> placers) {
+            java.util.Set<UUID> placers,
+            List<Provider> providers,
+            List<Pattern> patterns) {
 
         public Grid {
             placers = placers == null ? java.util.Set.of() : java.util.Set.copyOf(placers);
+            providers = providers == null ? List.of() : List.copyOf(providers);
+            if (patterns != null) patterns = List.copyOf(patterns);
             if (inventory != null) inventory = List.copyOf(inventory);
             drives = drives == null ? List.of() : List.copyOf(drives);
             watched = watched == null ? java.util.Map.of() : java.util.Map.copyOf(watched);
+        }
+
+        public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,
+                ControllerState state, boolean booting, int channels, Energy energy, Storage storage,
+                Crafting crafting, Kind kind, List<Stack> inventory, List<Drive> drives,
+                java.util.Map<String, Long> watched, java.util.Set<UUID> placers) {
+            this(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy, storage,
+                    crafting, kind, inventory, drives, watched, placers, List.of(), null);
+        }
+
+        /** The same grid with these patterns (cached between scans). */
+        public Grid withPatterns(List<Pattern> list) {
+            return new Grid(dimension, x, y, z, owner, ownerName, nodes, controllers, state, booting, channels, energy,
+                    storage, crafting, kind, inventory, drives, watched, placers, providers, list);
         }
 
         public Grid(String dimension, int x, int y, int z, UUID owner, String ownerName, int nodes, int controllers,

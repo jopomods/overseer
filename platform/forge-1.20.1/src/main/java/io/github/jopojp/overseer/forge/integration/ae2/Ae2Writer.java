@@ -1,6 +1,20 @@
 package io.github.jopojp.overseer.forge.integration.ae2;
 
 import appeng.api.config.CpuSelectionMode;
+import appeng.api.config.LockCraftingMode;
+import appeng.api.config.Setting;
+import appeng.api.config.YesNo;
+import appeng.api.networking.security.IActionHost;
+import appeng.api.parts.IPartHost;
+import appeng.api.util.IConfigManager;
+import appeng.blockentity.AEBaseBlockEntity;
+import appeng.helpers.patternprovider.PatternProviderLogicHost;
+import appeng.parts.AEBasePart;
+import net.minecraft.core.Direction;
+import net.minecraft.world.Nameable;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import net.minecraftforge.registries.ForgeRegistries;
 import appeng.api.config.Settings;
 import appeng.api.implementations.blockentities.IChestOrDrive;
 import appeng.api.networking.IGrid;
@@ -16,6 +30,8 @@ import io.github.jopojp.overseer.core.action.Actor;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Actions.CpuEdit;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Actions.CpuSuspend;
 import io.github.jopojp.overseer.forge.integration.ae2.Ae2Actions.DriveEdit;
+import io.github.jopojp.overseer.forge.integration.ae2.Ae2Actions.ProviderEdit;
+import io.github.jopojp.overseer.core.provider.ResourceRef;
 import io.github.jopojp.overseer.forge.integration.teams.Teams;
 import java.util.ArrayList;
 import java.util.List;
@@ -155,6 +171,107 @@ final class Ae2Writer {
             return ActionResult.ok(List.of(new Change(Ae2Mapping.drive(edit.drive()), "priority",
                     Integer.toString(before), Integer.toString(host.getPriority()))));
         });
+    }
+
+    // --- pattern providers -----------------------------------------------------------------
+
+    static ActionResult editProvider(Context ctx, Actor actor, String gridId, ProviderEdit edit) {
+        return run(() -> {
+            IGrid grid = grid(ctx, actor, gridId);
+            PatternProviderLogicHost host = provider(ctx, grid, edit.provider());
+            Item icon = null;
+            if (edit.icon() != null && !edit.icon().isEmpty()) {
+                ResourceLocation id = ResourceLocation.tryParse(edit.icon());
+                icon = id == null ? null : ForgeRegistries.ITEMS.getValue(id);
+                if (icon == null || icon == Items.AIR) throw new Refused(Status.INVALID, "Unknown item: " + edit.icon());
+            }
+            if (edit.name() != null && !Ae2Compat.canName()) {
+                throw new Refused(Status.INVALID, "This AE2 version cannot rename pattern providers.");
+            }
+            var ref = Ae2Mapping.provider(edit.provider());
+            var changes = new ArrayList<Change>();
+            IConfigManager config = host.getLogic().getConfigManager();
+
+            if (edit.name() != null) {
+                Component before = host instanceof Nameable named ? named.getCustomName() : null;
+                if (!edit.name().equals(text(before))) {
+                    Component name = edit.name().isEmpty() ? null : Component.literal(edit.name());
+                    if (host instanceof AEBaseBlockEntity block) {
+                        Ae2Compat.setName(block, name);
+                        block.saveChanges();
+                        block.markForUpdate();
+                    } else if (host instanceof AEBasePart part) {
+                        Ae2Compat.setName(part, name);
+                        part.getHost().markForSave();
+                        part.getHost().markForUpdate();
+                    } else {
+                        throw new Refused(Status.INVALID, "This pattern provider cannot be renamed.");
+                    }
+                    Component after = host instanceof Nameable named ? named.getCustomName() : null;
+                    changes.add(new Change(ref, "name", text(before), text(after)));
+                }
+            }
+            if (edit.priority() != null && edit.priority() != host.getPriority()) {
+                int before = host.getPriority();
+                host.setPriority(edit.priority());
+                changes.add(new Change(ref, "priority", Integer.toString(before), Integer.toString(host.getPriority())));
+            }
+            if (edit.blocking() != null) {
+                setting(config, Settings.BLOCKING_MODE, edit.blocking() ? YesNo.YES : YesNo.NO, ref, "blocking", changes);
+            }
+            if (edit.visible() != null) {
+                setting(config, Settings.PATTERN_ACCESS_TERMINAL, edit.visible() ? YesNo.YES : YesNo.NO, ref, "visible",
+                        changes);
+            }
+            if (edit.lock() != null) {
+                setting(config, Settings.LOCK_CRAFTING_MODE, LockCraftingMode.valueOf(edit.lock().name()), ref, "lock",
+                        changes);
+            }
+            if (edit.icon() != null) {
+                String before = ProviderIcons.id(host);
+                ProviderIcons.set(host, icon);
+                String after = ProviderIcons.id(host);
+                if (!Objects.equals(before, after)) changes.add(new Change(ref, "icon", before, after));
+            }
+            return ActionResult.ok(changes);
+        });
+    }
+
+    /** A setting through AE2's config manager, which saves the provider like its GUI buttons do. */
+    private static <T extends Enum<T>> void setting(IConfigManager config, Setting<T> setting, T value, ResourceRef ref,
+            String field, List<Change> changes) {
+        T before = config.getSetting(setting);
+        if (before == value) return;
+        config.putSetting(setting, value);
+        changes.add(new Change(ref, field, settingText(before), settingText(config.getSetting(setting))));
+    }
+
+    private static String settingText(Enum<?> value) {
+        if (value == YesNo.YES) return "true";
+        if (value == YesNo.NO) return "false";
+        return lower(value.name());
+    }
+
+    /** A provider of the grid: {@code dimension@x,y,z} for a block, {@code .../<side>} for a part. */
+    private static PatternProviderLogicHost provider(Context ctx, IGrid grid, String id) {
+        int slash = id.indexOf('/', id.indexOf('@'));
+        String position = slash < 0 ? id : id.substring(0, slash);
+        BlockEntity be = blockEntity(ctx, position);
+        PatternProviderLogicHost host = null;
+        if (slash < 0) {
+            if (be instanceof PatternProviderLogicHost block) host = block;
+        } else {
+            Direction side = Direction.byName(id.substring(slash + 1));
+            if (side != null && be instanceof IPartHost parts && parts.getPart(side) instanceof PatternProviderLogicHost part) {
+                host = part;
+            }
+        }
+        if (host == null) throw new Refused(Status.NOT_FOUND, "There is no pattern provider at " + id + ".");
+        IGridNode node = host instanceof IActionHost actionHost ? actionHost.getActionableNode() : null;
+        if (node == null || node.getGrid() != grid) {
+            throw new Refused(Status.INVALID, "This pattern provider is not part of the network.");
+        }
+        return host;
     }
 
     // --- lookup ----------------------------------------------------------------------------
