@@ -143,7 +143,7 @@ inventory.
 
 See where items enter and leave an ME network and who asks for crafting.
 
-- [ ] Import and export buses as resources: filter, upgrades, redstone mode, what they face,
+- [x] Import and export buses as resources: filter, upgrades, redstone mode, what they face,
   crafting they requested; list with filters on the network page
 - [ ] Flow measurement: every insert into and extract from a network's storage, counted per device
   (or player) and item, stored per minute (server setting `ae2.flow`, default on)

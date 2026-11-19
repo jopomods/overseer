@@ -24,6 +24,7 @@
 | **Drive** (*Laufwerk*) | AE2 drive or ME chest holding storage cells. Resource `ae2/drive/<dimension>@x,y,z`, visible like its ME network. |
 | **Watchlist** | Items of an ME network read every second (`stock:<key>` metrics), optionally with a target (minimum stock). Below target = deficit (*Fehlmenge*). |
 | **Job** (*Auftrag*) | What a crafting CPU crafts: output, amount, progress. Starts and ends are events of the CPU. |
+| **Bus** (*Bus*) | AE2 import or export bus: a cable part that pulls items from or pushes them into the block it faces. Resource `ae2/bus/<dimension>@x,y,z/<side>`. |
 | **Pattern provider** | AE2 block or cable part that holds patterns and sends their inputs to the machine next to it. Resource `ae2/provider/<dimension>@x,y,z[/<side>]`; its patterns are rows of the grid's live table. |
 | **Suspend** (*Pausieren*) | Halting a crafting job without cancelling it; only AE2 builds that have it (e.g. the Star Technology fork). |
 | **Share** (*Freigabe*) | An owner lets one more player view a resource in Overseer. Only for providers with `SHARING` (AE2); never grants editing. |
