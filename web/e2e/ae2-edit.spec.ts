@@ -241,4 +241,31 @@ test.describe('ae2 actions', () => {
     await expect(page.getByTestId('flow-idle')).toContainText('Buses that moved nothing (2)')
     await expect(page.getByTestId('flow-idle')).toContainText('Circuit restock')
   })
+
+  test('edit a bus: filter from the network, redstone mode, export settings', async ({ page }) => {
+    await mockApi(page, { realistic: true })
+    await page.goto(GRID)
+    // By position: the text of the card changes with the edit.
+    const card = page.getByTestId('bus-list').getByRole('listitem').filter({ hasText: '104, 64, -330' })
+    await card.getByRole('button', { name: 'Edit bus' }).click()
+    const editor = card.getByTestId('bus-editor')
+    await editor.getByRole('button', { name: 'Remove Raw Copper' }).click()
+    await editor.getByLabel('Add an item from the network').fill('iron ingot')
+    await editor.getByTestId('bus-filter-matches').getByRole('button', { name: 'Iron Ingot' }).click()
+    await expect(editor.getByTestId('bus-filter-edit')).toContainText('Iron Ingot')
+    await editor.getByLabel('Redstone mode (with a redstone card)').selectOption('low_signal')
+    await editor.getByLabel('Order').selectOption('random')
+
+    const request = page.waitForRequest((r) => r.url().endsWith('/api/v1/actions') && r.method() === 'POST')
+    await editor.getByRole('button', { name: 'Save' }).click()
+    expect((await request).postDataJSON().params).toEqual({
+      bus: 'minecraft:overworld@104,64,-330/east',
+      filter: ['item:minecraft:raw_iron', 'item:minecraft:iron_ingot'],
+      redstone: 'low_signal',
+      scheduling: 'random',
+    })
+    await expect(editor).toHaveCount(0)
+    await expect(card).toContainText('Without redstone')
+    await expect(card).toContainText('Random')
+  })
 })

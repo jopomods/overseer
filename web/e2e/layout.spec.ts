@@ -115,6 +115,15 @@ test('no horizontal overflow with the flow open', async ({ page }) => {
   await expectNoHorizontalOverflow(page)
 })
 
+test('no horizontal overflow with the bus editor open', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/ae2/minecraft:overworld@0,64,-0')
+  const card = page.getByTestId('bus-list').getByRole('listitem').nth(1)
+  await card.getByRole('button', { name: 'Edit bus' }).click()
+  await expect(card.getByTestId('bus-editor')).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+})
+
 test('overflow detector catches content wider than the viewport', async ({ page }) => {
   await mockApi(page)
   await page.goto('/login')
