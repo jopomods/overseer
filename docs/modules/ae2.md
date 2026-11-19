@@ -230,6 +230,11 @@ retention) and serves `GET /api/v1/flows` and `/api/v1/flows/history`.
 | Player (terminals, wireless terminals) | `player:<uuid>` | `player` |
 | Anything AE2 does not attribute | `other` | `other` |
 
+The grid page shows the flow of a window (15 min to 48 h): **by item** (what came in and went out,
+and on opening it a Sankey of the devices on both sides, a list on phones, and a chart per minute),
+**by device** (what each device moved, with a chart per minute), and the buses that moved nothing in
+the window.
+
 Server setting `ae2.flow` (default on) switches recording off at once. Hidden grids report no flows.
 Moving items between cells inside a network does not pass the storage and is not counted.
 
