@@ -357,6 +357,7 @@ once. Without the mixin (another AE2 build) the icon shows in the dashboard only
 Search across networks: `GET /api/v1/inventory/search?q=…` looks through the newest scan of every
 inventory the caller may see (all providers with inventories) and answers per item the total and
 the networks that hold it, most first. It reads memory only; nothing is queried from the game.
+The ME networks page has it as "Find an item"; each network links to its page.
 
 Every 10th collection (every 10 s) the reader also copies the full cached inventory of each
 identified grid: one `Stack` per key with id, kind, name and amount. Hidden grids, booting and
