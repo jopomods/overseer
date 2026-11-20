@@ -32,10 +32,14 @@ Settings → General → Danger Zone → Change visibility → Public.
    commit message "Pull request title"; enable "Automatically delete head branches".
 3. **Security** (Settings → Code security): private vulnerability reporting, Dependabot alerts and
    security updates, secret scanning with push protection. CodeQL runs from
-   `.github/workflows/codeql.yml` (skipped while private).
+   `.github/workflows/codeql.yml` (Java, TypeScript and the workflows).
 4. **Actions** (Settings → Actions → General): keep "Allow GitHub Actions to create and approve pull
    requests" on; release-please needs it to open the release PR. Require actions to be pinned to a
    full commit SHA (every workflow does; Dependabot keeps the pins current). Fork pull request
    workflows: require approval for all external contributors. Workflow permissions stay read-only
    by default; jobs that need more ask for it.
-5. Optional: Discussions for questions, so issues stay for bugs and features.
+5. **Secret `GRADLE_ENCRYPTION_KEY`** (Settings → Secrets and variables → Actions): encrypts the
+   Gradle configuration cache that CI keeps between runs (ADR-0023). Any random 16 bytes, base64:
+   `openssl rand -base64 16 | gh secret set GRADLE_ENCRYPTION_KEY`. Rotating it only costs one
+   uncached run. Without it CI still works, just without the configuration cache.
+6. Optional: Discussions for questions, so issues stay for bugs and features.

@@ -96,9 +96,10 @@ Toolchain: JDK 17 (Minecraft 1.20.1 requirement), Node 24, Gradle via wrapper.
   storage, then HTTP + auth, then UI + integration), each green and reviewable on its own.
   A follow-up slice may branch off the previous one while it is in review; rebase it onto
   `main` after the squash merge (`git rebase --onto main <old-base>`).
-- Open a PR into `main`. CI must be green: look at the **CI ok** status (ADR-0015). Which jobs a
-  change needs is decided by `.github/ci/classify.py`; a new path or integration needs a rule and a
-  fixture in `.github/ci/test_classify.py`. Merge with **squash**; the PR title becomes
+- Open a PR into `main`. CI must be green: look at the **CI ok** status (ADR-0015, ADR-0023). Which
+  jobs a change needs is decided by `.github/ci/classify.py`; a new path or integration needs a rule
+  and a fixture in `.github/ci/test_classify.py`. Workflow changes are linted (actionlint, zizmor);
+  pin every action to a commit SHA and give each job only the permissions it needs. Merge with **squash**; the PR title becomes
   the commit on `main`, so it must itself be a Conventional Commit (CI checks it).
 - Never push directly to `main`.
 
