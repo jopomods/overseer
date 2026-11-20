@@ -28,6 +28,7 @@ other. Small clarifications are fine.
 | [0020](0020-flow-measurement.md) | Flow: what devices move into and out of a storage network | Accepted |
 | [0021](0021-auto-crafting-watched-items.md) | Auto-crafting watched items up to their target | Accepted |
 | [0022](0022-job-statistics-from-events.md) | Job statistics from recorded attribute events | Accepted |
+| [0023](0023-ci-cd-rework.md) | CI/CD rework: faster jobs, workflow security, lean releases | Accepted |
 
 ## Template
 

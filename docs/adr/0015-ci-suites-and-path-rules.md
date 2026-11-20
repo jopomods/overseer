@@ -1,6 +1,7 @@
 # 0015. CI: GameTest suites in parallel, path rules, one status
 
-- Status: Accepted
+- Status: Accepted (extended by [ADR-0023](0023-ci-cd-rework.md): `base` and `profiler` share one
+  CI server, configuration cache, workflow lint)
 - Date: 2026-11-18
 
 ## Context

@@ -1,0 +1,24 @@
+# Looks up a remembered pass (ADR-0015): an empty cache entry keyed by the hash of a job's inputs.
+# A run can read its own branch's entries and main's.
+name: Already passed?
+description: Whether a job already passed with exactly these inputs
+inputs:
+  key:
+    description: Cache key of the pass (job, shard or suite, input hash)
+    required: true
+outputs:
+  hit:
+    description: "'true' when these inputs already passed"
+    value: ${{ steps.lookup.outputs.cache-hit == 'true' }}
+  key:
+    description: The key, for remember-pass
+    value: ${{ inputs.key }}
+runs:
+  using: composite
+  steps:
+    - id: lookup
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .ci-passed
+        key: ${{ inputs.key }}
+        lookup-only: true

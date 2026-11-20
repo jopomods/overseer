@@ -1,0 +1,5 @@
+# zizmor (workflow security lint, run by CI's "Workflow lint" job).
+rules:
+  # Local actions stay "./.github/actions/...": actionlint does not know the newer "$/" syntax yet.
+  self-repository:
+    disable: true

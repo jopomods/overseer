@@ -1,10 +1,14 @@
 """Which CI jobs a change needs (ADR-0015).
 
 Reads changed paths (one per line) on stdin and prints lines for $GITHUB_OUTPUT: one
-`name=true|false` per job, `build=` (anything but docs) and `suites=` (JSON list of GameTest
-suites to run). Unknown paths need everything: when in doubt, test more.
+`name=true|false` per job, `build=` (anything but docs), `workflows=` (a workflow or action
+changed) and `suites=` (JSON list of the GameTest runs). Unknown paths need everything: when in doubt, test more.
+
+`base` and `profiler` load the same mods (none), so CI runs them in one server as `bare`
+(ADR-0023); the rules still name them separately.
 
     git diff --name-only origin/main...HEAD | python3 .github/ci/classify.py
+    python3 .github/ci/classify.py --all-suites     # suites= line with every CI run
 """
 import re
 import sys
@@ -41,6 +45,24 @@ BUILD_FILES = re.compile(
     r"^(gradlew(\.bat)?|gradle/.*|gradle\.properties|settings\.gradle\.kts|build\.gradle\.kts"
     r"|[^/]+/build\.gradle\.kts|platform/[^/]+/build\.gradle\.kts|version\.txt|\.github/.*)$")
 DOCS = re.compile(r"^(docs/.*|[^/]+\.md|LICENSE|assets/.*\.(svg|png))$")
+WORKFLOWS = re.compile(r"^\.github/(workflows|actions)/.*$")
+# GameTest suites with the same mods share one server in CI.
+CI_RUNS = {"base": "bare", "profiler": "bare"}
+
+
+def ci_suites(suites) -> list[str]:
+    """The GameTest runs CI starts for these suites, in a stable order."""
+    runs: list[str] = []
+    for suite in SUITES:
+        if suite in suites:
+            run = CI_RUNS.get(suite, suite)
+            if run not in runs:
+                runs.append(run)
+    return runs
+
+
+def suites_line(suites) -> str:
+    return "suites=[" + ",".join(f'"{s}"' for s in ci_suites(suites)) + "]"
 
 
 def needs(path: str) -> set[str]:
@@ -78,10 +100,13 @@ def classify(paths: list[str]) -> dict[str, bool]:
 
 
 if __name__ == "__main__":
-    lines = [line for line in sys.stdin.read().splitlines() if line.strip()]
+    if sys.argv[1:] == ["--all-suites"]:
+        print(suites_line(SUITES))
+        sys.exit(0)
+    lines = [line.strip() for line in sys.stdin.read().splitlines() if line.strip()]
     result = classify(lines)
     for name, value in result.items():
         print(f"{name}={'true' if value else 'false'}")
     print(f"build={'true' if any(result.values()) else 'false'}")
-    suites = [s for s in SUITES if result[f"gt_{s.replace('-', '_')}"]]
-    print("suites=[" + ",".join(f'"{s}"' for s in suites) + "]")
+    print(f"workflows={'true' if any(WORKFLOWS.match(p) for p in lines) else 'false'}")
+    print(suites_line([s for s in SUITES if result[f"gt_{s.replace('-', '_')}"]]))

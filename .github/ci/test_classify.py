@@ -1,7 +1,7 @@
 """Fixtures for the path rules (ADR-0015). Run: python3 -m unittest discover -s .github/ci"""
 import unittest
 
-from classify import SUITES, classify
+from classify import SUITES, WORKFLOWS, ci_suites, classify
 
 ALL = {f"gt_{s.replace('-', '_')}" for s in SUITES} | {"web", "build_web"}
 
@@ -49,6 +49,20 @@ class PathRules(unittest.TestCase):
 
     def test_changes_add_up(self):
         self.assertEqual(on(["web/src/x.tsx", "docs/a.md"]), {"web", "build_web"})
+
+
+class CiRuns(unittest.TestCase):
+    def test_suites_without_mods_share_one_server(self):
+        self.assertEqual(ci_suites(SUITES), ["bare", "flux", "ae2", "teams", "ae2-teams"])
+        self.assertEqual(ci_suites({"profiler"}), ["bare"])
+        self.assertEqual(ci_suites({"base", "flux"}), ["bare", "flux"])
+        self.assertEqual(ci_suites(set()), [])
+
+    def test_workflow_changes_are_linted(self):
+        self.assertTrue(WORKFLOWS.match(".github/workflows/ci.yml"))
+        self.assertTrue(WORKFLOWS.match(".github/actions/already-passed/action.yml"))
+        self.assertFalse(WORKFLOWS.match(".github/ci/classify.py"))
+        self.assertFalse(WORKFLOWS.match(".github/dependabot.yml"))
 
 
 if __name__ == "__main__":

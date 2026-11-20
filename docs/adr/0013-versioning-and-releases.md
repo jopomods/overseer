@@ -25,7 +25,8 @@ Overseer version should mean the same feature set on every platform.
   Playwright with 4 workers and a cached browser). Wall time is set by the slowest job.
 - **Release**: release-please maintains a release PR on `main` with version bump and
   changelog. Merging it creates the tag and GitHub release; the release workflow builds
-  and attaches the jar.
+  and attaches the jar, with a checksum and a build provenance attestation since
+  [ADR-0023](0023-ci-cd-rework.md).
 
 ## Consequences
 

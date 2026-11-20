@@ -24,7 +24,9 @@ only needed to export item icons (`/ovicons export`).
 ## Install
 
 1. Download `overseer-X.Y.Z+forge-1.20.1.jar` from the [latest release](https://github.com/jopomods/overseer/releases/latest)
-   and put it into the server's `mods/` folder.
+   and put it into the server's `mods/` folder. Optional check that it was built by this
+   repository's release workflow: `gh attestation verify overseer-X.Y.Z+forge-1.20.1.jar -R jopomods/overseer`
+   (releases after 0.8.0; their `SHA256SUMS.txt` has the checksums).
 2. Start the server. The dashboard listens on `http://127.0.0.1:8765`; put a reverse proxy with
    TLS in front of it for access from outside ([guide](docs/guides/reverse-proxy.md)).
 3. Open the dashboard and log in: it shows a code to confirm in game with `/ov link <code>`.
