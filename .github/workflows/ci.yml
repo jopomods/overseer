@@ -68,15 +68,16 @@ jobs:
           python3 .github/ci/classify.py < changed.txt > rules.txt
           if [ "$SHADOW" = "true" ] || [ "$EVENT" != "pull_request" ]; then
             # Everything runs; the rules' output is only reported.
-            echo "all=true" >> "$GITHUB_OUTPUT"
-            grep -v '^suites=\|^build=\|^web=\|^build_web=' rules.txt >> "$GITHUB_OUTPUT"
-            echo "build=true" >> "$GITHUB_OUTPUT"
-            echo "web=true" >> "$GITHUB_OUTPUT"
-            echo "build_web=true" >> "$GITHUB_OUTPUT"
-            python3 .github/ci/classify.py --all-suites >> "$GITHUB_OUTPUT"
+            {
+              echo "all=true"
+              grep -v '^suites=\|^build=\|^web=\|^build_web=' rules.txt
+              echo "build=true"
+              echo "web=true"
+              echo "build_web=true"
+              python3 .github/ci/classify.py --all-suites
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "all=false" >> "$GITHUB_OUTPUT"
-            cat rules.txt >> "$GITHUB_OUTPUT"
+            { echo "all=false"; cat rules.txt; } >> "$GITHUB_OUTPUT"
           fi
           {
             echo "### Jobs this change needs"
@@ -92,6 +93,7 @@ jobs:
             echo
             echo "<details><summary>Changed paths ($(wc -l < changed.txt))</summary>"
             echo
+            # shellcheck disable=SC2016 # the backticks are Markdown, not command substitution
             sed 's/^/- `/; s/$/`/' changed.txt
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -129,7 +131,10 @@ jobs:
       # changed, so the jar's packaging is checked whenever it can break.
       - name: Gradle build
         if: steps.passed.outputs.hit != 'true'
-        run: ./gradlew build --configuration-cache --console=plain $([ "$WITH_WEB" = "true" ] || echo -PskipWeb=true)
+        run: |
+          args=(build --configuration-cache --console=plain)
+          [ "$WITH_WEB" = "true" ] || args+=(-PskipWeb=true)
+          ./gradlew "${args[@]}"
 
       - name: Upload mod jar
         if: steps.passed.outputs.hit != 'true'
@@ -171,14 +176,14 @@ jobs:
         with:
           encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # Real Forge server with only this suite's mods; exits non-zero on failure. A server needs
-      # no client assets, so their download is skipped. The configuration cache is on only here
-      # and in `java`: gameTestAll's nested builds do not support it (ADR-0023).
+      # Real Forge server with only this suite's mods; exits non-zero on failure. The
+      # configuration cache is on only here and in `java`: gameTestAll's nested builds do not
+      # support it (ADR-0023).
       - name: Run GameTests
         if: steps.passed.outputs.hit != 'true'
         env:
           SUITE: ${{ matrix.suite }}
-        run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PgametestSuite="$SUITE" -PskipWeb=true -x downloadAssets --configuration-cache --console=plain
+        run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PgametestSuite="$SUITE" -PskipWeb=true --configuration-cache --console=plain
 
       - if: steps.passed.outputs.hit != 'true'
         uses: ./.github/actions/remember-pass
