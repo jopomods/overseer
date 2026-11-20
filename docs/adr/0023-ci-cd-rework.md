@@ -25,11 +25,15 @@ ADR-0015 does on purpose (a failing AE2 test must not hide Flux).
 
 Fewer and faster jobs, not more runners:
 
-- **Configuration cache in CI.** `java` and `gametest` run Gradle with `--configuration-cache`;
-  `setup-gradle` stores the entry encrypted (`GRADLE_ENCRYPTION_KEY`, see the
-  [repository settings](../guides/repository-settings.md)) on `main` and PRs read it. Not in
-  `gradle.properties`: `gameTestAll` configures one nested build per suite while it executes, which
-  the configuration cache rejects.
+- **Configuration cache in CI.** `java` and `gametest` run Gradle with `--configuration-cache`.
+  The entry lives in the project's `.gradle/configuration-cache`, which `setup-gradle` does not
+  keep (the first version of this ADR assumed it did; every PR run reconfigured). So
+  `setup-java-gradle` restores it with `actions/cache` (one entry per job: `java`, `gametest-<suite>`,
+  newest from `main`) and `save-config-cache` stores it on `main` and in manual
+  runs. Gradle encrypts it with `GRADLE_ENCRYPTION_KEY` (see the
+  [repository settings](../guides/repository-settings.md)) and checks every input on load, so a
+  stale entry only means reconfiguring. Not in `gradle.properties`: `gameTestAll` configures one
+  nested build per suite while it executes, which the configuration cache rejects.
 - **`base` and `profiler` share one server** in CI as the existing `bare` suite: both load no
   optional mod, so isolation is unchanged. The path rules still name the suites; `classify.py`
   maps them to CI runs (`bare`, `flux`, `ae2`, `teams`, `ae2-teams`).
@@ -62,13 +66,26 @@ Same pipeline scope (every job), measured with `timings.py`:
 | Before (PR #104, run 44772203942) | 2.8 min | 12 | 15.4 min | 23 |
 | After (PR #105, run 44778237270), configuration cache not yet on `main` | 2.0 min | 12 (incl. workflow lint) | 11.1 min | 18 |
 
+Configuration cache, three manual runs each (every job), `timings.py --compare`: without a hit
+(runs 44834806008, 44839108634, 44839543655) against with a hit (44839840380, 44840171574,
+44840392199). Medians:
+
+| | Without hit | With hit |
+|---|---|---|
+| Gradle start to first task, per job (from the logs) | about 12 s | about 6 s |
+| Java `Gradle build` step | 31 s | 24 s |
+| GameTest step, per suite | 35-49 s | 28-39 s |
+| Job time, all jobs | 668 s | 588 s |
+
 The slowest job is still a web shard (about 1.5-2 min, of which 50-90 s are Playwright tests);
 that is where further gains have to come from, not from Java.
 
 ## Consequences
 
-- A PR waits about 2 minutes instead of 3; GameTest and Java jobs gain another 10-15 s each once
-  `main` has stored configuration cache entries.
+- A PR waits about 2 minutes instead of 3; GameTest and Java jobs save about 6 s of configuration
+  each once `main` has stored configuration cache entries. `main` builds with the web UI, most PRs
+  without; the `java` job on `main` therefore also runs the build without the UI (all up to date
+  but the jar, a few seconds) so both configurations are stored.
 - A missing or rotated `GRADLE_ENCRYPTION_KEY` only costs speed. PRs from forks get no
   configuration cache (no secrets), which is fine.
 - Workflow changes must pass actionlint, shellcheck and zizmor; `.github/zizmor.yml` documents the

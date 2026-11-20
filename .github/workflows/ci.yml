@@ -126,7 +126,7 @@ jobs:
         if: steps.passed.outputs.hit != 'true'
         with:
           encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-          config-cache: java-web-${{ env.WITH_WEB }}
+          config-cache: java
 
       # core + platform unit tests and the mod jar; with the web UI embedded when web may have
       # changed, so the jar's packaging is checked whenever it can break.
@@ -136,11 +136,6 @@ jobs:
           args=(build --configuration-cache --console=plain)
           [ "$WITH_WEB" = "true" ] || args+=(-PskipWeb=true)
           ./gradlew "${args[@]}"
-      - if: steps.passed.outputs.hit != 'true'
-        uses: ./.github/actions/save-config-cache
-        with:
-          encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-          config-cache: java-web-${{ env.WITH_WEB }}
 
       - name: Upload mod jar
         if: steps.passed.outputs.hit != 'true'
@@ -149,6 +144,17 @@ jobs:
           name: overseer-jar
           path: platform/*/build/libs/*.jar
           retention-days: 14
+
+      # main and manual runs build with the web UI; most PRs build without it, which is a different
+      # configuration. Store that one too (after the upload: it rebuilds the jar without the UI).
+      - name: Configuration cache for builds without the web UI
+        if: steps.passed.outputs.hit != 'true' && github.event_name != 'pull_request' && env.WITH_WEB == 'true'
+        run: ./gradlew build -PskipWeb=true --configuration-cache --console=plain
+      - if: steps.passed.outputs.hit != 'true'
+        uses: ./.github/actions/save-config-cache
+        with:
+          encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          config-cache: java
 
       - if: steps.passed.outputs.hit != 'true'
         uses: ./.github/actions/remember-pass
