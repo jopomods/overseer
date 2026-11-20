@@ -25,7 +25,9 @@ Settings → General → Danger Zone → Change visibility → Public.
    - Require status checks to pass: **CI ok** (ADR-0015) and **PR title is a Conventional Commit**,
      with "require branches to be up to date"
    - Allowed merge method: squash
-   - Bypass: release-please needs none (it opens PRs like everyone else)
+   - Bypass: repository admins, for pull requests only (never direct pushes), so a release PR whose
+     checks were not started (PRs opened with `GITHUB_TOKEN` may not trigger workflows) can still be
+     merged; release-please itself needs none
 2. **Merge button** (Settings → General → Pull Requests): only "Allow squash merging", default
    commit message "Pull request title"; enable "Automatically delete head branches".
 3. **Security** (Settings → Code security): private vulnerability reporting, Dependabot alerts and
