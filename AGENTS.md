@@ -117,7 +117,7 @@ Toolchain: JDK 17 (Minecraft 1.20.1 requirement), Node 24, Gradle via wrapper.
 
 ## Public repository
 
-The repository is meant to be public under the [MIT License](LICENSE). Never commit secrets,
+The repository is public under the [MIT License](LICENSE). Never commit secrets,
 databases, real player names, UUIDs or server addresses; recordings are anonymized
 ([docs/guides/recordings.md](docs/guides/recordings.md)). Security reports go through
 [SECURITY.md](SECURITY.md), not issues. Dependabot PRs use `build(deps): ...` titles; Minecraft-,

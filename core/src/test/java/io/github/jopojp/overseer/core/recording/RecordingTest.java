@@ -31,7 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class RecordingTest {
-    private static final String REAL_UUID = "5084e6f3-8f54-43f1-8df5-1dca109e430f";
+    // A made-up UUID shaped like a real player UUID (not in the anonymized 00000000-...-4000-8000- range).
+    private static final String REAL_UUID = "12345678-9abc-4def-8123-456789abcdef";
 
     @TempDir
     Path dir;

@@ -7,8 +7,8 @@
 
 CI ran every check for every change: the Java build, the web tests at six widths and all GameTests
 in one Forge server with every optional mod. A docs-only PR took over ten minutes, and a failing
-AE2 test hid whether Flux still worked. The repository is private for now, so runner minutes are
-limited (2,000 per month).
+AE2 test hid whether Flux still worked. The repository was private then, so runner minutes were
+limited (2,000 per month). Since 2026-11-20 it is public: standard GitHub runners are free.
 
 ## Decision
 
@@ -44,8 +44,8 @@ a reviewer would have run, so they are active.
 **One status.** `CI ok` checks every job's result against what the change needs: skipped is fine
 for jobs the change does not need, never for jobs it does. The PR title check is a workflow of its
 own (`pr-title.yml`), so editing a title or description does not rerun CI; CI itself runs on
-opened, pushed and reopened PRs. Branch protection (once the repository is public) requires these
-two checks.
+opened, pushed and reopened PRs. The ruleset on `main` requires these two checks
+([repository settings](../guides/repository-settings.md)).
 
 **Remembered passes.** The build, web and every GameTest job first look for a cache entry keyed
 by the hash of their inputs (`.github/`, `core/`, `platform/`, `api/`, Gradle files, `version.txt`,

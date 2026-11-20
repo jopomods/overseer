@@ -216,8 +216,9 @@ Find an item in every network one may see, without opening each.
 - Actions for GTCEu on top of the world actions of ADR-0016
 - More loaders and versions (NeoForge, Fabric, older ones such as 1.7.10 for GT New Horizons) via
   Stonecutter, only when needed; the GregTech voltage tiers already match GTNH
-- [x] Public repository on GitHub prepared: MIT license, security policy, contributing guide, issue
-  and PR templates, Dependabot, CodeQL ([repository settings](guides/repository-settings.md))
+- [x] Public repository on GitHub (since 2026-11-20): MIT license, security policy, contributing
+  guide, issue and PR templates, Dependabot, CodeQL, ruleset on `main`
+  ([repository settings](guides/repository-settings.md))
 - Release on Modrinth/CurseForge
 - Final logo
 - Upgrade web to TypeScript 7 once `openapi-typescript` supports it (pinned to 5.9, see ADR-0009)

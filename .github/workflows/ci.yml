@@ -287,7 +287,7 @@ jobs:
           path: .ci-passed
           key: ${{ steps.passed.outputs.cache-primary-key }}
 
-  # The one status to look at (and, once the repository is public, the one required check).
+  # The one status to look at, and the required check of the ruleset on main.
   # Red if any job failed or was cancelled, or if a job the rules require did not succeed;
   # a job the rules do not require may be skipped.
   ci-ok:
