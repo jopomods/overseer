@@ -1,0 +1,20 @@
+# Saves the configuration cache that setup-java-gradle restored (ADR-0023). Call it after the
+# Gradle step. Only pushes to main and manual runs write; PRs only read.
+name: Save the configuration cache
+description: Store .gradle/configuration-cache for later runs
+inputs:
+  encryption-key:
+    description: secrets.GRADLE_ENCRYPTION_KEY (nothing is saved without it)
+    required: false
+    default: ""
+  config-cache:
+    description: The name given to setup-java-gradle
+    required: true
+runs:
+  using: composite
+  steps:
+    - if: inputs.encryption-key != '' && github.event_name != 'pull_request'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .gradle/configuration-cache
+        key: gradle-cc-v1-${{ inputs.config-cache }}-${{ github.sha }}

@@ -126,6 +126,7 @@ jobs:
         if: steps.passed.outputs.hit != 'true'
         with:
           encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          config-cache: java-web-${{ env.WITH_WEB }}
 
       # core + platform unit tests and the mod jar; with the web UI embedded when web may have
       # changed, so the jar's packaging is checked whenever it can break.
@@ -135,6 +136,11 @@ jobs:
           args=(build --configuration-cache --console=plain)
           [ "$WITH_WEB" = "true" ] || args+=(-PskipWeb=true)
           ./gradlew "${args[@]}"
+      - if: steps.passed.outputs.hit != 'true'
+        uses: ./.github/actions/save-config-cache
+        with:
+          encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          config-cache: java-web-${{ env.WITH_WEB }}
 
       - name: Upload mod jar
         if: steps.passed.outputs.hit != 'true'
@@ -175,6 +181,7 @@ jobs:
         if: steps.passed.outputs.hit != 'true'
         with:
           encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          config-cache: gametest-${{ matrix.suite }}
 
       # Real Forge server with only this suite's mods; exits non-zero on failure. The
       # configuration cache is on only here and in `java`: gameTestAll's nested builds do not
@@ -184,6 +191,11 @@ jobs:
         env:
           SUITE: ${{ matrix.suite }}
         run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PgametestSuite="$SUITE" -PskipWeb=true --configuration-cache --console=plain
+      - if: steps.passed.outputs.hit != 'true'
+        uses: ./.github/actions/save-config-cache
+        with:
+          encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          config-cache: gametest-${{ matrix.suite }}
 
       - if: steps.passed.outputs.hit != 'true'
         uses: ./.github/actions/remember-pass
