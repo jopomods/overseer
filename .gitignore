@@ -26,3 +26,6 @@ web/src/api/schema.gen.ts.tmp
 # OS
 .DS_Store
 Thumbs.db
+
+# Python
+__pycache__/

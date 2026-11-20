@@ -1,5 +1,4 @@
-# Static security analysis, free for public repositories. Skipped while the repository is private,
-# where it would need GitHub Advanced Security.
+# Static security analysis (free for public repositories).
 name: CodeQL
 
 on:
@@ -15,7 +14,6 @@ permissions:
 jobs:
   analyze:
     name: CodeQL (${{ matrix.language }})
-    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

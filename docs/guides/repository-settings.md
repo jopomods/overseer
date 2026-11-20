@@ -1,11 +1,14 @@
 # Repository settings
 
 GitHub settings that cannot live in files. Only an owner of `jopomods/overseer` can change them.
-Do them in this order when the repository goes public.
+The repository went public on 2026-11-20 with these steps; keep this list in sync with the settings.
 
 ## Before making it public
 
-- Check the history once more for secrets and personal data (CONTRIBUTING.md, "No personal data").
+- Check the history once more for secrets and personal data (CONTRIBUTING.md, "No personal data"):
+  every branch and `refs/pull/*` (PR heads become public too), issues, PR texts and comments,
+  releases. `gitleaks git . --log-opts="--all"` after fetching `+refs/pull/*:refs/remotes/origin-pr/*`
+  covers secrets; grep for server addresses, real UUIDs and player names by hand.
   Commit authors are GitHub accounts; squash merges made in the web UI carry the merger's profile
   name.
 
@@ -29,5 +32,8 @@ Settings → General → Danger Zone → Change visibility → Public.
    security updates, secret scanning with push protection. CodeQL runs from
    `.github/workflows/codeql.yml` (skipped while private).
 4. **Actions** (Settings → Actions → General): keep "Allow GitHub Actions to create and approve pull
-   requests" on; release-please needs it to open the release PR.
+   requests" on; release-please needs it to open the release PR. Require actions to be pinned to a
+   full commit SHA (every workflow does; Dependabot keeps the pins current). Fork pull request
+   workflows: require approval for all external contributors. Workflow permissions stay read-only
+   by default; jobs that need more ask for it.
 5. Optional: Discussions for questions, so issues stay for bugs and features.
