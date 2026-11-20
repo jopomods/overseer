@@ -1,14 +1,14 @@
-# Runs on every push to main and every PR (ADR-0013, ADR-0015).
+# Runs on every PR and every push to main (ADR-0015, ADR-0023).
 #
-#   changes ─┬─ web × 3 shards (parallel) ────┐
-#            ├─ build ────────────────────────┼── ci-ok   (the one status to look at)
-#            └─ gametest × suites (parallel) ─┘
+#   changes ─┬─ java ────────────────────────┐
+#            ├─ gametest × suites (parallel) ┤
+#            ├─ web × 3 shards (parallel) ───┼── ci-ok   (the one status to look at)
+#            └─ workflows (if .github/ changed)
 #
-# The PR title check lives in pr-title.yml: editing a PR's title or text must not rerun all of this.
-#
-# Each GameTest suite runs in its own Forge server and (flat) world. `changes` decides which jobs
-# a change needs (.github/ci/classify.py); pushes to main always run everything. SHADOW mode
-# ("true") runs everything and only reports what would have been skipped.
+# `changes` decides which jobs a change needs (.github/ci/classify.py); pushes to main and manual
+# runs always run everything, which also writes the Gradle caches that PRs only read. Every job first checks for a
+# remembered pass of exactly its inputs and then skips its work. SHADOW mode ("true") runs
+# everything and only reports what would have been skipped.
 name: CI
 
 on:
@@ -16,61 +16,64 @@ on:
     branches: [main]
   pull_request:
     types: [opened, synchronize, reopened]
+  # Manual run of everything, ignoring remembered passes: for timing comparisons
+  # (.github/ci/timings.py) and for suspected stale passes.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-permissions:
-  contents: read
+permissions: {}
 
 env:
   SHADOW: "false"
-  # Bump to forget every remembered pass (see "Already passed" steps).
-  PASS_CACHE: "1"
+  # Bump to forget every remembered pass. A manual run uses its own id, so nothing matches.
+  PASS_CACHE: ${{ github.event_name == 'workflow_dispatch' && github.run_id || '2' }}
 
 jobs:
   changes:
     name: Which jobs this change needs
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       all: ${{ steps.decide.outputs.all }}
-      build: ${{ steps.decide.outputs.build }}
-      suites: ${{ steps.decide.outputs.suites }}
-      web: ${{ steps.decide.outputs.web }}
+      java: ${{ steps.decide.outputs.build }}
       build_web: ${{ steps.decide.outputs.build_web }}
-      gt_base: ${{ steps.decide.outputs.gt_base }}
-      gt_profiler: ${{ steps.decide.outputs.gt_profiler }}
-      gt_flux: ${{ steps.decide.outputs.gt_flux }}
-      gt_ae2: ${{ steps.decide.outputs.gt_ae2 }}
-      gt_teams: ${{ steps.decide.outputs.gt_teams }}
-      gt_ae2_teams: ${{ steps.decide.outputs.gt_ae2_teams }}
+      web: ${{ steps.decide.outputs.web }}
+      suites: ${{ steps.decide.outputs.suites }}
+      workflows: ${{ steps.decide.outputs.workflows }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Path rules still hold (fixtures)
         run: python3 -m unittest discover -s .github/ci
 
       - name: Classify changed paths
         id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          # On main and in shadow mode everything runs; the rules only report.
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git diff --name-only "origin/${{ github.base_ref }}...HEAD" > changed.txt
+          if [ "$EVENT" = "pull_request" ]; then
+            git diff --name-only "origin/$BASE_REF...HEAD" > changed.txt
           else
-            : > changed.txt
-            echo ".github/ci/everything-on-main" >> changed.txt
+            echo ".github/ci/everything-on-main" > changed.txt
           fi
           python3 .github/ci/classify.py < changed.txt > rules.txt
-          if [ "$SHADOW" = "true" ] || [ "${{ github.event_name }}" != "pull_request" ]; then
-            # Everything runs: the rules' output is reported, the run list is complete.
+          if [ "$SHADOW" = "true" ] || [ "$EVENT" != "pull_request" ]; then
+            # Everything runs; the rules' output is only reported.
             echo "all=true" >> "$GITHUB_OUTPUT"
-            grep -v '^suites=\|^build=' rules.txt >> "$GITHUB_OUTPUT"
+            grep -v '^suites=\|^build=\|^web=\|^build_web=' rules.txt >> "$GITHUB_OUTPUT"
             echo "build=true" >> "$GITHUB_OUTPUT"
-            echo 'suites=["base","profiler","flux","ae2","teams","ae2-teams"]' >> "$GITHUB_OUTPUT"
+            echo "web=true" >> "$GITHUB_OUTPUT"
+            echo "build_web=true" >> "$GITHUB_OUTPUT"
+            python3 .github/ci/classify.py --all-suites >> "$GITHUB_OUTPUT"
           else
             echo "all=false" >> "$GITHUB_OUTPUT"
             cat rules.txt >> "$GITHUB_OUTPUT"
@@ -81,7 +84,7 @@ jobs:
             echo "| Job | Needed by the rules | Runs |"
             echo "|---|---|---|"
             grep -v '^suites=' rules.txt | while IFS='=' read -r name value; do
-              runs=$([ "$SHADOW" = "true" ] || [ "$value" = "true" ] && echo yes || echo no)
+              runs=$( { [ "$SHADOW" = "true" ] || [ "$EVENT" != "pull_request" ] || [ "$value" = "true" ]; } && echo yes || echo no)
               echo "| $name | $value | $runs |"
             done
             echo
@@ -91,230 +94,242 @@ jobs:
             echo
             sed 's/^/- `/; s/$/`/' changed.txt
             echo "</details>"
-            if [ "$SHADOW" = "true" ]; then
-              echo
-              echo "_Shadow mode: every job runs; \"no\" would have been skipped._"
-            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-  build:
+  java:
     name: Java build and tests
     needs: changes
-    if: needs.changes.outputs.build == 'true'
+    if: needs.changes.outputs.java == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      WITH_WEB: ${{ needs.changes.outputs.all == 'true' || needs.changes.outputs.build_web == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Skip when exactly these inputs already passed (ADR-0015). A pass is remembered as an
-      # empty cache entry; runs can read their own branch's and main's entries.
-      - name: Already passed with these inputs?
-        id: passed
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .ci-passed
-          key: passed-build-${{ env.PASS_CACHE }}-${{ needs.changes.outputs.all == 'true' || needs.changes.outputs.build_web == 'true' }}-${{ hashFiles('.github/**', 'core/**', 'platform/**', 'api/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', 'version.txt', 'fixtures/**', 'web/**') }}
-          lookup-only: true
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        if: steps.passed.outputs.cache-hit != 'true'
+          persist-credentials: false
+      - id: passed
+        uses: ./.github/actions/already-passed
         with:
-          distribution: temurin
-          java-version: "17"
+          key: passed-java-${{ env.PASS_CACHE }}-${{ env.WITH_WEB }}-${{ hashFiles('.github/**', 'core/**', 'platform/**', 'api/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', 'version.txt', 'fixtures/**', 'web/**') }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: steps.passed.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.hit != 'true' && env.WITH_WEB == 'true'
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        if: steps.passed.outputs.cache-hit != 'true'
+      - uses: ./.github/actions/setup-java-gradle
+        if: steps.passed.outputs.hit != 'true'
+        with:
+          encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # core + platform unit tests, mod jar; with the web UI embedded when web may have changed,
-      # so the jar's packaging is checked whenever it can break.
+      # core + platform unit tests and the mod jar; with the web UI embedded when web may have
+      # changed, so the jar's packaging is checked whenever it can break.
       - name: Gradle build
-        if: steps.passed.outputs.cache-hit != 'true'
-        run: |
-          if [ "${{ needs.changes.outputs.all }}" = "true" ] || [ "${{ needs.changes.outputs.build_web }}" = "true" ]; then
-            ./gradlew build --console=plain
-          else
-            ./gradlew build -PskipWeb=true --console=plain
-          fi
+        if: steps.passed.outputs.hit != 'true'
+        run: ./gradlew build --configuration-cache --console=plain $([ "$WITH_WEB" = "true" ] || echo -PskipWeb=true)
 
       - name: Upload mod jar
-        if: steps.passed.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.hit != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: overseer-jar
           path: platform/*/build/libs/*.jar
           retention-days: 14
 
-      - name: Remember the pass
-        if: steps.passed.outputs.cache-hit != 'true'
-        run: mkdir -p "$GITHUB_WORKSPACE/.ci-passed" && echo "${{ github.sha }}" > "$GITHUB_WORKSPACE/.ci-passed/sha"
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: steps.passed.outputs.cache-hit != 'true'
+      - if: steps.passed.outputs.hit != 'true'
+        uses: ./.github/actions/remember-pass
         with:
-          path: .ci-passed
-          key: ${{ steps.passed.outputs.cache-primary-key }}
+          key: ${{ steps.passed.outputs.key }}
 
   gametest:
     name: GameTests (${{ matrix.suite }})
-    # Not after `build`: every suite compiles what it needs anyway, so waiting only adds time.
+    # Not after `java`: every suite compiles what it needs (from the build cache), waiting only
+    # adds time.
     needs: changes
     if: needs.changes.outputs.suites != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         suite: ${{ fromJSON(needs.changes.outputs.suites) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Skip when exactly these inputs already passed (ADR-0015). A pass is remembered as an
-      # empty cache entry; runs can read their own branch's and main's entries.
-      - name: Already passed with these inputs?
-        id: passed
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .ci-passed
+          persist-credentials: false
+      - id: passed
+        uses: ./.github/actions/already-passed
+        with:
           key: passed-gametest-${{ env.PASS_CACHE }}-${{ matrix.suite }}-${{ hashFiles('.github/**', 'core/**', 'platform/**', 'api/**', 'gradle/**', '*.gradle.kts', 'gradle.properties', 'version.txt', 'fixtures/**') }}
-          lookup-only: true
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
-        if: steps.passed.outputs.cache-hit != 'true'
+      - uses: ./.github/actions/setup-java-gradle
+        if: steps.passed.outputs.hit != 'true'
         with:
-          distribution: temurin
-          java-version: "17"
-      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        if: steps.passed.outputs.cache-hit != 'true'
-        with:
-          cache-read-only: true
+          encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # Real Forge server with only this suite's mods; exits non-zero on failure.
+      # Real Forge server with only this suite's mods; exits non-zero on failure. A server needs
+      # no client assets, so their download is skipped. The configuration cache is on only here
+      # and in `java`: gameTestAll's nested builds do not support it (ADR-0023).
       - name: Run GameTests
-        if: steps.passed.outputs.cache-hit != 'true'
-        run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PgametestSuite=${{ matrix.suite }} -PskipWeb=true --console=plain
+        if: steps.passed.outputs.hit != 'true'
+        env:
+          SUITE: ${{ matrix.suite }}
+        run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PgametestSuite="$SUITE" -PskipWeb=true -x downloadAssets --configuration-cache --console=plain
 
-      - name: Remember the pass
-        if: steps.passed.outputs.cache-hit != 'true'
-        run: mkdir -p "$GITHUB_WORKSPACE/.ci-passed" && echo "${{ github.sha }}" > "$GITHUB_WORKSPACE/.ci-passed/sha"
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: steps.passed.outputs.cache-hit != 'true'
+      - if: steps.passed.outputs.hit != 'true'
+        uses: ./.github/actions/remember-pass
         with:
-          path: .ci-passed
-          key: ${{ steps.passed.outputs.cache-primary-key }}
+          key: ${{ steps.passed.outputs.key }}
 
   web:
     name: Web (${{ matrix.shard }}/3)
     needs: changes
-    if: needs.changes.outputs.all == 'true' || needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # The browser tests are CPU-bound (rendering pages with 200 devices) and the runner has few
-    # cores: three parallel shards. Lint, types and the API check run in the first one.
+    permissions:
+      contents: read
+    # The browser tests are CPU-bound (pages with 200 devices): three parallel shards. Lint, types
+    # and the API check run in the first one.
     strategy:
       fail-fast: false
       matrix:
         shard: [1, 2, 3]
-    # Playwright's image has the browser's system libraries; installing them with apt took 4-7 min.
-    # Keep the tag at the @playwright/test version in web/package-lock.json.
-    container:
-      image: mcr.microsoft.com/playwright:v1.65.1-noble
     defaults:
       run:
         working-directory: web
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Skip when exactly these inputs already passed (ADR-0015). A pass is remembered as an
-      # empty cache entry; runs can read their own branch's and main's entries.
-      - name: Already passed with these inputs?
-        id: passed
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .ci-passed
+          persist-credentials: false
+      - id: passed
+        uses: ./.github/actions/already-passed
+        with:
           key: passed-web-${{ env.PASS_CACHE }}-${{ matrix.shard }}-${{ hashFiles('.github/**', 'web/**', 'api/openapi.yaml', 'fixtures/recordings/**') }}
-          lookup-only: true
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: steps.passed.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.hit != 'true'
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: web/package-lock.json
 
       - run: npm ci --no-audit --no-fund
-        if: steps.passed.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.hit != 'true'
 
       - name: Lint
-        if: steps.passed.outputs.cache-hit != 'true' && matrix.shard == 1
+        if: steps.passed.outputs.hit != 'true' && matrix.shard == 1
         run: npm run lint
 
       - name: Typecheck
-        if: steps.passed.outputs.cache-hit != 'true' && matrix.shard == 1
+        if: steps.passed.outputs.hit != 'true' && matrix.shard == 1
         run: npm run typecheck
 
       - name: API client is up to date with api/openapi.yaml
-        if: steps.passed.outputs.cache-hit != 'true' && matrix.shard == 1
+        if: steps.passed.outputs.hit != 'true' && matrix.shard == 1
         run: |
           cp src/api/schema.gen.ts "$RUNNER_TEMP/schema.gen.ts"
           npm run gen:api
           cmp src/api/schema.gen.ts "$RUNNER_TEMP/schema.gen.ts"
 
       - name: Build
-        if: steps.passed.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.hit != 'true'
         run: npm run build
 
-      # A no-op when the image's browser matches; downloads it otherwise (no system packages).
+      # The runner image has the browser's system libraries (it ships Chrome); only the browser
+      # binary itself is needed, cached per Playwright version.
+      - name: Playwright version
+        if: steps.passed.outputs.hit != 'true'
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Playwright browser cache
+        if: steps.passed.outputs.hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
       - name: Playwright browser
-        if: steps.passed.outputs.cache-hit != 'true'
+        if: steps.passed.outputs.hit != 'true'
         run: npx playwright install --only-shell chromium
 
       - name: Layout and flow tests (360-1920 px), shard ${{ matrix.shard }}/3
-        if: steps.passed.outputs.cache-hit != 'true'
-        run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
+        if: steps.passed.outputs.hit != 'true'
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: npm run test:e2e -- --shard="$SHARD/3"
 
       - name: Upload Playwright report
-        if: steps.passed.outputs.cache-hit != 'true' && (failure())
+        if: failure() && steps.passed.outputs.hit != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-${{ matrix.shard }}
           path: web/playwright-report
           retention-days: 7
 
-      - name: Remember the pass
-        if: steps.passed.outputs.cache-hit != 'true'
-        run: mkdir -p "$GITHUB_WORKSPACE/.ci-passed" && echo "${{ github.sha }}" > "$GITHUB_WORKSPACE/.ci-passed/sha"
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: steps.passed.outputs.cache-hit != 'true'
+      - if: steps.passed.outputs.hit != 'true'
+        uses: ./.github/actions/remember-pass
         with:
-          path: .ci-passed
-          key: ${{ steps.passed.outputs.cache-primary-key }}
+          key: ${{ steps.passed.outputs.key }}
 
-  # The one status to look at, and the required check of the ruleset on main.
+  # Lints the workflows themselves: actionlint (syntax, expressions, shell) and zizmor (security:
+  # injection, credentials, permissions, pinning).
+  workflows:
+    name: Workflow lint
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: actionlint
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/actionlint.tar.gz" \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+      - name: zizmor
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          version: 1.32.0
+          advanced-security: false
+
+  # The one status to look at and the required check of the ruleset on main.
   # Red if any job failed or was cancelled, or if a job the rules require did not succeed;
   # a job the rules do not require may be skipped.
   ci-ok:
     name: CI ok
-    needs: [changes, build, gametest, web]
+    needs: [changes, java, gametest, web, workflows]
     if: always()
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Check results against what the change needs
         env:
           RESULTS: ${{ toJSON(needs) }}
-          ALL: ${{ needs.changes.outputs.all }}
-          BUILD: ${{ needs.changes.outputs.build }}
+          JAVA: ${{ needs.changes.outputs.java }}
           WEB: ${{ needs.changes.outputs.web }}
           SUITES: ${{ needs.changes.outputs.suites }}
+          WORKFLOWS: ${{ needs.changes.outputs.workflows }}
         run: |
           python3 - <<'PY'
           import json, os, sys
           results = {name: job["result"] for name, job in json.loads(os.environ["RESULTS"]).items()}
-          everything = os.environ["ALL"] == "true"
           required = {"changes"}
-          if everything or os.environ["BUILD"] == "true":
-              required.add("build")
-          if everything or os.environ["WEB"] == "true":
+          if os.environ["JAVA"] == "true":
+              required.add("java")
+          if os.environ["WEB"] == "true":
               required.add("web")
-          if everything or json.loads(os.environ["SUITES"] or "[]"):
+          if json.loads(os.environ["SUITES"] or "[]"):
               required.add("gametest")
+          if os.environ["WORKFLOWS"] == "true":
+              required.add("workflows")
           bad = []
           for name, result in sorted(results.items()):
               if result in ("failure", "cancelled"):

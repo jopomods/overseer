@@ -1,0 +1,18 @@
+# Stores a pass for already-passed (ADR-0015). Call it as the job's last step, after success.
+name: Remember the pass
+description: Remember that a job passed with these inputs
+inputs:
+  key:
+    description: The key given to already-passed
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        SHA: ${{ github.sha }}
+      run: mkdir -p .ci-passed && echo "$SHA" > .ci-passed/sha
+    - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .ci-passed
+        key: ${{ inputs.key }}

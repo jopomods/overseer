@@ -1,15 +1,20 @@
-# Static security analysis (free for public repositories).
+# Static security analysis (free for public repositories): Java, TypeScript and the workflows
+# themselves. Not a required check; findings show up in the PR and under Security.
 name: CodeQL
 
 on:
   push:
     branches: [main]
   pull_request:
+    paths-ignore: ["docs/**", "**/*.md"]
   schedule:
     - cron: "17 4 * * 1"
 
-permissions:
-  contents: read
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions: {}
 
 jobs:
   analyze:
@@ -22,9 +27,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [java-kotlin, javascript-typescript]
+        language: [java-kotlin, javascript-typescript, actions]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           languages: ${{ matrix.language }}

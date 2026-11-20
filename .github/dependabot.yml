@@ -1,13 +1,16 @@
 # Weekly dependency updates, grouped into few PRs. Titles are Conventional Commits
 # ("build(deps): ...") so the PR title check passes. What Minecraft ships (Netty, Gson, SLF4J),
 # Forge and the mod integrations are pinned to the game's and the modpack's versions on purpose
-# (ADR-0003, gradle/libs.versions.toml) and ignored here.
+# (ADR-0003, gradle/libs.versions.toml) and ignored here. New releases wait a week (cooldown), so a
+# compromised or broken release is usually pulled before it reaches us.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: build
       include: scope
@@ -19,6 +22,8 @@ updates:
     directory: /web
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: build
       include: scope
@@ -38,6 +43,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: build
       include: scope

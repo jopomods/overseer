@@ -10,8 +10,7 @@ concurrency:
   group: pr-title-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   pr-title:
