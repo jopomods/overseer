@@ -56,10 +56,12 @@ Runs read their own branch's entries and `main`'s, so re-pushes to a PR and late
 `main` skip what has not changed. `PASS_CACHE` in `ci.yml` (bump it) or deleting the caches
 forgets every pass.
 
-**Speed.** GameTest jobs do not wait for the build job; each compiles what it needs. Flow tests
-run at 360 and 1280 px; the layout tests run at all six widths (ADR-0009). The browser tests run in three parallel shards (they are CPU-bound; lint, types and the API
-check run in the first shard), in Playwright's container image, so the browser's system libraries need no
-apt install (that took 4-7 min). Actions are pinned to commit SHAs.
+**Speed.** GameTest jobs do not wait for the build job; each compiles what it needs. The layout
+tests run at all six widths (ADR-0009), the edit specs at 360 and 1280 px, the flow and tier specs
+at 1280 px only (tags `@desktop` and `@phone`, so they are not even scheduled elsewhere). The
+browser tests run in six parallel shards (they are CPU-bound; lint, types and the API check run in
+the first shard) directly on the runner, see [ADR-0023](0023-ci-cd-rework.md) for the shard count
+and why there is no Playwright container any more. Actions are pinned to commit SHAs.
 
 ## Consequences
 
