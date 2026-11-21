@@ -1,9 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { mockApi } from './mock-api.ts'
 
-// Behavior, not layout: run once at desktop width.
-test.describe('flows', () => {
-  test.skip(({ viewport }) => (viewport?.width ?? 0) !== 1280, 'desktop only')
+// Behavior, not layout: run once at desktop width (@desktop, playwright.config.ts).
+test.describe('flows', { tag: '@desktop' }, () => {
 
   test('not logged in redirects to login', async ({ page }) => {
     await mockApi(page, { loggedIn: false })
@@ -333,7 +332,8 @@ test.describe('flows', () => {
     for (const path of ['/', '/energy', '/energy/1', '/ae2', '/ae2/minecraft:overworld@120,64,-340', '/server']) {
       await page.goto(path)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-      await page.waitForTimeout(300)
+      // Data has arrived once no loading placeholder is left; only then is the check meaningful.
+      await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0)
       expect(await page.locator('body').innerText(), path).not.toContain('§')
     }
   })
@@ -461,8 +461,7 @@ test.describe('flows', () => {
   })
 })
 
-test('energy flow is a list on phones', async ({ page, viewport }) => {
-  test.skip((viewport?.width ?? 0) !== 360, 'phone only')
+test('energy flow is a list on phones', { tag: '@phone' }, async ({ page }) => {
   await mockApi(page, { realistic: true })
   await page.goto('/energy/1')
   await expect(page.getByTestId('flow-list')).toContainText('ACG II')

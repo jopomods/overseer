@@ -39,6 +39,10 @@ Fewer and faster jobs, not more runners:
   maps them to CI runs (`bare`, `flux`, `ae2`, `teams`, `ae2-teams`).
 - **Web tests on the runner**, not in the Playwright container: the runner image already has the
   browser's system libraries, and the browser binary is cached per Playwright version.
+- **Six web shards.** The web shards are the critical path, and a shard's fixed cost (runner,
+  checkout, `npm ci`, build: about 25-30 s) is small against its tests, so more shards help; the
+  minutes are free. Measured with alternating manual runs (see Results); more workers per shard
+  (3, 4, 6) made no difference on the 4 vCPU runners.
 - **Composite actions** for what every job repeats: `setup-java-gradle`, `already-passed`,
   `remember-pass` (`.github/actions/`).
 - **Workflow security.** `permissions: {}` at the top of every workflow, each job asks for what it
@@ -77,8 +81,26 @@ Configuration cache, three manual runs each (every job), `timings.py --compare`:
 | GameTest step, per suite | 35-49 s | 28-39 s |
 | Job time, all jobs | 668 s | 588 s |
 
-The slowest job is still a web shard (about 1.5-2 min, of which 50-90 s are Playwright tests);
-that is where further gains have to come from, not from Java.
+Web shards, three manual runs per variant, run one after another in turns (so a slow hour hits
+every variant alike). Median [min-max] of the slowest web job and of the wall time:
+
+| Variant | Slowest web job | Wall time | Runs |
+|---|---|---|---|
+| 3 shards, 4 workers | 107 [91-111] s | 121 [104-125] s | 44843714953, 44844740134, 44845628443 |
+| 3 shards, 3 workers | 106 [94-122] s | 119 [110-136] s | 44844188471, 44845158158, 44846099022 |
+| 3 shards, 6 workers | 113 [92-121] s | 128 [113-134] s | 44844470346, 44845407013, 44846314920 |
+| 4 shards | 90 [85-92] s | 105 [98-106] s | 44843984938, 44844950935, 44845876181 |
+| 5 shards | 88 [81-94] s | 99 [96-107] s | 44847156073, 44847661456, 44848277289 |
+| 6 shards | 76 [71-82] s | 92 [87-101] s | 44847356335, 44847864429, 44848462901 |
+
+Single runs of the same commit vary by 20-30 s; the same test shard took between 180 and 290
+test-seconds on different runners. Claims of a speed-up therefore rest on several runs per side,
+run in turns. Keeping single-width tests out of the other projects (instead of skipping them there)
+balanced the shards' test counts but did not measurably change the time (115 against 117 s, runs
+44842006600, 44842525548, 44843000537 against 44842283063, 44842770923, 44843233673).
+
+With six shards the slowest web job is about as long as the slowest GameTest job; further gains
+need both.
 
 ## Consequences
 
