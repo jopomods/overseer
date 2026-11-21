@@ -3,7 +3,7 @@
 #   changes ─┬─ java ────────────────────────┐
 #            ├─ gametest × suites (parallel) ┤
 #            ├─ web × 3 shards (parallel) ───┼── ci-ok   (the one status to look at)
-#            └─ workflows (if .github/ changed)
+#            └─ workflows (if a workflow or action changed, and on main)
 #
 # `changes` decides which jobs a change needs (.github/ci/classify.py); pushes to main and manual
 # runs always run everything, which also writes the Gradle caches that PRs only read. Every job first checks for a
@@ -70,8 +70,9 @@ jobs:
             # Everything runs; the rules' output is only reported.
             {
               echo "all=true"
-              grep -v '^suites=\|^build=\|^web=\|^build_web=' rules.txt
+              grep -v '^suites=\|^build=\|^web=\|^build_web=\|^workflows=' rules.txt
               echo "build=true"
+              echo "workflows=true"
               echo "web=true"
               echo "build_web=true"
               python3 .github/ci/classify.py --all-suites
@@ -313,7 +314,7 @@ jobs:
           persist-credentials: false
       - name: actionlint
         run: |
-          curl -sSfL -o "$RUNNER_TEMP/actionlint.tar.gz" \
+          curl -sSfL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/actionlint.tar.gz" \
             https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
           tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -color
