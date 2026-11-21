@@ -40,8 +40,8 @@ Fewer and faster jobs, not more runners:
 - **Workflow security.** `permissions: {}` at the top of every workflow, each job asks for what it
   needs; `persist-credentials: false` on every checkout; actions pinned to SHAs (also required by
   the repository); a `Workflow lint` job (actionlint with shellcheck, zizmor) runs when a workflow
-  or action changes and is part of `CI ok`; CodeQL also scans the workflows; Dependabot waits seven
-  days before proposing a new release (cooldown).
+  or action changes and on every push to `main`, and is part of `CI ok`; CodeQL also scans the
+  workflows; Dependabot waits seven days before proposing a new release (cooldown).
 - **Dependency graph**: `dependency-graph.yml` submits the resolved Gradle dependencies on `main`
   when build files change, so Dependabot alerts cover transitive Gradle dependencies.
 - **Lean release.** The release commit already passed CI as a PR and on `main`, so the release job
