@@ -1,6 +1,7 @@
 # JDK 17 and Gradle for every Java job. setup-gradle restores the Gradle caches (written on main
-# only), validates the wrapper jar and, with the encryption key, keeps the configuration cache
-# between runs so Gradle can skip configuring the build (ADR-0023).
+# only) and validates the wrapper jar. It does not keep the configuration cache (it lives in the
+# project's .gradle/, not in the Gradle User Home), so this action restores it itself; the job
+# saves it with save-config-cache. The entry is encrypted with GRADLE_ENCRYPTION_KEY (ADR-0023).
 name: Set up Java and Gradle
 description: JDK 17, Gradle caches and the configuration cache
 inputs:
@@ -8,6 +9,9 @@ inputs:
     description: secrets.GRADLE_ENCRYPTION_KEY (empty in PRs from forks; then nothing is cached)
     required: false
     default: ""
+  config-cache:
+    description: Name of this job's configuration cache entry (one per Gradle invocation)
+    required: true
 runs:
   using: composite
   steps:
@@ -19,3 +23,11 @@ runs:
       with:
         cache-encryption-key: ${{ inputs.encryption-key }}
         add-job-summary: on-failure
+    # Gradle checks every input of a restored entry and reconfigures when one changed, so the
+    # newest entry from main is always safe to restore.
+    - if: inputs.encryption-key != ''
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .gradle/configuration-cache
+        key: gradle-cc-v1-${{ inputs.config-cache }}-${{ github.sha }}
+        restore-keys: gradle-cc-v1-${{ inputs.config-cache }}-
