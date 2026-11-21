@@ -4,6 +4,19 @@ Milestones are cut so that each one ends with something usable. Decisions behind
 scope are in the [ADRs](adr/README.md). Each mod integration is a milestone of its own
 (see AGENTS.md); refinements and features without a new mod go into their own milestones.
 
+## Where we are (2026-11-21)
+
+Latest release: **0.8.0** (M2.8-M2.14: AE2 actions, flow, auto-restock, P2P tunnels, storage order,
+crafting statistics, item search). The repository is public; CI was reworked for speed and
+workflow security ([ADR-0023](adr/0023-ci-cd-rework.md)). Open choices for what comes next, none
+started:
+
+- **M2.6 leftover**: collector cost history.
+- **Small ideas** (no milestone yet): optional in-game colour for voltage tiers (`§6HV`, costs two of
+  Flux's 24 characters); realistic AE2 data in `npm run dev:mock` and the layout tests from
+  `fixtures/recordings/ae2-real-01.jsonl` (the mock uses hand-written AE2 data and fixed grid ids).
+- **Notifications** (later milestone), **M3 GTCEu**, **M4 Tom's Storage**.
+
 ## M0: Foundation
 
 - [x] Repository renamed to `overseer`, default branch `main`, squash-only merges
