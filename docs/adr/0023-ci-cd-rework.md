@@ -102,6 +102,21 @@ balanced the shards' test counts but did not measurably change the time (115 aga
 With six shards the slowest web job is about as long as the slowest GameTest job; further gains
 need both.
 
+Everything together (#106-#110), three manual runs each in turns: the state before this follow-up
+(490b266, runs 44850208212, 44850622145, 44850989448) against `main` after it (44850438531,
+44850831239, 44851184089). Median [min-max]:
+
+| | Before | After |
+|---|---|---|
+| Wall time | 117 [104-132] s | 96 [84-99] s |
+| Slowest web job | 102 [93-120] s | 73 [71-86] s |
+| GameTests ae2 / ae2-teams / teams | 67 / 66 / 60 s | 55 / 53 / 46 s |
+| Jobs | 11 | 15 (six web shards, workflow lint on `main`) |
+| Job time | 645 s | 726 s |
+
+Job time rises with three more web runners (free on a public repository); a manual run's Java job
+also stores the configuration without the web UI (about 10 s), which PR runs skip.
+
 ## Consequences
 
 - A PR waits about 2 minutes instead of 3; GameTest and Java jobs save about 6 s of configuration
