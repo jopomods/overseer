@@ -15,6 +15,10 @@ tables running off the edge).
 
 - React + Vite + TypeScript (TS 5.9; TS 7 is not yet supported by openapi-typescript)
 - Tailwind CSS v4 + shadcn/ui (Radix, "Nova" preset), lucide icons
+  shadcn is not a dependency: its base stylesheet is ejected into `src/index.css`
+  (`npx shadcn eject`, from 4.23.0), so the CLI and its dependency tree stay out of the
+  install. New components come from `npx shadcn@<version> add`; style changes in later
+  shadcn releases are not picked up automatically.
 - TanStack Query (server state), TanStack Router (routing, M1a)
 - Recharts via shadcn chart components. Mirrored stacked areas use `stackOffset="sign"`.
   The Sankey is prototyped with recorded Flux data first; only if Recharts is not good
