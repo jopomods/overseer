@@ -2,8 +2,7 @@ import { expect, test } from '@playwright/test'
 import { GREGTECH_TIERS, tierInName, tiersOf, withTier } from '../src/lib/tiers.ts'
 
 /** Pure tier logic (docs/modules/flux.md); runs once, not per viewport. */
-test.describe('voltage tiers in names', () => {
-  test.skip(({ viewport }) => (viewport?.width ?? 0) !== 1280, 'pure logic, one viewport is enough')
+test.describe('voltage tiers in names', { tag: '@desktop' }, () => {
   const gt = tiersOf('gregtech')
 
   test('the tier is the last word, any case, colour codes ignored', () => {

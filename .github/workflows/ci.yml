@@ -2,8 +2,8 @@
 #
 #   changes ─┬─ java ────────────────────────┐
 #            ├─ gametest × suites (parallel) ┤
-#            ├─ web × 3 shards (parallel) ───┼── ci-ok   (the one status to look at)
-#            └─ workflows (if .github/ changed)
+#            ├─ web × 6 shards (parallel) ───┼── ci-ok   (the one status to look at)
+#            └─ workflows (if a workflow or action changed, and on main)
 #
 # `changes` decides which jobs a change needs (.github/ci/classify.py); pushes to main and manual
 # runs always run everything, which also writes the Gradle caches that PRs only read. Every job first checks for a
@@ -70,8 +70,9 @@ jobs:
             # Everything runs; the rules' output is only reported.
             {
               echo "all=true"
-              grep -v '^suites=\|^build=\|^web=\|^build_web=' rules.txt
+              grep -v '^suites=\|^build=\|^web=\|^build_web=\|^workflows=' rules.txt
               echo "build=true"
+              echo "workflows=true"
               echo "web=true"
               echo "build_web=true"
               python3 .github/ci/classify.py --all-suites
@@ -126,6 +127,7 @@ jobs:
         if: steps.passed.outputs.hit != 'true'
         with:
           encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          config-cache: java
 
       # core + platform unit tests and the mod jar; with the web UI embedded when web may have
       # changed, so the jar's packaging is checked whenever it can break.
@@ -143,6 +145,17 @@ jobs:
           name: overseer-jar
           path: platform/*/build/libs/*.jar
           retention-days: 14
+
+      # main and manual runs build with the web UI; most PRs build without it, which is a different
+      # configuration. Store that one too (after the upload: it rebuilds the jar without the UI).
+      - name: Configuration cache for builds without the web UI
+        if: steps.passed.outputs.hit != 'true' && github.event_name != 'pull_request' && env.WITH_WEB == 'true'
+        run: ./gradlew build -PskipWeb=true --configuration-cache --console=plain
+      - if: steps.passed.outputs.hit != 'true'
+        uses: ./.github/actions/save-config-cache
+        with:
+          encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          config-cache: java
 
       - if: steps.passed.outputs.hit != 'true'
         uses: ./.github/actions/remember-pass
@@ -175,6 +188,7 @@ jobs:
         if: steps.passed.outputs.hit != 'true'
         with:
           encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          config-cache: gametest-${{ matrix.suite }}
 
       # Real Forge server with only this suite's mods; exits non-zero on failure. The
       # configuration cache is on only here and in `java`: gameTestAll's nested builds do not
@@ -184,6 +198,11 @@ jobs:
         env:
           SUITE: ${{ matrix.suite }}
         run: ./gradlew :platform:forge-1.20.1:runGameTestServer -PgametestSuite="$SUITE" -PskipWeb=true --configuration-cache --console=plain
+      - if: steps.passed.outputs.hit != 'true'
+        uses: ./.github/actions/save-config-cache
+        with:
+          encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          config-cache: gametest-${{ matrix.suite }}
 
       - if: steps.passed.outputs.hit != 'true'
         uses: ./.github/actions/remember-pass
@@ -191,19 +210,19 @@ jobs:
           key: ${{ steps.passed.outputs.key }}
 
   web:
-    name: Web (${{ matrix.shard }}/3)
+    name: Web (${{ matrix.shard }}/6)
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
-    # The browser tests are CPU-bound (pages with 200 devices): three parallel shards. Lint, types
-    # and the API check run in the first one.
+    # The browser tests are CPU-bound (pages with 200 devices): six parallel shards, measured
+    # against three to five (ADR-0023). Lint, types and the API check run in the first one.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5, 6]
     defaults:
       run:
         working-directory: web
@@ -260,11 +279,11 @@ jobs:
         if: steps.passed.outputs.hit != 'true'
         run: npx playwright install --only-shell chromium
 
-      - name: Layout and flow tests (360-1920 px), shard ${{ matrix.shard }}/3
+      - name: Layout and flow tests (360-1920 px), shard ${{ matrix.shard }}/6
         if: steps.passed.outputs.hit != 'true'
         env:
           SHARD: ${{ matrix.shard }}
-        run: npm run test:e2e -- --shard="$SHARD/3"
+        run: npm run test:e2e -- --shard="$SHARD/6"
 
       - name: Upload Playwright report
         if: failure() && steps.passed.outputs.hit != 'true'
@@ -295,7 +314,7 @@ jobs:
           persist-credentials: false
       - name: actionlint
         run: |
-          curl -sSfL -o "$RUNNER_TEMP/actionlint.tar.gz" \
+          curl -sSfL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/actionlint.tar.gz" \
             https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
           tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -color

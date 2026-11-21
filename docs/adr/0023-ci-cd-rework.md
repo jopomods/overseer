@@ -25,23 +25,31 @@ ADR-0015 does on purpose (a failing AE2 test must not hide Flux).
 
 Fewer and faster jobs, not more runners:
 
-- **Configuration cache in CI.** `java` and `gametest` run Gradle with `--configuration-cache`;
-  `setup-gradle` stores the entry encrypted (`GRADLE_ENCRYPTION_KEY`, see the
-  [repository settings](../guides/repository-settings.md)) on `main` and PRs read it. Not in
-  `gradle.properties`: `gameTestAll` configures one nested build per suite while it executes, which
-  the configuration cache rejects.
+- **Configuration cache in CI.** `java` and `gametest` run Gradle with `--configuration-cache`.
+  The entry lives in the project's `.gradle/configuration-cache`, which `setup-gradle` does not
+  keep (the first version of this ADR assumed it did; every PR run reconfigured). So
+  `setup-java-gradle` restores it with `actions/cache` (one entry per job: `java`, `gametest-<suite>`,
+  newest from `main`) and `save-config-cache` stores it on `main` and in manual
+  runs. Gradle encrypts it with `GRADLE_ENCRYPTION_KEY` (see the
+  [repository settings](../guides/repository-settings.md)) and checks every input on load, so a
+  stale entry only means reconfiguring. Not in `gradle.properties`: `gameTestAll` configures one
+  nested build per suite while it executes, which the configuration cache rejects.
 - **`base` and `profiler` share one server** in CI as the existing `bare` suite: both load no
   optional mod, so isolation is unchanged. The path rules still name the suites; `classify.py`
   maps them to CI runs (`bare`, `flux`, `ae2`, `teams`, `ae2-teams`).
 - **Web tests on the runner**, not in the Playwright container: the runner image already has the
   browser's system libraries, and the browser binary is cached per Playwright version.
+- **Six web shards.** The web shards are the critical path, and a shard's fixed cost (runner,
+  checkout, `npm ci`, build: about 25-30 s) is small against its tests, so more shards help; the
+  minutes are free. Measured with alternating manual runs (see Results); more workers per shard
+  (3, 4, 6) made no difference on the 4 vCPU runners.
 - **Composite actions** for what every job repeats: `setup-java-gradle`, `already-passed`,
   `remember-pass` (`.github/actions/`).
 - **Workflow security.** `permissions: {}` at the top of every workflow, each job asks for what it
   needs; `persist-credentials: false` on every checkout; actions pinned to SHAs (also required by
   the repository); a `Workflow lint` job (actionlint with shellcheck, zizmor) runs when a workflow
-  or action changes and is part of `CI ok`; CodeQL also scans the workflows; Dependabot waits seven
-  days before proposing a new release (cooldown).
+  or action changes and on every push to `main`, and is part of `CI ok`; CodeQL also scans the
+  workflows; Dependabot waits seven days before proposing a new release (cooldown).
 - **Dependency graph**: `dependency-graph.yml` submits the resolved Gradle dependencies on `main`
   when build files change, so Dependabot alerts cover transitive Gradle dependencies.
 - **Lean release.** The release commit already passed CI as a PR and on `main`, so the release job
@@ -62,13 +70,44 @@ Same pipeline scope (every job), measured with `timings.py`:
 | Before (PR #104, run 44772203942) | 2.8 min | 12 | 15.4 min | 23 |
 | After (PR #105, run 44778237270), configuration cache not yet on `main` | 2.0 min | 12 (incl. workflow lint) | 11.1 min | 18 |
 
-The slowest job is still a web shard (about 1.5-2 min, of which 50-90 s are Playwright tests);
-that is where further gains have to come from, not from Java.
+Configuration cache, three manual runs each (every job), `timings.py --compare`: without a hit
+(runs 44834806008, 44839108634, 44839543655) against with a hit (44839840380, 44840171574,
+44840392199). Medians:
+
+| | Without hit | With hit |
+|---|---|---|
+| Gradle start to first task, per job (from the logs) | about 12 s | about 6 s |
+| Java `Gradle build` step | 31 s | 24 s |
+| GameTest step, per suite | 35-49 s | 28-39 s |
+| Job time, all jobs | 668 s | 588 s |
+
+Web shards, three manual runs per variant, run one after another in turns (so a slow hour hits
+every variant alike). Median [min-max] of the slowest web job and of the wall time:
+
+| Variant | Slowest web job | Wall time | Runs |
+|---|---|---|---|
+| 3 shards, 4 workers | 107 [91-111] s | 121 [104-125] s | 44843714953, 44844740134, 44845628443 |
+| 3 shards, 3 workers | 106 [94-122] s | 119 [110-136] s | 44844188471, 44845158158, 44846099022 |
+| 3 shards, 6 workers | 113 [92-121] s | 128 [113-134] s | 44844470346, 44845407013, 44846314920 |
+| 4 shards | 90 [85-92] s | 105 [98-106] s | 44843984938, 44844950935, 44845876181 |
+| 5 shards | 88 [81-94] s | 99 [96-107] s | 44847156073, 44847661456, 44848277289 |
+| 6 shards | 76 [71-82] s | 92 [87-101] s | 44847356335, 44847864429, 44848462901 |
+
+Single runs of the same commit vary by 20-30 s; the same test shard took between 180 and 290
+test-seconds on different runners. Claims of a speed-up therefore rest on several runs per side,
+run in turns. Keeping single-width tests out of the other projects (instead of skipping them there)
+balanced the shards' test counts but did not measurably change the time (115 against 117 s, runs
+44842006600, 44842525548, 44843000537 against 44842283063, 44842770923, 44843233673).
+
+With six shards the slowest web job is about as long as the slowest GameTest job; further gains
+need both.
 
 ## Consequences
 
-- A PR waits about 2 minutes instead of 3; GameTest and Java jobs gain another 10-15 s each once
-  `main` has stored configuration cache entries.
+- A PR waits about 2 minutes instead of 3; GameTest and Java jobs save about 6 s of configuration
+  each once `main` has stored configuration cache entries. `main` builds with the web UI, most PRs
+  without; the `java` job on `main` therefore also runs the build without the UI (all up to date
+  but the jar, a few seconds) so both configurations are stored.
 - A missing or rotated `GRADLE_ENCRYPTION_KEY` only costs speed. PRs from forks get no
   configuration cache (no secrets), which is fine.
 - Workflow changes must pass actionlint, shellcheck and zizmor; `.github/zizmor.yml` documents the
